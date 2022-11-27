@@ -23,7 +23,7 @@ jobs:
             printf "::set-output name=release::%s\n" "$release"
 
       - name: install packages
-        run: sudo apt-get install -y cmake valgrind python3 unifdef
+        run: sudo apt-get install -y cmake valgrind
 
       - name: install clang
         run: |
@@ -33,39 +33,13 @@ jobs:
             sudo apt install clang-tidy && \
             echo "clang-15: $(which clang-15), clang-tidy: $(which clang-tidy-15)" 
 
-      - name: purge preprocessor conditional directives to obtain different versions
-        run: |
-          unifdef -x 2 -o include/rbtree_11.hpp -D__cplusplus=201103 include/rbtree.hpp && \
-          unifdef -x 2 -o include/rbtree_14.hpp -D__cplusplus=201402 include/rbtree.hpp && \
-          unifdef -x 2 -o include/rbtree_17.hpp -D__cplusplus=201703 include/rbtree.hpp && \
-          unifdef -x 2 -o include/rbtree_20.hpp -D__cplusplus=202002 include/rbtree.hpp
-
       - name: Release Build
         run: |
           export CC=$(which clang-15) && export CXX=$(which clang++-15) && \
           mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release -DCXX_VERSION=17 && make
 
       - name: run clang-tidy
-        run: if (clang-tidy-15 -p build include/rbtree.hpp  | grep -e 'warning'); then  false; else true; fi
-
-      - name: setup python dependencies
-        run: cd tools/google_benchmark_plot && python3 -m pip install -r ./requirements.txt
-
-      - name: benchmark
-        run: |
-          cd build/benchmark/
-          for f in $(ls | grep '^benchmark.*$'); do
-            eval "./$f --benchmark_out_format=json --benchmark_out=$f.json"
-            python3 ../../tools/google_benchmark_plot/plot.py -f $f.json -m cpu_time --output $f.png --logx --logy
-          done
-
-      - name: release benchmark results
-        uses: ncipollo/release-action@v1
-        with:
-          allowUpdates: true
-          artifacts: "./build/benchmark/*.png,./include/*.hpp"
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ steps.release.outputs.release }}
+        run: if (clang-tidy-15 -p build include/ 2>/dev/null  | grep -e 'warning'); then  false; else true; fi
 
       - name: Release Test
         run: cd build/test && ctest
@@ -82,12 +56,6 @@ jobs:
         run: |
           export CC=$(which clang-15) && export CXX=$(which clang++-15) && \
           mkdir build_cxx17_debug && cd build_cxx17_debug && cmake .. -DCMAKE_BUILD_TYPE=Debug -DCXX_VERSION=17 && make
-
-      - name: CXX14 Build
-        run: mkdir build_cxx14 && cd build_cxx14 && cmake .. -DCMAKE_BUILD_TYPE=Debug -DCXX_VERSION=14 && make
-
-      - name: CXX11 Build
-        run: mkdir build_cxx11 && cd build_cxx11 && cmake .. -DCMAKE_BUILD_TYPE=Debug -DCXX_VERSION=11 && make
 
       - name: Debug Test
         run: cd build_cxx17_debug/test && ctest
@@ -115,20 +83,6 @@ jobs:
           mkdir build_cxx20
           cd build_cxx20
           cmake -DCMAKE_BUILD_TYPE=Debug -DCXX_VERSION=20 -G "NMake Makefiles" ..
-          nmake
-
-      - name: CXX14 Build
-        run: |
-          mkdir build_cxx14
-          cd build_cxx14
-          cmake -DCMAKE_BUILD_TYPE=Debug -DCXX_VERSION=14 -G "NMake Makefiles" ..
-          nmake
-
-      - name: CXX11 Build
-        run: |
-          mkdir build_cxx11
-          cd build_cxx11
-          cmake -DCMAKE_BUILD_TYPE=Debug -DCXX_VERSION=11 -G "NMake Makefiles" ..
           nmake
 
       - name: Release Test

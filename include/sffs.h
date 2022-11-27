@@ -14,6 +14,7 @@
 #include <type_traits>
 #include <array>
 #include <list>
+#include <queue>
 
 
 namespace SFFS {
@@ -77,7 +78,7 @@ struct is_block_device {
 }
 
 namespace RBTreeAlgorithmImpl {
-template <typename T, typename NODE, typename KEY>
+template <typename T, typename NODE, typename KEY, bool complain=false>
 struct treeop_traits {
     static NODE& node;
     static const NODE& const_node;
@@ -85,95 +86,115 @@ struct treeop_traits {
 
     template<typename U>
     static uint8_t  test_getLeft(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(static_cast<const U*>(nullptr)->getLeft(node))>,NODE> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(static_cast<const U*>(nullptr)->getLeft(node))>,bool> = true>
     static uint16_t test_getLeft(int);
 
     template<typename U>
     static uint8_t  test_setLeft(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(static_cast<U*>(nullptr)->setLeft(node, node))>,void> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(static_cast<U*>(nullptr)->setLeft(node, node))>,bool> = true>
     static uint16_t test_setLeft(int);
 
     template<typename U>
     static uint8_t  test_getRight(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(static_cast<const U*>(nullptr)->getRight(node))>,NODE> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(static_cast<const U*>(nullptr)->getRight(node))>,bool> = true>
     static uint16_t test_getRight(int);
 
     template<typename U>
     static uint8_t  test_setRight(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(static_cast<U*>(nullptr)->setRight(node, node))>,void> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(static_cast<U*>(nullptr)->setRight(node, node))>,bool> = true>
     static uint16_t test_setRight(int);
 
     template<typename U>
     static uint8_t  test_getParent(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(static_cast<const U*>(nullptr)->getParent(node))>,NODE> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(static_cast<const U*>(nullptr)->getParent(node))>,bool> = true>
     static uint16_t test_getParent(int);
 
     template<typename U>
     static uint8_t  test_setParent(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(static_cast<U*>(nullptr)->setParent(node, node))>,void> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(static_cast<U*>(nullptr)->setParent(node, node))>,bool> = true>
     static uint16_t test_setParent(int);
 
     template<typename U>
     static uint8_t  test_isBlack(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(static_cast<const U*>(nullptr)->isBlack(node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(static_cast<const U*>(nullptr)->isBlack(node))>,bool> = true>
     static uint16_t test_isBlack(int);
 
     template<typename U>
     static uint8_t  test_setBlack(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(static_cast<U*>(nullptr)->setBlack(node, *static_cast<bool*>(nullptr)))>,void> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(static_cast<U*>(nullptr)->setBlack(node, *static_cast<bool*>(nullptr)))>,bool> = true>
     static uint16_t test_setBlack(int);
 
     template<typename U>
     static uint8_t  test_isNullNode(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(static_cast<const U*>(nullptr)->isNullNode(node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(static_cast<const U*>(nullptr)->isNullNode(node))>,bool> = true>
     static uint16_t test_isNullNode(int);
 
     template<typename U>
     static uint8_t  test_getNullNode(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(static_cast<const U*>(nullptr)->getNullNode())>,T> = true>
-    static uint16_t test_setNullNode(int);
+    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(static_cast<const U*>(nullptr)->getNullNode())>,bool> = true>
+    static uint16_t test_getNullNode(int);
 
     template<typename U>
     static uint8_t  test_getKey(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(static_cast<const U*>(nullptr)->getKey(node))>,const KEY&> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<const KEY&,decltype(static_cast<const U*>(nullptr)->getKey(node))>,bool> = true>
     static uint16_t test_getKey(int);
 
     template<typename U>
     static uint8_t  test_keyCompareLess(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(static_cast<const U*>(nullptr)->keyCompareLess(const_key,const_key))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(static_cast<const U*>(nullptr)->keyCompareLess(const_key,const_key))>,bool> = true>
     static uint16_t test_keyCompareLess(int);
 
     template<typename U>
     static uint8_t  test_keyCompareEqual(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(static_cast<const U*>(nullptr)->keyCompareEqual(const_key,const_key))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(static_cast<const U*>(nullptr)->keyCompareEqual(const_key,const_key))>,bool> = true>
     static uint16_t test_keyCompareEqual(int);
 
     template<typename U>
     static uint8_t  test_nodeCompareEqual(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(static_cast<const U*>(nullptr)->nodeCompareEqual(node,node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(static_cast<const U*>(nullptr)->nodeCompareEqual(node,node))>,bool> = true>
     static uint16_t test_nodeCompareEqual(int);
 
-    static constexpr bool has_getLeft          = sizeof(test_getLeft<T>(1))         == sizeof(uint16_t);
-    static constexpr bool has_setLeft          = sizeof(test_setLeft<T>(1))         == sizeof(uint16_t);
-    static constexpr bool has_getRight         = sizeof(test_getRight<T>(1))        == sizeof(uint16_t);
-    static constexpr bool has_setRight         = sizeof(test_setRight<T>(1))        == sizeof(uint16_t);
-    static constexpr bool has_getParent        = sizeof(test_getParent<T>(1))       == sizeof(uint16_t);
-    static constexpr bool has_setParent        = sizeof(test_setParent<T>(1))       == sizeof(uint16_t);
-    static constexpr bool has_isBlack          = sizeof(test_isBlack<T>(1))         == sizeof(uint16_t);
-    static constexpr bool has_setBlack         = sizeof(test_setBlack<T>(1))        == sizeof(uint16_t);
-    static constexpr bool has_isNullNode       = sizeof(test_isNullNode<T>(1))      == sizeof(uint16_t);
-    static constexpr bool has_setNullNode      = sizeof(test_setNullNode<T>(1))     == sizeof(uint16_t);
-    static constexpr bool has_getKey           = sizeof(test_getKey<T>(1))          == sizeof(uint16_t);
-    static constexpr bool has_keyCompareLess   = sizeof(test_keyCompareLess<T>(1))  == sizeof(uint16_t);
-    static constexpr bool has_keyCompareEqual  = sizeof(test_keyCompareEqual<T>(1)) == sizeof(uint16_t);
-    static constexpr bool has_nodeCompareEqual = sizeof(test_keyCompareEqual<T>(1)) == sizeof(uint16_t);
+    static constexpr bool has_getLeft          = sizeof(test_getLeft<T>(1))          == sizeof(uint16_t);
+    static constexpr bool has_setLeft          = sizeof(test_setLeft<T>(1))          == sizeof(uint16_t);
+    static constexpr bool has_getRight         = sizeof(test_getRight<T>(1))         == sizeof(uint16_t);
+    static constexpr bool has_setRight         = sizeof(test_setRight<T>(1))         == sizeof(uint16_t);
+    static constexpr bool has_getParent        = sizeof(test_getParent<T>(1))        == sizeof(uint16_t); // optional
+    static constexpr bool has_setParent        = sizeof(test_setParent<T>(1))        == sizeof(uint16_t); // optional
+    static constexpr bool has_isBlack          = sizeof(test_isBlack<T>(1))          == sizeof(uint16_t);
+    static constexpr bool has_setBlack         = sizeof(test_setBlack<T>(1))         == sizeof(uint16_t);
+    static constexpr bool has_isNullNode       = sizeof(test_isNullNode<T>(1))       == sizeof(uint16_t);
+    static constexpr bool has_getNullNode      = sizeof(test_getNullNode<T>(1))      == sizeof(uint16_t);
+    static constexpr bool has_getKey           = sizeof(test_getKey<T>(1))           == sizeof(uint16_t);
+    static constexpr bool has_keyCompareLess   = sizeof(test_keyCompareLess<T>(1))   == sizeof(uint16_t);
+    static constexpr bool has_keyCompareEqual  = sizeof(test_keyCompareEqual<T>(1))  == sizeof(uint16_t);
+    static constexpr bool has_nodeCompareEqual = sizeof(test_nodeCompareEqual<T>(1)) == sizeof(uint16_t);
+
+    static_assert(!complain || !std::is_reference_v<NODE>,       "NODE should not be a reference");
+    static_assert(!complain || !std::is_const_v<NODE>,           "NODE should not be const-qualified");
+    static_assert(!complain ||  std::is_copy_assignable_v<NODE>, "NODE should be copy assignable");
+    static_assert(!complain || !std::is_reference_v<KEY>,        "KEY should not be a reference");
+    static_assert(!complain || !std::is_const_v<KEY>,            "KEY should not be const-qualified");
+    static_assert(!complain ||  has_getLeft,                     "should implement 'NODE getLeft(NODE) const;'");
+    static_assert(!complain ||  has_setLeft,                     "should implement 'voie setLeft(NODE, NODE);'");
+    static_assert(!complain ||  has_getRight,                    "should implement 'NODE getRight(NODE) const;'");
+    static_assert(!complain ||  has_setRight,                    "should implement 'voie setRight(NODE, NODE);'");
+    static_assert(!complain ||  has_isBlack,                     "should implement 'bool isBlack(NODE) const;'");
+    static_assert(!complain ||  has_setBlack,                    "should implement 'voie setBlack(NODE, bool);'");
+    static_assert(!complain ||  has_isNullNode,                  "should implement 'bool isNullNode(NODE) const;'");
+    static_assert(!complain ||  has_getNullNode,                 "should implement 'NODE getNullNode() const;'");
+    static_assert(!complain ||  has_getKey,                      "should implement 'KYE& getKey(NODE) const;'");
+    static_assert(!complain ||  has_keyCompareLess,              "should implement 'bool keyCompareLess(const KEY&, const KEY&) const;'");
+    static_assert(!complain ||  has_keyCompareEqual,             "should implement 'bool keyCompareEqual(const KEY&, const KEY&) const;'");
+    static_assert(!complain ||  has_nodeCompareEqual,            "should implement 'bool nodeCompareEqual(NODE, NODE) const;'");
 
     static constexpr bool value = !std::is_reference_v<NODE> && !std::is_const_v<NODE> && std::is_copy_assignable_v<NODE> &&
                                   !std::is_reference_v<KEY>  && !std::is_const_v<KEY> &&
-                                  has_setLeft && has_getRight && has_setRight && 
-                                  has_getLeft && has_setLeft && has_getRight && has_setRight && 
-                                  has_isBlack && has_setBlack&& has_isNullNode && has_setNullNode && has_getKey &&
-                                  has_keyCompareLess && has_keyCompareEqual;
+                                  has_getLeft    && has_setLeft  &&
+                                  has_getRight   && has_setRight &&
+                                  has_isBlack    && has_setBlack &&
+                                  has_isNullNode && has_getNullNode &&
+                                  has_getKey && has_keyCompareLess && has_keyCompareEqual &&
+                                  has_nodeCompareEqual;
 };
 
 template<typename T, typename NODE, typename KEY,
@@ -200,11 +221,13 @@ struct RbtreeOpWrapper {
     }
 
     bool isBlack(NODE node) const { return m_ops.isBlack(node); }
-    bool isBlackOrNULL(NODE node) const { return m_ops.isBlack(node) || m_ops.isNullNode(node); }
+    bool isBlackOrNULL(NODE node) const { return m_ops.isNullNode(node) || m_ops.isBlack(node); }
     void setBlack(NODE node, bool black) { m_ops.setBlack(node, black); }
 
     bool isNullNode(NODE node) const { return m_ops.isNullNode(node); }
     NODE getNullNode() const { return m_ops.getNullNode(); }
+
+    const KEY& getKey(NODE n) const { return m_ops.getKey(n); }
 
     bool keyCompareLess(const KEY& lhs, const KEY& rhs) const { return m_ops.keyCompareLess(lhs, rhs); }
     bool keyCompareLess(NODE lhs, NODE rhs) const { return m_ops.keyCompareLess(m_ops.getKey(lhs), m_ops.getKey(rhs)); }
@@ -214,8 +237,8 @@ struct RbtreeOpWrapper {
     }
 
     bool nodeCompareEqual(NODE lhs, NODE rhs) const {
-        if constexpr (treeop_traits<T,NODE,KEY>::has_keyCompareEqual) {
-            return m_ops.keyCompareEqual(lhs, rhs);
+        if constexpr (treeop_traits<T,NODE,KEY>::has_nodeCompareEqual) {
+            return m_ops.nodeCompareEqual(lhs, rhs);
         } else {
             return lhs == rhs;
         }
@@ -226,7 +249,7 @@ private:
 };
 
 template<typename T, typename NODE, typename KEY,
-         std::enable_if_t<treeop_traits<T,NODE,KEY>::value,bool> = true>
+         std::enable_if_t<treeop_traits<T,NODE,KEY,true>::value,bool> = true>
 class RBTreeAlgorithm {
 private:
     using traits = treeop_traits<T,NODE,KEY>;
@@ -234,17 +257,17 @@ private:
     using NodePath = std::conditional_t<parents_ops,NODE,std::vector<NODE>>;
 
     template<typename N,std::enable_if_t<std::is_same_v<N,NODE>,bool> = true>
-    inline NodePath InitPath() {
+    inline NodePath InitPath() const {
         return m_ops.getNullNode();
     }
 
     template<typename N,std::enable_if_t<!std::is_same_v<N,NODE>,bool> = true>
-    inline NodePath InitPath() {
+    inline NodePath InitPath() const {
         return std::vector<NODE>();
     }
 
     template<typename N,std::enable_if_t<std::is_same_v<N,NODE>,bool> = true>
-    inline NODE GetNodeAncestor(N node, size_t n) {
+    inline NODE GetNodeAncestor(N node, size_t n) const {
         for (size_t i=0;i<n;i++) {
             assert(!m_ops.isNullNode(node));
             node = m_ops.getParent(node);
@@ -253,7 +276,7 @@ private:
     }
 
     template<typename N,std::enable_if_t<!std::is_same_v<N,NODE>,bool> = true>
-    inline NODE GetNodeAncestor(N np, size_t n) {
+    inline NODE GetNodeAncestor(N np, size_t n) const {
         assert(np.size() > 0);
         if (n == np.size()) return m_ops.getNullNode();
         assert(n < np.size());
@@ -265,6 +288,10 @@ private:
         static_assert(parents_ops);
         assert(!m_ops.nodeCompareEqual(n1, n2));
         assert(!m_ops.nodeCompareEqual(m_ops.getParent(n1), n2));
+        const auto n1_color = m_ops.isBlack(n1);
+        const auto n2_color = m_ops.isBlack(n2);
+        m_ops.setBlack(n1, n2_color);
+        m_ops.setBlack(n2, n1_color);
 
         const auto beLeft = [&](N x1, N x2) {
             m_ops.setLeft(x1, x2);
@@ -307,11 +334,11 @@ private:
             }
         } else {
             const auto n1_parent = m_ops.getParent(n1);
-            const bool n1_is_left = m_ops.isNullNode(n1_parent) ? m_ops.nodeCompareEqual(m_ops.getLeft(n1_parent), n1) : false;
+            const bool n1_is_left = !m_ops.isNullNode(n1_parent) ? m_ops.nodeCompareEqual(m_ops.getLeft(n1_parent), n1) : false;
             const auto n1_left = m_ops.getLeft(n1), n1_right = m_ops.getRight(n1);
 
             const auto n2_parent = m_ops.getParent(n2);
-            const bool n2_is_left = m_ops.isNullNode(n2_parent) ? m_ops.nodeCompareEqual(m_ops.getLeft(n2_parent), n2) : false;
+            const bool n2_is_left = !m_ops.isNullNode(n2_parent) ? m_ops.nodeCompareEqual(m_ops.getLeft(n2_parent), n2) : false;
             const auto n2_left = m_ops.getLeft(n2), n2_right = m_ops.getRight(n2);
 
             m_ops.setParent(n1, n2_parent);
@@ -344,6 +371,14 @@ private:
         assert(ance.size() < desc.size());
         assert(ance.size() > 0);
         assert(desc.size() > 0);
+        {
+            auto n1 = this->GetNodeAncestor(ance, 0);
+            auto n2 = this->GetNodeAncestor(desc, 0);
+            const auto n1_color = m_ops.isBlack(n1);
+            const auto n2_color = m_ops.isBlack(n2);
+            m_ops.setBlack(n1, n2_color);
+            m_ops.setBlack(n2, n1_color);
+        }
 
         if (ance.size() + 1 == desc.size()) {
             const bool desc_is_left = m_ops.nodeCompareEqual(m_ops.getLeft(ance.back()), desc.back());
@@ -420,7 +455,9 @@ private:
         m_ops.setRight(p, nq);
         if constexpr (parents_ops) {
             m_ops.setParent(p, node);
-            m_ops.setParent(nq, p);
+            if (!m_ops.isNullNode(nq)) {
+                m_ops.setParent(nq, p);
+            }
             m_ops.setParent(node, pp);
         } else {
             np.pop_back();
@@ -450,7 +487,9 @@ private:
         m_ops.setLeft(p, nq);
         if constexpr (parents_ops) {
             m_ops.setParent(p, node);
-            m_ops.setParent(nq, p);
+            if (nq != nullptr) {
+                m_ops.setParent(nq, p);
+            }
             m_ops.setParent(node, pp);
         } else {
             np.pop_back();
@@ -487,7 +526,7 @@ public:
         NodePath nodepath = this->InitPath<NodePath>();
         m_ops.setBlack(node, false);
         for(;;) {
-            if (m_ops.keyCompareEqual(node, cn)) {
+            if (m_ops.keyCompareEqual(m_ops.getKey(node), m_ops.getKey(cn))) {
                 return false;
             }
 
@@ -527,7 +566,6 @@ public:
         if constexpr (parents_ops) {
             nodepath = node;
         } else {
-            nodepath.push_back(cn);
             nodepath.push_back(node);
         }
 
@@ -548,18 +586,16 @@ public:
                     node = p;
                     if constexpr (!parents_ops) {
                         nodepath.pop_back();
+                    } else {
+                        nodepath = node;
                     }
                 }
                 assert(m_ops.nodeCompareEqual(m_ops.getLeft(pp), node));
                 nodeRightRotate(nodepath);
-
-                if (m_ops.nodeCompareEqual(this->GetNodeAncestor(nodepath, 1), m_ops.getNullNode())) {
-                    root = node;
-                    m_ops.setBlack(node, true);
-                    break;
-                }
+                node = this->GetNodeAncestor(nodepath, 0);
+                m_ops.setBlack(m_ops.getLeft(node), true);
             } else {
-                assert(m_ops.nodeCompareEqual(m_ops.getRightt(pp), p));
+                assert(m_ops.nodeCompareEqual(m_ops.getRight(pp), p));
 
                 if (!m_ops.nodeCompareEqual(m_ops.getRight(p), node)) {
                     assert(m_ops.nodeCompareEqual(m_ops.getLeft(p), node));
@@ -569,40 +605,93 @@ public:
                     node = p;
                     if constexpr (!parents_ops) {
                         nodepath.pop_back();
+                    } else {
+                        nodepath = node;
                     }
                 }
                 assert(m_ops.nodeCompareEqual(m_ops.getRight(pp), node));
                 nodeLeftRotate(nodepath);
+                node = this->GetNodeAncestor(nodepath, 0);
+                m_ops.setBlack(m_ops.getRight(node), true);
+            }
 
-                if (m_ops.nodeCompareEqual(this->GetNodeAncestor(nodepath, 1), m_ops.getNullNode())) {
-                    root = node;
-                    m_ops.setBlack(node, true);
-                    break;
-                }
+            if (m_ops.nodeCompareEqual(this->GetNodeAncestor(nodepath, 1), m_ops.getNullNode())) {
+                root = node;
+                m_ops.setBlack(node, true);
             }
         }
 
         return true;
     }
 
-    template<std::enable_if_t<!traits::has_nodeCompareEqual,bool> = true>
+    void check_consistency(NODE root) const {
+        if (m_ops.isNullNode(root)) return;
+
+        std::queue<std::pair<NODE,size_t>> queue;
+        queue.push(std::make_pair(root, 0));
+        size_t black_depth = 0;
+        bool is_end = false;
+
+        for (;!queue.empty();queue.pop()) {
+            auto front = queue.front();
+            auto node = front.first;
+            auto bdepth = front.second + (m_ops.isBlack(node) ? 1 : 0);
+            if (is_end) {
+                assert (black_depth >= bdepth);
+            }
+            black_depth = black_depth > bdepth ? black_depth : bdepth;
+
+            if (!m_ops.isBlack(node)) {
+                assert(m_ops.isBlackOrNULL(m_ops.getLeft(node)));
+                assert(m_ops.isBlackOrNULL(m_ops.getRight(node)));
+            }
+
+            if (!m_ops.isNullNode(m_ops.getLeft(node))) {
+                if constexpr (parents_ops) {
+                    assert(m_ops.nodeCompareEqual(m_ops.getParent(m_ops.getLeft(node)), node));
+                }
+                assert(m_ops.keyCompareLess(m_ops.getKey(m_ops.getLeft(node)), m_ops.getKey(node)));
+                queue.push(std::make_pair(m_ops.getLeft(node), bdepth));
+            } else if (!m_ops.isNullNode(m_ops.getRight(node))) {
+                if constexpr (parents_ops) {
+                    assert(m_ops.nodeCompareEqual(m_ops.getParent(m_ops.getRight(node)), node));
+                }
+                assert(m_ops.keyCompareLess(m_ops.getKey(node), m_ops.getKey(m_ops.getRight(node))));
+                queue.push(std::make_pair(m_ops.getRight(node), bdepth));
+            }
+
+            if (m_ops.isNullNode(m_ops.getLeft(node)) || m_ops.isNullNode(m_ops.getRight(node))) {
+                is_end = true;
+            }
+
+            if (m_ops.isNullNode(m_ops.getLeft(node)) && m_ops.isNullNode(m_ops.getRight(node))) {
+                assert(bdepth == black_depth);
+            }
+        }
+    }
+
     inline NODE deleteNode(NODE& root, NodePath nodePath) {
+        assert(!m_ops.isNullNode(root));
         NODE extra_black = m_ops.getNullNode();
         NODE extra_parent = m_ops.getNullNode();
         bool extra_is_left_child = true;
         auto node = this->GetNodeAncestor(nodePath, 0);
 
-        if (!m_ops.isNullNode(m_ops.getLeft(node)) && !m_ops.isNullNode(m_ops.getLeft(node)))
+        if (!m_ops.isNullNode(m_ops.getLeft(node)) && !m_ops.isNullNode(m_ops.getRight(node)))
         {
-            NodePath succsssor = nodePath;
-            auto nn2 = m_ops.getRight(succsssor);
-            if constexpr (!parents_ops) {
-                succsssor.push_back(nn2);
+            NodePath successor = nodePath;
+            auto nn2 = m_ops.getRight(node);
+            if constexpr (parents_ops) {
+                successor = nn2;
+            } else {
+                successor.push_back(nn2);
             }
             for (;!m_ops.isNullNode(m_ops.getLeft(nn2));) {
                 nn2 = m_ops.getLeft(nn2);
-                if constexpr (!parents_ops) {
-                    succsssor.push_back(nn2);
+                if constexpr (parents_ops) {
+                    successor = nn2;
+                } else {
+                    successor.push_back(nn2);
                 }
             }
 
@@ -610,11 +699,10 @@ public:
                 root = nn2;
             }
 
-            this->SwapAncestorAndDescendant(nodePath, succsssor);
+            this->SwapAncestorAndDescendant(nodePath, successor);
             if constexpr (!parents_ops) {
-                std::swap(nodePath, succsssor);
+                std::swap(nodePath, successor);
             }
-            node = nn2;
         }
 
         const auto beLeft = [&](NODE x1, NODE x2) {
@@ -635,6 +723,12 @@ public:
         };
 
         const auto node_parent = GetNodeAncestor(nodePath, 1);
+        auto extra_parent_path = std::move(nodePath);
+        if constexpr (parents_ops) {
+            extra_parent_path = m_ops.getParent(extra_parent_path);
+        } else {
+            extra_parent_path.pop_back();
+        }
         bool need_extra_black = m_ops.isBlack(node) && !m_ops.isNullNode(node_parent);
         if (m_ops.isNullNode(m_ops.getLeft(node))) {
             if (!m_ops.isNullNode(m_ops.getRight(node))) {
@@ -653,13 +747,12 @@ public:
                 }
             } else {
                 assert(m_ops.nodeCompareEqual(node, root));
-                this->root = m_ops.getRight(node);
+                root = m_ops.getRight(node);
             }
             extra_parent = need_extra_black ? node_parent : m_ops.getNullNode();
             extra_black = need_extra_black ? m_ops.getRight(node) : m_ops.getNullNode();
         } else {
             assert(m_ops.isNullNode(m_ops.getRight(node)));;
-            assert(!m_ops.isNullNode(m_ops.getLeft(node)));;
             assert(!m_ops.isBlack(m_ops.getLeft(node)));
             assert(m_ops.isBlack(node));
             need_extra_black = false;
@@ -697,7 +790,7 @@ public:
             return ans;
         }
 
-        for (;(m_ops.isNullNode(extra_black) || m_ops.isBlack(extra_black)) && m_ops.nodeCompareEqual(extra_black, root);)
+        for (;m_ops.isBlackOrNULL(extra_black) && !m_ops.nodeCompareEqual(extra_black, root);)
         {
             assert(!m_ops.isNullNode(extra_parent));
             
@@ -708,19 +801,18 @@ public:
                 if (!m_ops.isBlack(sibling)) {
                     assert(m_ops.isBlack(extra_parent));
 
-                    if (m_ops.isNullNode(this->GetNodeAncestor(nodePath,2))) {
+                    if (m_ops.isNullNode(this->GetNodeAncestor(extra_parent_path,1))) {
                         assert(m_ops.nodeCompareEqual(extra_parent, root));
                         root = sibling;
                     }
 
                     if constexpr (parents_ops) {
-                        nodePath = sibling;
+                        extra_parent_path = sibling;
                     } else {
-                        nodePath.pop_back();
-                        nodePath.push_back(sibling);
+                        extra_parent_path.push_back(sibling);
                     }
-                    this->nodeLeftRotate(nodePath);
-                    const auto siblingx = this->GetNodeAncestor(nodePath, 0);
+                    this->nodeLeftRotate(extra_parent_path);
+                    const auto siblingx = this->GetNodeAncestor(extra_parent_path, 0);
                     assert(m_ops.nodeCompareEqual(sibling, siblingx));
                     m_ops.setBlack(sibling, true);
                     m_ops.setBlack(extra_parent, false);
@@ -728,10 +820,9 @@ public:
                     extra_parent = m_ops.getLeft(sibling);
                     sibling = m_ops.getRight(extra_parent);
                     if constexpr (parents_ops) {
-                        nodePath = extra_black;
+                        extra_parent_path = extra_parent;
                     } else {
-                        nodePath.push_back(extra_parent);
-                        nodePath.push_back(extra_black);
+                        extra_parent_path.push_back(extra_parent);
                     }
                 }
 
@@ -739,13 +830,13 @@ public:
                 if (m_ops.isBlackOrNULL(m_ops.getLeft(sibling)) && m_ops.isBlackOrNULL(m_ops.getRight(sibling))) {
                     m_ops.setBlack(sibling, false);
                     extra_black = extra_parent;
-                    extra_parent = this->GetNodeAncestor(nodePath, 1);
+                    extra_parent = this->GetNodeAncestor(extra_parent_path, 1);
                     if constexpr (parents_ops) {
-                        nodePath = extra_black;
+                        extra_parent_path = extra_parent;
                     } else {
-                        nodePath.pop_back();
+                        extra_parent_path.pop_back();
                     }
-                    extra_is_left_child = m_ops.isNullNode(extra_parent) ? m_ops.nodeCompareEqual(m_ops.getLeft(extra_parent), extra_black) : false;
+                    extra_is_left_child = !m_ops.isNullNode(extra_parent) ? m_ops.nodeCompareEqual(m_ops.getLeft(extra_parent), extra_black) : false;
                     if (m_ops.isNullNode(extra_parent)) {
                         m_ops.nodeCompareEqual(extra_black, root);
                     }
@@ -763,13 +854,13 @@ public:
                         sibling = sl;
                     }
 
-                    auto pp = this->GetNodeAncestor(nodePath, 2);
+                    const auto pp = this->GetNodeAncestor(extra_parent_path, 1);
                     bool pp_left = !m_ops.isNullNode(pp) && m_ops.nodeCompareEqual(m_ops.getLeft(pp), extra_parent);
 
                     auto extra_parent_color = m_ops.isBlack(extra_parent);
 
                     if (m_ops.isNullNode(pp)) {
-                        assert(m_ops.nodeCompareEqual(extra_parent, this->root));
+                        assert(m_ops.nodeCompareEqual(extra_parent, root));
                         assert(m_ops.isBlack(extra_parent));
                         root = sibling;
                     }
@@ -798,10 +889,9 @@ public:
                     extra_black = root;
                     extra_parent = m_ops.getNullNode();
                     if constexpr (parents_ops) {
-                        nodePath = extra_black;
+                        extra_parent_path = extra_parent;
                     } else {
-                        nodePath.pop_back();
-                        nodePath.push_back(extra_black);
+                        extra_parent_path.clear();
                     }
                 }
             } else {
@@ -811,19 +901,18 @@ public:
                 if (!m_ops.isBlack(sibling)) {
                     assert(m_ops.isBlack(extra_parent));
 
-                    if (m_ops.isNullNode(this->GetNodeAncestor(nodePath,2))) {
+                    if (m_ops.isNullNode(this->GetNodeAncestor(extra_parent_path,1))) {
                         assert(m_ops.nodeCompareEqual(extra_parent, root));
                         root = sibling;
                     }
 
                     if constexpr (parents_ops) {
-                        nodePath = sibling;
+                        extra_parent_path = sibling;
                     } else {
-                        nodePath.pop_back();
-                        nodePath.push_back(sibling);
+                        extra_parent_path.push_back(sibling);
                     }
-                    this->nodeRightRotate(nodePath);
-                    const auto siblingx = this->GetNodeAncestor(nodePath, 0);
+                    this->nodeRightRotate(extra_parent_path);
+                    const auto siblingx = this->GetNodeAncestor(extra_parent_path, 0);
                     assert(m_ops.nodeCompareEqual(sibling, siblingx));
                     m_ops.setBlack(sibling, true);
                     m_ops.setBlack(extra_parent, false);
@@ -831,10 +920,9 @@ public:
                     extra_parent = m_ops.getRight(sibling);
                     sibling = m_ops.getLeft(extra_parent);
                     if constexpr (parents_ops) {
-                        nodePath = extra_black;
+                        extra_parent_path = extra_parent;
                     } else {
-                        nodePath.push_back(extra_parent);
-                        nodePath.push_back(extra_black);
+                        extra_parent_path.push_back(extra_parent);
                     }
                 }
 
@@ -842,13 +930,13 @@ public:
                 if (m_ops.isBlackOrNULL(m_ops.getRight(sibling)) && m_ops.isBlackOrNULL(m_ops.getLeft(sibling))) {
                     m_ops.setBlack(sibling, false);
                     extra_black = extra_parent;
-                    extra_parent = this->GetNodeAncestor(nodePath, 1);
+                    extra_parent = this->GetNodeAncestor(extra_parent_path, 1);
                     if constexpr (parents_ops) {
-                        nodePath = extra_black;
+                        extra_parent_path = extra_parent;
                     } else {
-                        nodePath.pop_back();
+                        extra_parent_path.pop_back();
                     }
-                    extra_is_left_child = m_ops.isNullNode(extra_parent) ? m_ops.nodeCompareEqual(m_ops.getLeft(extra_parent), extra_black) : false;
+                    extra_is_left_child = !m_ops.isNullNode(extra_parent) ? m_ops.nodeCompareEqual(m_ops.getLeft(extra_parent), extra_black) : false;
                     if (m_ops.isNullNode(extra_parent)) {
                         m_ops.nodeCompareEqual(extra_black, root);
                     }
@@ -866,13 +954,13 @@ public:
                         sibling = sl;
                     }
 
-                    auto pp = this->GetNodeAncestor(nodePath, 2);
-                    bool pp_Right = !m_ops.isNullNode(pp) && m_ops.nodeCompareEqual(m_ops.getRight(pp), extra_parent);
+                    const auto pp = this->GetNodeAncestor(extra_parent_path, 1);
+                    bool pp_right = !m_ops.isNullNode(pp) && m_ops.nodeCompareEqual(m_ops.getRight(pp), extra_parent);
 
                     auto extra_parent_color = m_ops.isBlack(extra_parent);
 
                     if (m_ops.isNullNode(pp)) {
-                        assert(m_ops.nodeCompareEqual(extra_parent, this->root));
+                        assert(m_ops.nodeCompareEqual(extra_parent, root));
                         assert(m_ops.isBlack(extra_parent));
                         root = sibling;
                     }
@@ -888,7 +976,7 @@ public:
                     m_ops.setBlack(sl, true);
 
                     if (!m_ops.isNullNode(pp)) {
-                        if (pp_Right) {
+                        if (pp_right) {
                             beRight(pp, sibling);
                         } else {
                             beLeft(pp, sibling);
@@ -901,19 +989,21 @@ public:
                     extra_black = root;
                     extra_parent = m_ops.getNullNode();
                     if constexpr (parents_ops) {
-                        nodePath = extra_black;
+                        extra_parent_path = extra_parent;
                     } else {
-                        nodePath.pop_back();
-                        nodePath.push_back(extra_black);
+                        extra_parent_path.clear();
                     }
                 }
             }
         }
 
+        assert(!m_ops.isNullNode(extra_black));
+        assert(!m_ops.isBlack(extra_black) || m_ops.nodeCompareEqual(extra_black, root));
+        m_ops.setBlack(extra_black, true);
         return ans;
     }
 
-    inline std::optional<NodePath> findNode(NODE root, KEY key) {
+    inline std::optional<NodePath> findNode(NODE root, KEY key) const {
         NodePath ans = this->InitPath<NodePath>();
         auto cn = root;
 
@@ -938,6 +1028,10 @@ public:
         }
 
         return std::nullopt;
+    }
+
+    inline NODE getNode(NodePath& path) const {
+        return this->GetNodeAncestor(path, 0);
     }
 
 private:
@@ -2170,6 +2264,7 @@ private:
             this->setBlack(newentry, true);
             return true;
         }
+        std::vector<uint32_t> ancestor = { root };
     }
 
     CompoundFileHeaderAccessor<T>& m_header;
