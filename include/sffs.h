@@ -251,11 +251,12 @@ private:
 template<typename T, typename NODE, typename KEY,
          std::enable_if_t<treeop_traits<T,NODE,KEY,true>::value,bool> = true>
 class RBTreeAlgorithm {
-private:
+public:
     using traits = treeop_traits<T,NODE,KEY>;
     static constexpr bool parents_ops = traits::has_getParent && traits::has_setParent;
     using NodePath = std::conditional_t<parents_ops,NODE,std::vector<NODE>>;
 
+private:
     template<typename N,std::enable_if_t<std::is_same_v<N,NODE>,bool> = true>
     inline NodePath InitPath() const {
         return m_ops.getNullNode();
@@ -277,7 +278,6 @@ private:
 
     template<typename N,std::enable_if_t<!std::is_same_v<N,NODE>,bool> = true>
     inline NODE GetNodeAncestor(N np, size_t n) const {
-        assert(np.size() > 0);
         if (n == np.size()) return m_ops.getNullNode();
         assert(n < np.size());
         return np[np.size() - n - 1];
@@ -505,6 +505,21 @@ private:
                 m_ops.setLeft(pp, node);
             }
         }
+    }
+
+    inline NodePath last(NODE root) const {
+        NodePath ans = this->InitPath<NodePath>();
+        if (m_ops.isNullNode(root)) return ans;
+
+        for (auto node=root;!m_ops.isNullNode(node);node=m_ops.getRight(node)) {
+            if constexpr (parents_ops) {
+                ans = node;
+            } else {
+                ans.push_back(node);
+            }
+        }
+
+        return ans;
     }
 
 public:
@@ -748,6 +763,10 @@ public:
             } else {
                 assert(m_ops.nodeCompareEqual(node, root));
                 root = m_ops.getRight(node);
+                if constexpr (parents_ops) {
+                    if (!m_ops.isNullNode(root))
+                        m_ops.setParent(root, m_ops.getNullNode());
+                }
             }
             extra_parent = need_extra_black ? node_parent : m_ops.getNullNode();
             extra_black = need_extra_black ? m_ops.getRight(node) : m_ops.getNullNode();
@@ -768,6 +787,10 @@ public:
             } else {
                 assert(m_ops.nodeCompareEqual(node, root));
                 root = m_ops.getLeft(node);
+                if constexpr (parents_ops) {
+                    if (!m_ops.isNullNode(root))
+                        m_ops.setParent(root, m_ops.getNullNode());
+                }
             }
         }
 
@@ -1003,7 +1026,7 @@ public:
         return ans;
     }
 
-    inline std::optional<NodePath> findNode(NODE root, KEY key) const {
+    inline NodePath findNode(NODE root, KEY key) const {
         NodePath ans = this->InitPath<NodePath>();
         auto cn = root;
 
@@ -1027,11 +1050,167 @@ public:
             }
         }
 
-        return std::nullopt;
+        return this->InitPath<NodePath>();
+    }
+
+    inline NodePath lower_bound(NODE root, const KEY& val) {
+        NodePath ans = this->InitPath<NodePath>();
+        if (m_ops.isNullNode(root)) return ans;
+
+        NodePath current_path = this->InitPath<NodePath>();
+        for (auto node=root;!m_ops.isNullNode(node);) {
+            if constexpr (parents_ops) {
+                current_path = node;
+            } else {
+                current_path.push_back(node);
+            }
+
+            if (!m_ops.keyCompareLess(m_ops.getKey(node), val)) {
+                if (!this->exists(ans) ||
+                    !m_ops.keyCompareLess(m_ops.getKey(this->GetNodeAncestor(ans,0)), m_ops.getKey(node)) ||
+                    m_ops.keyCompareEqual(m_ops.getKey(this->GetNodeAncestor(ans,0)), m_ops.getKey(node)))
+                {
+                    ans = current_path;
+                }
+
+                node = m_ops.getLeft(node);
+            } else {
+                node = m_ops.getRight(node);
+            }
+        }
+
+        return ans;
+    }
+
+    inline NodePath upper_bound(NODE root, const KEY& val) {
+        NodePath ans = this->InitPath<NodePath>();
+        if (m_ops.isNullNode(root)) return ans;
+
+        NodePath current_path = this->InitPath<NodePath>();
+        for (auto node=root;!m_ops.isNullNode(node);) {
+            if constexpr (parents_ops) {
+                current_path = node;
+            } else {
+                current_path.push_back(node);
+            }
+
+            if (m_ops.keyCompareLess(val, m_ops.getKey(node))) {
+                if (!this->exists(ans) ||
+                    m_ops.keyCompareLess (m_ops.getKey(node), m_ops.getKey(this->GetNodeAncestor(ans,0))) ||
+                    m_ops.keyCompareEqual(m_ops.getKey(node), m_ops.getKey(this->GetNodeAncestor(ans,0))))
+                {
+                    ans = current_path;
+                }
+
+                node = m_ops.getLeft(node);
+            } else {
+                node = m_ops.getRight(node);
+            }
+        }
+
+        return ans;
+    }
+
+    inline NodePath begin(NODE root) const {
+        NodePath ans = this->InitPath<NodePath>();
+        if (m_ops.isNullNode(root)) return ans;
+
+        for (auto node=root;!m_ops.isNullNode(node);node=m_ops.getLeft(node)) {
+            if constexpr (parents_ops) {
+                ans = node;
+            } else {
+                ans.push_back(node);
+            }
+        }
+
+        return ans;
+    }
+
+    inline NodePath end(NODE root) {
+        return this->InitPath<NodePath>();
     }
 
     inline NODE getNode(NodePath& path) const {
         return this->GetNodeAncestor(path, 0);
+    }
+
+    inline bool exists(const NodePath& path) const {
+        if constexpr (parents_ops) {
+            return !m_ops.isNullNode(path);
+        } else {
+            return !path.empty();
+        }
+    }
+
+    inline void forward(NODE, NodePath& path) const {
+        assert(this->exists(path));
+
+        auto node = this->GetNodeAncestor(path, 0);
+        if (!m_ops.isNullNode(m_ops.getRight(node))) {
+            for (node = m_ops.getRight(node);!m_ops.isNullNode(node);node = m_ops.getLeft(node)) {
+                if constexpr (parents_ops) {
+                    path = node;
+                } else {
+                    path.push_back(node);
+                }
+            }
+        } else {
+            for (;!m_ops.isNullNode(node);node=this->GetNodeAncestor(path,0)) {
+                if (!m_ops.isNullNode(this->GetNodeAncestor(path, 1)) &&
+                    m_ops.nodeCompareEqual(m_ops.getLeft(this->GetNodeAncestor(path, 1)), node))
+                {
+                    if constexpr (parents_ops) {
+                        path = m_ops.getParent(path);
+                    } else {
+                        path.pop_back();
+                    }
+                    break;
+                }
+
+                if constexpr (parents_ops) {
+                    path = m_ops.getParent(path);
+                } else {
+                    path.pop_back();
+                }
+            }
+        }
+    }
+
+    inline void backward(NODE root, NodePath& path) const {
+        if (!this->exists(path)) {
+            path = this->last(root);
+            return;
+        }
+
+        auto node = this->GetNodeAncestor(path, 0);
+        if (!m_ops.isNullNode(m_ops.getLeft(node))) {
+            for (node = m_ops.getLeft(node);!m_ops.isNullNode(node);node = m_ops.getRight(node)) {
+                if constexpr (parents_ops) {
+                    path = node;
+                } else {
+                    path.push_back(node);
+                }
+            }
+        } else {
+            for (;!m_ops.isNullNode(node);node=this->GetNodeAncestor(path,0)) {
+                if (!m_ops.isNullNode(this->GetNodeAncestor(path, 1)) &&
+                    m_ops.nodeCompareEqual(m_ops.getRight(this->GetNodeAncestor(path, 1)), node))
+                {
+                    if constexpr (parents_ops) {
+                        path = m_ops.getParent(path);
+                    } else {
+                        path.pop_back();
+                    }
+                    break;
+                }
+
+                if constexpr (parents_ops) {
+                    path = m_ops.getParent(path);
+                } else {
+                    path.pop_back();
+                }
+            }
+        }
     }
 
 private:
