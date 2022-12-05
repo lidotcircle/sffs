@@ -1090,13 +1090,7 @@ public:
             }
 
             if (!m_ops.keyCompareLess(m_ops.getKey(node), val)) {
-                if (!this->exists(ans) ||
-                    !m_ops.keyCompareLess(m_ops.getKey(this->GetNodeAncestor(ans,0)), m_ops.getKey(node)) ||
-                    m_ops.keyCompareEqual(m_ops.getKey(this->GetNodeAncestor(ans,0)), m_ops.getKey(node)))
-                {
-                    ans = current_path;
-                }
-
+                ans = current_path;
                 node = m_ops.getLeft(node);
             } else {
                 node = m_ops.getRight(node);
@@ -1119,13 +1113,7 @@ public:
             }
 
             if (m_ops.keyCompareLess(val, m_ops.getKey(node))) {
-                if (!this->exists(ans) ||
-                    m_ops.keyCompareLess (m_ops.getKey(node), m_ops.getKey(this->GetNodeAncestor(ans,0))) ||
-                    m_ops.keyCompareEqual(m_ops.getKey(node), m_ops.getKey(this->GetNodeAncestor(ans,0))))
-                {
-                    ans = current_path;
-                }
-
+                ans = current_path;
                 node = m_ops.getLeft(node);
             } else {
                 node = m_ops.getRight(node);
@@ -1263,6 +1251,11 @@ struct treeop_traits {
     static uint16_t test_setNthChild(int);
 
     template<typename U>
+    static uint8_t  test_clearNthChild(...);
+    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(static_cast<U*>(nullptr)->clearNthChild(node, index))>,bool> = true>
+    static uint16_t test_clearNthChild(int);
+
+    template<typename U>
     static uint8_t  test_getParent(...);
     template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(static_cast<const U*>(nullptr)->getParent(node))>,bool> = true>
     static uint16_t test_getParent(int);
@@ -1344,6 +1337,7 @@ struct treeop_traits {
 
     static constexpr bool has_getNthChild         = sizeof(test_getNthChild<T>(1))         == sizeof(uint16_t);
     static constexpr bool has_setNthChild         = sizeof(test_setNthChild<T>(1))         == sizeof(uint16_t);
+    static constexpr bool has_clearNthChild       = sizeof(test_clearNthChild<T>(1))         == sizeof(uint16_t);
     static constexpr bool has_getParent           = sizeof(test_getParent<T>(1))           == sizeof(uint16_t); // optional
     static constexpr bool has_setParent           = sizeof(test_setParent<T>(1))           == sizeof(uint16_t); // optional
     static constexpr bool has_getNthHolder        = sizeof(test_getNthHolder<T>(1))        == sizeof(uint16_t);
@@ -1419,6 +1413,13 @@ struct BTreeOpWrapper {
     inline HOLDER extractNthHolder(NODE node, size_t nth) { return m_ops.extractNthHolder(node, nth); }
 
     inline void setNthChild (NODE node, size_t nth, NODE n)  { m_ops.setNthChild(node, nth, n); }
+    inline void clearNthChild (NODE node, size_t nth)  {
+        if constexpr (traits::has_clearNthChild) {
+            m_ops.clearNthChild(node, nth);
+        } else {
+            m_ops.setNthChild(node, nth, m_ops.getNullNode());
+        }
+    }
     inline void setNthHolder(NODE node, size_t nth, HOLDER&& holder) { m_ops.setNthHolder(node, nth, std::move(holder)); }
 
     inline NODE getParent(NODE node) const  {
@@ -1460,6 +1461,23 @@ struct BTreeOpWrapper {
         } else {
             return lhs == rhs;
         }
+    }
+
+    inline size_t lower_bound(NODE node, const KEY& key) {
+        size_t lower = 0;
+        size_t upper = m_ops.getNumberOfHolders(node);
+
+        while (lower < upper) {
+            auto n = (upper + lower) / 2;
+            const auto& holder = m_ops.getNthHolder(node, n);
+            if (!m_ops.keyCompareLess(m_ops.getKey(holder), key)) {
+                upper = n;
+            } else {
+                lower = n + 1;
+            }
+        }
+
+        return upper;
     }
 
     inline size_t upper_bound(NODE node, const KEY& key) {
@@ -1592,7 +1610,7 @@ private:
         for (size_t i=hs+1;i>index;i--) {
             auto n = m_ops.getNthChild(node, i-1);
             m_ops.setNthChild(node, i, n);
-            m_ops.setNthChild(node, i - 1, m_ops.getNullNode());
+            m_ops.clearNthChild(node, i - 1);
             if constexpr (parents_ops) {
                 m_ops.setParent(n, node);
             }
@@ -1628,7 +1646,7 @@ private:
         for (size_t i=index;i+1<=hs+1;i++) {
             auto n = m_ops.getNthChild(node, i+1);
             m_ops.setNthChild(node, i, n);
-            m_ops.setNthChild(node, i+1, m_ops.getNullNode());
+            m_ops.clearNthChild(node, i+1);
             if constexpr (parents_ops) {
                 m_ops.setParent(n, node);
             }
@@ -1670,7 +1688,7 @@ private:
             for (auto i=t;i<2*t;i++) {
                 auto knode = m_ops.getNthChild(node, i);
                 m_ops.setNthChild(newNode, i-t, knode);
-                m_ops.setNthChild(node, i, m_ops.getNullNode());
+                m_ops.clearNthChild(node, i);
                 if constexpr (parents_ops) {
                     m_ops.setParent(knode, newNode);
                 }
@@ -1726,7 +1744,7 @@ private:
             for (size_t i=0;i<t;i++) {
                 auto n = m_ops.getNthChild(n2, i);
                 m_ops.setNthChild(n1, i+t, n);
-                m_ops.setNthChild(n2, i, m_ops.getNullNode());
+                m_ops.clearNthChild(n2, i);
                 if constexpr (parents_ops) {
                     m_ops.setParent(n , n1);
                 }
@@ -1734,7 +1752,7 @@ private:
         }
 
         assert(m_ops.isEmptyNode(n2));
-        m_ops.setNthChild(parent, firstIdx + 1, m_ops.getNullNode());
+        m_ops.clearNthChild(parent, firstIdx + 1);
         m_ops.releaseEmptyNode(std::move(n2));
 
         if (m_ops.getNumberOfHolders(parent) > 0) {
@@ -1908,7 +1926,7 @@ public:
                         if (!m_ops.isLeaf(n)) {
                             auto pn = m_ops.getNthChild(sibling_prev, sib_prev_n);
                             assert(!m_ops.isNullNode(pn));
-                            m_ops.setNthChild(sibling_prev, sib_prev_n, m_ops.getNullNode());
+                            m_ops.clearNthChild(sibling_prev, sib_prev_n);
                             m_ops.setNthChild(n, 0, pn);
                             if constexpr (parents_ops) {
                                 m_ops.setParent(pn, n);
@@ -1957,7 +1975,7 @@ public:
                         m_ops.setNthHolder(p, idx, std::move(nh));
                         if (!m_ops.isLeaf(n)) {
                             auto nn = m_ops.getNthChild(sibling_next, 0);
-                            m_ops.setNthChild(sibling_next, 0, m_ops.getNullNode());
+                            m_ops.clearNthChild(sibling_next, 0);
                             m_ops.setNthChild(n, t, nn);
                             if constexpr (parents_ops) {
                                 m_ops.setParent(nn, n);
@@ -1986,7 +2004,7 @@ public:
         if (m_ops.getNumberOfHolders(root) == 0) {
             assert(m_ops.getNumberOfChildren(root) == 1);
             auto new_root = m_ops.getFirstChild(root);
-            m_ops.setNthChild(root, 0, m_ops.getNullNode());
+            m_ops.clearNthChild(root, 0);
             m_ops.releaseEmptyNode(std::move(root));
             root = new_root;
             if constexpr (parents_ops) {
@@ -2022,6 +2040,164 @@ public:
             path.m_path= this->InitPath<NodePath>();
 
         return path;
+    }
+
+    inline HolderPath lower_bound(NODE root, const KEY& key) {
+        assert(!m_ops.isNullNode(root));
+        auto ans = HolderPath(this->InitPath<NodePath>(), 0);
+        auto current = HolderPath(this->InitPath<NodePath>(), 0);
+        size_t idx = 0;
+        for (auto node=root;;) {
+            this->NodePathPush<NodePath>(current.m_path, node, idx);
+            auto pos = m_ops.lower_bound(node, key);
+
+            if (pos < m_ops.getNumberOfHolders(node)) {
+                auto pos_key = m_ops.getKey(m_ops.getNthHolder(node, pos));
+                if (!exists(ans) || !m_ops.keyCompareLess(pos_key, key)) {
+                    current.m_index = pos;
+                    ans = current;
+                }
+            }
+
+            if (m_ops.isLeaf(node)) break;
+
+            idx = pos;
+            node = m_ops.getNthChild(node, pos);
+        }
+        return ans;
+    }
+
+    inline HolderPath upper_bound(NODE root, const KEY& key) {
+        assert(!m_ops.isNullNode(root));
+        auto ans = HolderPath(this->InitPath<NodePath>(), 0);
+        auto current = HolderPath(this->InitPath<NodePath>(), 0);
+        size_t idx = 0;
+        for (auto node=root;;) {
+            this->NodePathPush<NodePath>(current.m_path, node, idx);
+            auto pos = m_ops.upper_bound(node, key);
+
+            if (pos < m_ops.getNumberOfHolders(node)) {
+                auto pos_key = m_ops.getKey(m_ops.getNthHolder(node, pos));
+                if (!exists(ans) || m_ops.keyCompareLess(key, pos_key)) {
+                    current.m_index = pos;
+                    ans = current;
+                }
+            }
+
+            if (m_ops.isLeaf(node)) break;
+
+            idx = pos;
+            node = m_ops.getNthChild(node, pos);
+        }
+        return ans;
+    }
+
+    inline HolderPath begin(NODE root) {
+        auto ans = HolderPath(this->InitPath<NodePath>(), 0);
+        if (m_ops.isNullNode(root)) return ans;
+        for (auto node=root;;node=m_ops.getFirstChild(node)) {
+            assert(!m_ops.isNullNode(node));
+            if constexpr (parents_ops) {
+                ans.m_path = node;
+            } else {
+                ans.m_path.push_back(std::make_pair(node,0));
+            }
+
+            if (m_ops.isLeaf(node)) break;
+        }
+        return ans;
+    }
+
+    inline HolderPath end(NODE) {
+        return HolderPath(this->InitPath<NodePath>(), 0);
+    }
+
+    inline void forward(NODE root, HolderPath& path) {
+        auto node = this->GetNodeAncestor(path.m_path, 0);
+        if (m_ops.isLeaf(node)) {
+            if ( path.m_index + 1 < m_ops.getNumberOfHolders(node)) {
+                path.m_index++;
+            } else {
+                auto p = this->GetNodeAncestor(path.m_path, 1);
+                auto u = this->GetNodeIndex(path.m_path, 0);
+                this->NodePathPop<NodePath>(path.m_path);
+                path.m_index = u;
+                while (!m_ops.isNullNode(p) && u + 1 == m_ops.getNumberOfChildren(p)) {
+                    node = this->GetNodeAncestor(path.m_path, 0);
+                    u = this->GetNodeIndex(path.m_path, 0);
+                    p = this->GetNodeAncestor(path.m_path, 1);
+                    path.m_index = u;
+                    this->NodePathPop<NodePath>(path.m_path);
+                }
+            }
+        } else {
+            auto index = path.m_index + 1;
+            for (auto n =m_ops.getNthChild(node, index);;n=m_ops.getFirstChild(n)) {
+                this->NodePathPush<NodePath>(path.m_path, n, index);
+                index = 0;
+                if (m_ops.isLeaf(n))
+                    break;
+            }
+            path.m_index = 0;
+        }
+    }
+
+    inline void backward(NODE root, HolderPath& path) {
+        if (!this->exists(path)) {
+            path = HolderPath(this->InitPath<NodePath>(), 0);
+            size_t index = 0;
+            for (auto node=root;;) {
+                assert(!m_ops.isNullNode(node));
+                if constexpr (parents_ops) {
+                    path.m_path = node;
+                } else {
+                    path.m_path.push_back(std::make_pair(node,index));
+                }
+                if (m_ops.isLeaf(node)) {
+                    path.m_index = m_ops.getNumberOfHolders(node) - 1;
+                    break;
+                } else {
+                    auto s = m_ops.getNumberOfChildren(node);
+                    node=m_ops.getNthChild(node, s-1);
+                    index = s-1;
+                }
+            }
+            return;
+        }
+
+        auto node = this->GetNodeAncestor(path.m_path, 0);
+        if (m_ops.isLeaf(node)) {
+            if ( path.m_index > 0) {
+                path.m_index--;
+            } else {
+                auto p = this->GetNodeAncestor(path.m_path, 1);
+                auto u = this->GetNodeIndex(path.m_path, 0);
+                this->NodePathPop<NodePath>(path.m_path);
+                path.m_index = u > 0 ? u - 1 : 0;
+                while (!m_ops.isNullNode(p) && u == 0) {
+                    node = this->GetNodeAncestor(path.m_path, 0);
+                    u = this->GetNodeIndex(path.m_path, 0);
+                    p = this->GetNodeAncestor(path.m_path, 1);
+                    path.m_index = u > 0 ? u - 1 : 0;
+                    this->NodePathPop<NodePath>(path.m_path);
+                }
+            }
+        } else {
+            auto index = path.m_index;
+            for (auto n =m_ops.getNthChild(node, index);;n=m_ops.getLastChild(n)) {
+                this->NodePathPush<NodePath>(path.m_path, n, index);
+                if (m_ops.isLeaf(n)){
+                    path.m_index = m_ops.getNumberOfHolders(n) - 1;
+                    break;
+                }
+                index = m_ops.getNumberOfChildren(n) - 1;
+            }
+        }
+    }
+
+    inline HOLDER getHolder(const HolderPath& path) {
+        assert(this->exists(path));
+        return m_ops.getNthHolder(this->GetNodeAncestor(path.m_path, 0), path.m_index);
     }
 
     inline bool exists(const HolderPath& path) {

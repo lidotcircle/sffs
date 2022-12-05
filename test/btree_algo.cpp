@@ -118,13 +118,13 @@ struct BTREE: public BASE_T<Order,parent_ops> {
         return this->insertHolder(this->root, std::move(val));
     }
 
-    std::optional<NODE> find(int key) {
+    std::optional<int> find(int key) {
         if (this->root == nullptr) return std::nullopt;
 
-        auto ans = this->findNode(root, key);
+        auto ans = this->findKey(root, key);
         if (!this->exists(ans)) return std::nullopt;
 
-        return this->getNode(ans);
+        return this->getHolder(ans);
     }
 
     std::optional<HolderPath> lower_bound(int key) {
@@ -212,7 +212,7 @@ static void test_btree_find(size_t n) {
 
         ASSERT_EQ(a1.has_value(), a2 != vals.end());
         if (a1.has_value()) {
-            ASSERT_EQ(a1.value()->key, val);
+            ASSERT_EQ(a1.value(), val);
         }
     }
 }
@@ -284,7 +284,7 @@ static void test_btree_lower_bound(size_t n) {
 
         ASSERT_EQ(a1.has_value(), a2 != vals.end());
         if (a1.has_value()) {
-            ASSERT_EQ(tree.getNode(a1.value())->key, *a2);
+            ASSERT_EQ(tree.getHolder(a1.value()), *a2);
         }
     }
 }
@@ -308,7 +308,7 @@ static void test_btree_upper_bound(size_t n) {
 
         ASSERT_EQ(a1.has_value(), a2 != vals.end());
         if (a1.has_value()) {
-            ASSERT_EQ(tree.getNode(a1.value())->key, *a2);
+            ASSERT_EQ(tree.getHolder(a1.value()), *a2);
         }
     }
 }
@@ -330,7 +330,7 @@ static void test_btree_forward_backward(size_t n) {
     for (;beg != vals.end();beg++,tree.forward(tbeg)) {
         ASSERT_TRUE(tree.exists(tbeg));
         auto val = *beg;
-        auto v2  = tree.getNode(tbeg)->key;
+        auto v2  = tree.getHolder(tbeg);
         ASSERT_EQ(val, v2);
     }
 
@@ -343,13 +343,13 @@ static void test_btree_forward_backward(size_t n) {
     for (;beg != vals.begin();beg--,tree.backward(tbeg)) {
         ASSERT_TRUE(tree.exists(tbeg));
         auto val = *beg;
-        auto v2  = tree.getNode(tbeg)->key;
+        auto v2  = tree.getHolder(tbeg);
         ASSERT_EQ(val, v2);
     }
     if (n > 0) {
         ASSERT_TRUE(tree.exists(tbeg));
         auto val = *beg;
-        auto v2  = tree.getNode(tbeg)->key;
+        auto v2  = tree.getHolder(tbeg);
         ASSERT_EQ(val, v2);
     }
 }
@@ -367,8 +367,8 @@ static void test_btree_forward_backward(size_t n) {
     func<order,parent_ops>(1000); \
     func<order,parent_ops>(10000); \
     func<order,parent_ops>(100000); \
-    // func<order,parent_ops>(1000000); \
-    func<order,parent_ops>(10000000); \
+    func<order,parent_ops>(1000000); \
+    // func<order,parent_ops>(10000000); \
     func<order,parent_ops>(100000000)
 
 #define SETUP_TEST_FUNC(func, parent_ops) \
@@ -389,12 +389,12 @@ TEST(btree_with_parent_ops, insert) {
     SETUP_TEST_FUNC(test_btree_insert, true);
 }
 
-//TEST(btree_without_parent_ops, find) {
-//    SETUP_TEST_FUNC(test_btree_find, false);
-//}
-//TEST(btree_with_parent_ops, find) {
-//    SETUP_TEST_FUNC(test_btree_find, true);
-//}
+TEST(btree_without_parent_ops, find) {
+    SETUP_TEST_FUNC(test_btree_find, false);
+}
+TEST(btree_with_parent_ops, find) {
+    SETUP_TEST_FUNC(test_btree_find, true);
+}
 
 TEST(btree_without_parent_ops, delete) {
     SETUP_TEST_FUNC(test_btree_delete, false);
@@ -410,23 +410,23 @@ TEST(btree_with_parent_ops, delete2) {
     SETUP_TEST_FUNC(test_btree_delete2, true);
 }
 
-//TEST(btree_without_parent_ops, lower_bound) {
-//    SETUP_TEST_FUNC(test_btree_lower_bound, false);
-//}
-//TEST(btree_with_parent_ops, lower_bound) {
-//    SETUP_TEST_FUNC(test_btree_lower_bound, true);
-//}
+TEST(btree_without_parent_ops, lower_bound) {
+    SETUP_TEST_FUNC(test_btree_lower_bound, false);
+}
+TEST(btree_with_parent_ops, lower_bound) {
+    SETUP_TEST_FUNC(test_btree_lower_bound, true);
+}
 
-//TEST(btree_without_parent_ops, upper_bound) {
-//    SETUP_TEST_FUNC(test_btree_upper_bound, false);
-//}
-//TEST(btree_with_parent_ops, upper_bound) {
-//    SETUP_TEST_FUNC(test_btree_upper_bound, true);
-//}
+TEST(btree_without_parent_ops, upper_bound) {
+    SETUP_TEST_FUNC(test_btree_upper_bound, false);
+}
+TEST(btree_with_parent_ops, upper_bound) {
+    SETUP_TEST_FUNC(test_btree_upper_bound, true);
+}
 
-//TEST(btree_without_parent_ops, forward_backward) {
-//    SETUP_TEST_FUNC(test_btree_forward_backward, false);
-//}
-//TEST(btree_with_parent_ops, forward_backward) {
-//    SETUP_TEST_FUNC(test_btree_forward_backward, true);
-//}
+TEST(btree_without_parent_ops, forward_backward) {
+    SETUP_TEST_FUNC(test_btree_forward_backward, false);
+}
+TEST(btree_with_parent_ops, forward_backward) {
+    SETUP_TEST_FUNC(test_btree_forward_backward, true);
+}
