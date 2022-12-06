@@ -33,7 +33,7 @@ struct TreeNodeOps {
     bool isNullNode(TreeNode* n) const { return n == nullptr; }
     TreeNode* getNullNode() const { return nullptr; }
 
-    const int& getKey(TreeNode* n) const { return n->key; }
+    int getKey(TreeNode* n) const { return n->key; }
     bool keyCompareLess(const int& a, const int& b)   const { return a < b; }
     bool keyCompareEqual(const int& a, const int& b)  const { return a == b; }
     bool nodeCompareEqual(TreeNode* n1, TreeNode* n2) const { return n1 == n2; }
@@ -67,7 +67,7 @@ struct TreeNode2Ops {
     bool isNullNode(TreeNode2* n) const { return n == nullptr; }
     TreeNode2* getNullNode() const { return nullptr; }
 
-    const int& getKey(TreeNode2* n) const { return n->key; }
+    int getKey(TreeNode2* n) const { return n->key; }
     bool keyCompareLess(const int& a, const int& b)   const { return a < b; }
     bool keyCompareEqual(const int& a, const int& b)  const { return a == b; }
     bool nodeCompareEqual(TreeNode2* n1, TreeNode2* n2) const { return n1 == n2; }

@@ -158,7 +158,7 @@ struct treeop_traits {
 
     template<typename U>
     static uint8_t  test_getKey(...);
-    template<typename U,std::enable_if_t<std::is_same_v<const KEY&,decltype(static_cast<const U*>(nullptr)->getKey(node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<KEY,decltype(static_cast<const U*>(nullptr)->getKey(node))>,bool> = true>
     static uint16_t test_getKey(int);
 
     template<typename U>
@@ -204,7 +204,7 @@ struct treeop_traits {
     static_assert(!complain ||  has_setBlack,                    "should implement 'voie setBlack(NODE, bool);'");
     static_assert(!complain ||  has_isNullNode,                  "should implement 'bool isNullNode(NODE) const;'");
     static_assert(!complain ||  has_getNullNode,                 "should implement 'NODE getNullNode() const;'");
-    static_assert(!complain ||  has_getKey,                      "should implement 'KYE& getKey(NODE) const;'");
+    static_assert(!complain ||  has_getKey,                      "should implement 'KYE getKey(NODE) const;'");
     static_assert(!complain ||  has_keyCompareLess,              "should implement 'bool keyCompareLess(const KEY&, const KEY&) const;'");
     static_assert(!complain ||  has_keyCompareEqual,             "should implement 'bool keyCompareEqual(const KEY&, const KEY&) const;'");
     static_assert(!complain ||  has_nodeCompareEqual,            "should implement 'bool nodeCompareEqual(NODE, NODE) const;'");
@@ -249,7 +249,7 @@ struct RbtreeOpWrapper {
     inline bool isNullNode(NODE node) const { return m_ops.isNullNode(node); }
     inline NODE getNullNode() const { return m_ops.getNullNode(); }
 
-    inline const KEY& getKey(NODE n) const { return m_ops.getKey(n); }
+    inline KEY getKey(NODE n) const { return m_ops.getKey(n); }
 
     inline bool keyCompareLess(const KEY& lhs, const KEY& rhs) const { return m_ops.keyCompareLess(lhs, rhs); }
     inline bool keyCompareLess(NODE lhs, NODE rhs) const { return m_ops.keyCompareLess(m_ops.getKey(lhs), m_ops.getKey(rhs)); }
@@ -278,7 +278,7 @@ public:
     using traits = treeop_traits<T,NODE,KEY>;
     static constexpr bool parents_ops = traits::has_getParent && traits::has_setParent;
     using NodePath = std::conditional_t<parents_ops, NODE,
-                         std::conditional_t<static_vector_size, maxsize_vector<NODE,static_vector_size>,std::vector<NODE>>>;
+                         std::conditional_t<bool(static_vector_size > 0), maxsize_vector<NODE,static_vector_size>,std::vector<NODE>>>;
 
 private:
     template<typename N,std::enable_if_t<std::is_same_v<N,NODE>,bool> = true>
@@ -1267,8 +1267,13 @@ struct treeop_traits {
 
     template<typename U>
     static uint8_t  test_getNthHolder(...);
-    template<typename U,std::enable_if_t<std::is_same_v<const HOLDER&,decltype(static_cast<const U*>(nullptr)->getNthHolder(node,index))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<HOLDER,decltype(static_cast<const U*>(nullptr)->getNthHolder(node,index))>,bool> = true>
     static uint16_t test_getNthHolder(int);
+
+    template<typename U>
+    static uint8_t  test_getNthKey(...);
+    template<typename U,std::enable_if_t<std::is_same_v<KEY,decltype(static_cast<const U*>(nullptr)->getNthKey(node,index))>,bool> = true>
+    static uint16_t test_getNthKey(int);
 
     template<typename U>
     static uint8_t  test_extractNthHolder(...);
@@ -1317,7 +1322,7 @@ struct treeop_traits {
 
     template<typename U>
     static uint8_t  test_getKey(...);
-    template<typename U,std::enable_if_t<std::is_same_v<const KEY&,decltype(static_cast<const U*>(nullptr)->getKey(const_holder))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<KEY,decltype(static_cast<const U*>(nullptr)->getKey(const_holder))>,bool> = true>
     static uint16_t test_getKey(int);
 
     template<typename U>
@@ -1341,6 +1346,7 @@ struct treeop_traits {
     static constexpr bool has_getParent           = sizeof(test_getParent<T>(1))           == sizeof(uint16_t); // optional
     static constexpr bool has_setParent           = sizeof(test_setParent<T>(1))           == sizeof(uint16_t); // optional
     static constexpr bool has_getNthHolder        = sizeof(test_getNthHolder<T>(1))        == sizeof(uint16_t);
+    static constexpr bool has_getNthKey           = sizeof(test_getNthKey<T>(1))           == sizeof(uint16_t);
     static constexpr bool has_extractNthHolder    = sizeof(test_extractNthHolder<T>(1))    == sizeof(uint16_t);
     static constexpr bool has_setNthHolder        = sizeof(test_setNthHolder<T>(1))        == sizeof(uint16_t);
     static constexpr bool has_getOrder            = sizeof(test_getOrder<T>(1))            == sizeof(uint16_t);
@@ -1367,7 +1373,7 @@ struct treeop_traits {
     static_assert(!complain ||  std::is_copy_assignable_v<KEY>,       "KEY should be copy assignable");
     static_assert(!complain ||  has_getNthChild,                      "should implement 'NODE getNthChild(NODE, size_t) const;'");
     static_assert(!complain ||  has_setNthChild,                      "should implement 'void setNthChild(NODE, size_t, NODE);'");
-    static_assert(!complain ||  has_getNthHolder,                     "should implement 'const HOLDER& getNthHolder(NODE, size_t) const;'");
+    static_assert(!complain ||  has_getNthHolder,                     "should implement 'HOLDER getNthHolder(NODE, size_t) const;'");
     static_assert(!complain ||  has_extractNthHolder,                 "should implement 'HOLDER extractNthHolder(NODE, size_t);'");
     static_assert(!complain ||  has_setNthHolder,                     "should implement 'void setNthHolder(NODE, size_t, HOLDER&& holder);'");
     static_assert(!complain ||  has_getOrder,                         "should implement 'size_t getOrder() const;'");
@@ -1377,7 +1383,7 @@ struct treeop_traits {
     static_assert(!complain ||  has_getNullNode,                      "should implement 'NODE getNullNode() const;'");
     static_assert(!complain ||  has_createEmptyNode,                  "should implement 'NODE createEmptyNode();'");
     static_assert(!complain ||  has_releaseEmptyNode,                 "should implement 'void releaseEmptyNode(NODE);'");
-    static_assert(!complain ||  has_getKey,                           "should implement 'const KEY& getKey(const HOLDER&) const;'");
+    static_assert(!complain ||  has_getKey,                           "should implement 'KEY getKey(const HOLDER&) const;'");
     static_assert(!complain ||  has_keyCompareLess,                   "should implement 'bool keyCompareLess(const KEY&, const KEY&) const;'");
     static_assert(!complain ||  has_keyCompareEqual,                  "should implement 'bool keyCompareEqual(const KEY&, const KEY&) const;'");
     static_assert(!complain ||  has_nodeCompareEqual,                 "should implement 'bool nodeCompareEqual(NODE, NODE) const;'");
@@ -1401,14 +1407,24 @@ struct BTreeOpWrapper {
 
     inline explicit BTreeOpWrapper(T treeop): m_ops (treeop) {}
 
-    inline NODE          getNthChild (NODE node, size_t nth) const { return m_ops.getNthChild(node, nth); }
-    inline const HOLDER& getNthHolder(NODE node, size_t nth) const { return m_ops.getNthHolder(node, nth); }
+    inline NODE   getNthChild (NODE node, size_t nth) const { return m_ops.getNthChild(node, nth); }
+    inline HOLDER getNthHolder(NODE node, size_t nth) const { return m_ops.getNthHolder(node, nth); }
+    inline KEY    getNthKey(NODE node, size_t nth) const {
+        if constexpr (traits::has_getNthKey) {
+            return m_ops.getNthKey(node, nth);
+        } else {
+            return this->getKey(m_ops.getNthHolder(node, nth));
+        }
+    }
 
     inline NODE getFirstChild(NODE node) const { return m_ops.getNthChild(node, 0); }
     inline NODE getLastChild (NODE node) const { return m_ops.getNthChild(node, m_ops.getNumberOfChildren(node)-1); }
 
-    inline const HOLDER& getFirstHolder(NODE node) const { return m_ops.getNthHolder(node, 0); }
-    inline const HOLDER& getLastHolder (NODE node) const { return m_ops.getNthHolder(node, m_ops.getNumberOfHolders(node)-1); }
+    inline HOLDER getFirstHolder(NODE node) const { return m_ops.getNthHolder(node, 0); }
+    inline HOLDER getLastHolder (NODE node) const { return m_ops.getNthHolder(node, m_ops.getNumberOfHolders(node)-1); }
+
+    inline KEY getFirstKey(NODE node) const { return m_ops.getNthKey(node, 0); }
+    inline KEY getLastKey (NODE node) const { return m_ops.getNthKey(node, m_ops.getNumberOfHolders(node)-1); }
 
     inline HOLDER extractNthHolder(NODE node, size_t nth) { return m_ops.extractNthHolder(node, nth); }
 
@@ -1447,7 +1463,7 @@ struct BTreeOpWrapper {
     inline bool isEmptyNode(NODE node) const { return !m_ops.isNullNode(node) && m_ops.getNumberOfChildren(node) == 0 && m_ops.getNumberOfHolders(node) == 0; }
     inline void releaseEmptyNode(NODE&& node) { return m_ops.releaseEmptyNode(std::move(node)); }
 
-    inline const KEY& getKey(const HOLDER& n) const { return m_ops.getKey(n); }
+    inline KEY getKey(const HOLDER& n) const { return m_ops.getKey(n); }
 
     inline bool keyCompareLess(const KEY& lhs, const KEY& rhs) const { return m_ops.keyCompareLess(lhs, rhs); }
 
@@ -1469,8 +1485,7 @@ struct BTreeOpWrapper {
 
         while (lower < upper) {
             auto n = (upper + lower) / 2;
-            const auto& holder = m_ops.getNthHolder(node, n);
-            if (!m_ops.keyCompareLess(m_ops.getKey(holder), key)) {
+            if (!m_ops.keyCompareLess(m_ops.getNthKey(node, n), key)) {
                 upper = n;
             } else {
                 lower = n + 1;
@@ -1486,8 +1501,7 @@ struct BTreeOpWrapper {
 
         while (lower < upper) {
             auto n = (upper + lower) / 2;
-            const auto& holder = m_ops.getNthHolder(node, n);
-            if (m_ops.keyCompareLess(key, m_ops.getKey(holder))) {
+            if (m_ops.keyCompareLess(key, m_ops.getNthKey(node, n))) {
                 upper = n;
             } else {
                 lower = n + 1;
@@ -1509,7 +1523,7 @@ public:
     using traits = treeop_traits<T,NODE,HOLDER,KEY>;
     static constexpr bool parents_ops = traits::has_getParent && traits::has_getParent && enableParent;
     using NodePath = std::conditional_t<parents_ops, NODE,
-                         std::conditional_t<(static_vector_size > 0), maxsize_vector<std::pair<NODE,size_t>,static_vector_size>,std::vector<std::pair<NODE,size_t>>>>;
+                         std::conditional_t<bool(static_vector_size > 0), maxsize_vector<std::pair<NODE,size_t>,static_vector_size>,std::vector<std::pair<NODE,size_t>>>>;
 
     class HolderPath {
         friend BTreeAlgorithm;
@@ -1845,7 +1859,7 @@ public:
             currentIdx = m_ops.upper_bound(current, m_ops.getKey(holder));
             assert (currentIdx <= m_ops.getNumberOfHolders(current));
 
-            if (currentIdx > 0 && m_ops.keyCompareEqual(key, m_ops.getKey(m_ops.getNthHolder(current, currentIdx-1)))) {
+            if (currentIdx > 0 && m_ops.keyCompareEqual(key, m_ops.getNthKey(current, currentIdx-1))) {
                 return false;
             }
 
@@ -2026,7 +2040,7 @@ public:
             this->NodePathPush<NodePath>(path.m_path, node, node_index);
 
             auto kn = m_ops.upper_bound(node, key);
-            if (kn > 0 && m_ops.keyCompareEqual(key, m_ops.getKey(m_ops.getNthHolder(node, kn-1)))) {
+            if (kn > 0 && m_ops.keyCompareEqual(key, m_ops.getNthKey(node, kn-1))) {
                 assert(kn < invalid_idx);
                 path.m_index = kn - 1;
                 break;
@@ -2052,7 +2066,7 @@ public:
             auto pos = m_ops.lower_bound(node, key);
 
             if (pos < m_ops.getNumberOfHolders(node)) {
-                auto pos_key = m_ops.getKey(m_ops.getNthHolder(node, pos));
+                auto pos_key = m_ops.getNthKey(node, pos);
                 if (!exists(ans) || !m_ops.keyCompareLess(pos_key, key)) {
                     current.m_index = pos;
                     ans = current;
@@ -2077,7 +2091,7 @@ public:
             auto pos = m_ops.upper_bound(node, key);
 
             if (pos < m_ops.getNumberOfHolders(node)) {
-                auto pos_key = m_ops.getKey(m_ops.getNthHolder(node, pos));
+                auto pos_key = m_ops.getNthKey(node, pos);
                 if (!exists(ans) || m_ops.keyCompareLess(key, pos_key)) {
                     current.m_index = pos;
                     ans = current;

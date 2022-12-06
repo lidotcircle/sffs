@@ -40,7 +40,11 @@ struct TreeNodeOps {
         assert(nth < node->children.size());
         return node->children[nth];
     }
-    inline const HOLDER& getNthHolder(NODE node, size_t nth) const {
+    inline HOLDER getNthHolder(NODE node, size_t nth) const {
+        assert(nth < node->holders.size());
+        return node->holders[nth].value();
+    }
+    inline KEY getNthKey(NODE node, size_t nth) const {
         assert(nth < node->holders.size());
         return node->holders[nth].value();
     }
@@ -91,7 +95,7 @@ struct TreeNodeOps {
     inline NODE createEmptyNode() { return new TreeNode<Order>(); }
     inline void releaseEmptyNode(NODE&& node) { delete node; }
 
-    inline const KEY& getKey(const HOLDER& n) const { return n; }
+    inline KEY getKey(const HOLDER& n) const { return n; }
 
     inline bool keyCompareLess(const KEY& lhs, const KEY& rhs) const { return lhs < rhs; }
 
