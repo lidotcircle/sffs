@@ -88,7 +88,7 @@ struct TreeNodeOps {
 
     inline size_t getOrder() const { return Order; }
     inline size_t getNumberOfChildren(NODE node) const { return node->numOfChildren; }
-    inline size_t getNumberOfHolders(NODE node) const { return node->numOfKV; }
+    inline size_t getNumberOfKeys(NODE node) const { return node->numOfKV; }
 
     inline bool isNullNode(NODE node) const { return node == nullptr; }
     inline NODE getNullNode() const { return nullptr; }
