@@ -2251,9 +2251,9 @@ struct treeop_traits {
     static uint16_t test_setNthChild(int);
 
     template<typename U>
-    static uint8_t  test_leafClearNthChild(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(static_cast<U*>(nullptr)->leafClearNthChild(node, index))>,bool> = true>
-    static uint16_t test_leafClearNthChild(int);
+    static uint8_t  test_clearNthChild(...);
+    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(static_cast<U*>(nullptr)->clearNthChild(node, index))>,bool> = true>
+    static uint16_t test_clearNthChild(int);
 
     template<typename U>
     static uint8_t  test_getParent(...);
@@ -2307,7 +2307,7 @@ struct treeop_traits {
 
     template<typename U>
     static uint8_t  test_interiorClearNthKey(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(static_cast<U*>(nullptr)->interiorClearNthKey(node,index,const_key))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(static_cast<U*>(nullptr)->interiorClearNthKey(node,index))>,bool> = true>
     static uint16_t test_interiorClearNthKey(int);
 
     template<typename U>
@@ -2393,7 +2393,7 @@ struct treeop_traits {
     static constexpr bool has_isLeaf                  = sizeof(test_isLeaf<T>(1))                  == sizeof(uint16_t);
     static constexpr bool has_getNthChild             = sizeof(test_getNthChild<T>(1))             == sizeof(uint16_t);
     static constexpr bool has_setNthChild             = sizeof(test_setNthChild<T>(1))             == sizeof(uint16_t);
-    static constexpr bool has_leafClearNthChild       = sizeof(test_leafClearNthChild<T>(1))       == sizeof(uint16_t);
+    static constexpr bool has_clearNthChild       = sizeof(test_clearNthChild<T>(1))       == sizeof(uint16_t);
     static constexpr bool has_getParent               = sizeof(test_getParent<T>(1))               == sizeof(uint16_t); // optional
     static constexpr bool has_setParent               = sizeof(test_setParent<T>(1))               == sizeof(uint16_t); // optional
     static constexpr bool has_leafGetNext             = sizeof(test_leafGetNext<T>(1))             == sizeof(uint16_t);
@@ -2496,30 +2496,30 @@ struct BPTreeOpWrapper {
     }
     inline KEY interiorGetNthKey(NODE node, size_t nth) const { return m_ops.interiorGetNthKey(node, nth); }
     inline void interiorSetNthKey(NODE node, size_t nth, const KEY& key) { m_ops.interiorSetNthKey(node, nth, key); }
-    inline void interiorClearNthKey(NODE node, size_t nth) const { return m_ops.interiorClearNthKey(node, nth); }
-    inline KEY interiorExtractNthKey(NODE node, size_t nth) const { 
+    inline void interiorClearNthKey(NODE node, size_t nth) { return m_ops.interiorClearNthKey(node, nth); }
+    inline KEY interiorExtractNthKey(NODE node, size_t nth) { 
         auto ans = this->interiorGetNthKey(node, nth);
         this->interiorClearNthKey(node, nth);
         return ans;
     }
 
-    inline NODE getFirstChild(NODE node) const { return m_ops.getNthChild(node, 0); }
-    inline NODE getLastChild (NODE node) const { return m_ops.getNthChild(node, m_ops.getNumberOfChildren(node)-1); }
+    inline NODE getFirstChild(NODE node) const { return this->getNthChild(node, 0); }
+    inline NODE getLastChild (NODE node) const { return this->getNthChild(node, m_ops.getNumberOfChildren(node)-1); }
 
-    inline HOLDER getFirstHolder(NODE node) const { return m_ops.getNthHolder(node, 0); }
-    inline HOLDER getLastHolder (NODE node) const { return m_ops.getNthHolder(node, m_ops.leafGetNumberOfKeys(node)-1); }
+    inline HOLDER getFirstHolder(NODE node) const { return this->getNthHolder(node, 0); }
+    inline HOLDER getLastHolder (NODE node) const { return this->getNthHolder(node, m_ops.leafGetNumberOfKeys(node)-1); }
 
-    inline KEY leafGetFirstKey(NODE node) const { return m_ops.leafGetNthKey(node, 0); }
-    inline KEY leafGetLastKey (NODE node) const { return m_ops.leafGetNthKey(node, m_ops.leafGetNumberOfKeys(node)-1); }
+    inline KEY leafGetFirstKey(NODE node) const { return this->leafGetNthKey(node, 0); }
+    inline KEY leafGetLastKey (NODE node) const { return this->leafGetNthKey(node, m_ops.leafGetNumberOfKeys(node)-1); }
 
-    inline KEY interiorGetFirstKey(NODE node) const { return m_ops.interiorGetNthKey(node, 0); }
-    inline KEY interiorGetLastKey (NODE node) const { return m_ops.interiorGetNthKey(node, m_ops.interiorGetNumberOfKeys(node)-1); }
+    inline KEY interiorGetFirstKey(NODE node) const { return this->interiorGetNthKey(node, 0); }
+    inline KEY interiorGetLastKey (NODE node) const { return this->interiorGetNthKey(node, m_ops.interiorGetNumberOfKeys(node)-1); }
 
     inline HOLDER extractNthHolder(NODE node, size_t nth) { return m_ops.extractNthHolder(node, nth); }
 
-    inline void leafClearNthChild (NODE node, size_t nth)  {
-        if constexpr (traits::has_leafClearNthChild) {
-            m_ops.leafClearNthChild(node, nth);
+    inline void clearNthChild (NODE node, size_t nth)  {
+        if constexpr (traits::has_clearNthChild) {
+            m_ops.clearNthChild(node, nth);
         } else {
             m_ops.setNthChild(node, nth, m_ops.getNullNode());
         }
@@ -2539,7 +2539,7 @@ struct BPTreeOpWrapper {
     }
 
     inline NODE leafGetNext(NODE node) const  { return m_ops.leafGetNext(node); }
-    inline void leafSetNext(NODE node, NODE n)  { return m_ops.leafSetNext(node, n); }
+    inline void leafSetNext(NODE node, NODE n)  { m_ops.leafSetNext(node, n); }
 
     inline NODE leafGetPrev(NODE node) const  {
         if constexpr (traits::has_leafGetPrev) {
@@ -2590,11 +2590,11 @@ struct BPTreeOpWrapper {
 
     inline size_t interior_lower_bound(NODE node, const KEY& key) {
         size_t lower = 0;
-        size_t upper = m_ops.interiorGetNumberOfKeys(node);
+        size_t upper = this->interiorGetNumberOfKeys(node);
 
         while (lower < upper) {
             auto n = (upper + lower) / 2;
-            if (!m_ops.keyCompareLess(m_ops.interiorGetNthKey(node, n), key)) {
+            if (!this->keyCompareLess(this->interiorGetNthKey(node, n), key)) {
                 upper = n;
             } else {
                 lower = n + 1;
@@ -2606,11 +2606,11 @@ struct BPTreeOpWrapper {
 
     inline size_t interior_upper_bound(NODE node, const KEY& key) {
         size_t lower = 0;
-        size_t upper = m_ops.interiorGetNumberOfKeys(node);
+        size_t upper = this->interiorGetNumberOfKeys(node);
 
         while (lower < upper) {
             auto n = (upper + lower) / 2;
-            if (m_ops.keyCompareLess(key, m_ops.interiorGetNthKey(node, n))) {
+            if (this->keyCompareLess(key, this->interiorGetNthKey(node, n))) {
                 upper = n;
             } else {
                 lower = n + 1;
@@ -2622,11 +2622,11 @@ struct BPTreeOpWrapper {
 
     inline size_t leaf_lower_bound(NODE node, const KEY& key) {
         size_t lower = 0;
-        size_t upper = m_ops.leafGetNumberOfKeys(node);
+        size_t upper = this->leafGetNumberOfKeys(node);
 
         while (lower < upper) {
             auto n = (upper + lower) / 2;
-            if (!m_ops.keyCompareLess(m_ops.leafGetNthKey(node, n), key)) {
+            if (!this->keyCompareLess(this->leafGetNthKey(node, n), key)) {
                 upper = n;
             } else {
                 lower = n + 1;
@@ -2638,11 +2638,11 @@ struct BPTreeOpWrapper {
 
     inline size_t leaf_upper_bound(NODE node, const KEY& key) {
         size_t lower = 0;
-        size_t upper = m_ops.leafGetNumberOfKeys(node);
+        size_t upper = this->leafGetNumberOfKeys(node);
 
         while (lower < upper) {
             auto n = (upper + lower) / 2;
-            if (m_ops.keyCompareLess(key, m_ops.leafGetNthKey(node, n))) {
+            if (this->keyCompareLess(key, this->leafGetNthKey(node, n))) {
                 upper = n;
             } else {
                 lower = n + 1;
@@ -2819,8 +2819,8 @@ private:
 
     inline void interiorKeyShiftLeft(NODE node, size_t index) {
         assert(!m_ops.isLeaf(node));
-        assert(m_ops.getNumberOfKeys(node) > 0);
-        const auto hs = m_ops.getNumberOfKeys(node);
+        assert(m_ops.interiorGetNumberOfKeys(node) > 0);
+        const auto hs = m_ops.interiorGetNumberOfKeys(node);
         assert(hs < m_ops.interiorGetOrder() * 2 - 1);
 
         for (size_t i=index;i+1<=hs;i++) {
@@ -2949,8 +2949,8 @@ private:
         auto n2 = m_ops.getNthChild(parent, firstIdx + 1);
         assert(!m_ops.isLeaf(n1) && !m_ops.isLeaf(n2));
         const auto t = m_ops.interiorGetOrder();
-        assert(!m_ops.isNullNode(n1) && m_ops.getNumberOfKeys(n1) == t - 1);
-        assert(!m_ops.isNullNode(n2) && m_ops.getNumberOfKeys(n2) == t - 1);
+        assert(!m_ops.isNullNode(n1) && m_ops.interiorGetNumberOfKeys(n1) == t - 1);
+        assert(!m_ops.isNullNode(n2) && m_ops.interiorGetNumberOfKeys(n2) == t - 1);
 
         auto h = m_ops.interiorExtractNthKey(parent, firstIdx);
         m_ops.interiorSetNthKey(n1, t-1, std::move(h));
@@ -2992,8 +2992,8 @@ private:
         assert(!m_ops.isNullNode(n1));
         assert(!m_ops.isNullNode(n2));
 
-        const auto num_n1 = m_ops.getNumberOfKeys(n1);
-        const auto num_n2 = m_ops.getNumberOfKeys(n2);
+        const auto num_n1 = m_ops.leafGetNumberOfKeys(n1);
+        const auto num_n2 = m_ops.leafGetNumberOfKeys(n2);
         assert(num_n1 + num_n2 <= 2 * t - 1);
 
         m_ops.interiorExtractNthKey(parent, firstIdx);
@@ -3020,7 +3020,7 @@ private:
         }
         this->nodeShiftLeft(parent, firstIdx + 1);
         if (num_n2 == 0) {
-            this->NodePathPush(ppath, n1, firstIdx);
+            this->NodePathPush<NodePath>(ppath, n1, firstIdx);
             this->fixInteriorKey(ppath);
         }
     }
@@ -3078,7 +3078,7 @@ public:
                 }
                 assert(depth == front.second);
             } else {
-                assert(m_ops.interiorGetNumberOfKeys(node) + 1 == m_ops.interiorGetNumberOfChildren(node));
+                assert(m_ops.interiorGetNumberOfKeys(node) + 1 == m_ops.getNumberOfChildren(node));
             }
 
             if (front.second != 1 && !m_ops.isLeaf(node)) {
@@ -3176,8 +3176,8 @@ public:
         }
 
         currentIdx = m_ops.leaf_upper_bound(current, key);
-        if (currentIdx < m_ops.getNumberOfKeys(current))
-            this->holderShiftRight(current, currentIdx);
+        if (currentIdx < m_ops.leafGetNumberOfKeys(current))
+            this->leafShiftRight(current, currentIdx);
 
         m_ops.setNthHolder(current, currentIdx, std::move(holder));
         return true;
@@ -3232,7 +3232,7 @@ public:
                     auto sibling_prev = m_ops.getNthChild(p, idx-1);
                     if (m_ops.interiorGetNumberOfKeys(sibling_prev) > t - 1) {
                         this->interiorShiftRight(n, 0);
-                        const auto sib_prev_n = m_ops.getNumberOfKeys(sibling_prev);
+                        const auto sib_prev_n = m_ops.interiorGetNumberOfKeys(sibling_prev);
                         auto ph = m_ops.interiorExtractNthKey(sibling_prev, sib_prev_n-1);
                         auto parent_holder = m_ops.interiorExtractNthKey(p, idx-1);
                         m_ops.interiorSetNthKey(p, idx-1, std::move(ph));
@@ -3263,7 +3263,7 @@ public:
                         }
                     }
                 } else {
-                    assert(idx + 1 < m_ops.interiorGetNumberOfChildren(p));
+                    assert(idx + 1 < m_ops.getNumberOfChildren(p));
                     auto sibling_next = m_ops.getNthChild(p, idx+1);
                     if (m_ops.interiorGetNumberOfKeys(sibling_next) > t - 1) {
                         const auto sib_next_n = m_ops.interiorGetNumberOfKeys(sibling_next);
@@ -3291,11 +3291,11 @@ public:
         auto parent = this->GetNodeAncestor(path.m_path, 1);
         auto leafNode = this->GetNodeAncestor(path.m_path, 0);
         const auto idx = this->GetNodeIndex(path.m_path, 0);
-        assert(m_ops.getNumberOfKeys(leafNode) == 1);
+        assert(m_ops.leafGetNumberOfKeys(leafNode) == 1);
         assert(m_ops.isLeaf(leafNode));
         auto ans = m_ops.extractNthHolder(leafNode, path.m_index);
         auto ppath = path.m_path;
-        this->NodePathPop(ppath);
+        this->NodePathPop<NodePath>(ppath);
         this->leafMergeTwoNodes(ppath, idx > 0 ? idx - 1 : idx);
 
         if (!m_ops.isLeaf(root) && m_ops.interiorGetNumberOfKeys(root) == 0) {
