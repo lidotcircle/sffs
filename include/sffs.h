@@ -2897,7 +2897,7 @@ private:
     inline std::pair<KEY,NODE> leafSplitFullNode(NODE& root, NODE parent, size_t nodeIdx, NODE node) {
         assert(m_ops.isLeaf(node));
         assert(m_ops.isNullNode(parent) || !m_ops.interiorIsFull(parent));
-        assert(m_ops.interiorIsFull(node));
+        assert(m_ops.leafIsFull(node));
         const auto t = m_ops.leafGetOrder();
         auto newNode = m_ops.leafCreateEmptyNode();
 
@@ -2939,7 +2939,7 @@ private:
             }
             m_ops.leafSetPrev(newNode, node);
         }
-        return std::make_pair(middle_key, parent);
+        return std::make_pair(middle_key, newNode);
     }
 
     inline void interiorMergeTwoNodes(NODE parent, size_t firstIdx) {
@@ -3117,15 +3117,19 @@ public:
                 }
 
                 for (size_t i=0;i<n1;i++) {
-                    auto h1 = m_ops.getNthHolder(node, i);
+                    auto h1 = m_ops.interiorGetNthKey(node, i);
                     auto n1 = m_ops.getNthChild(node, i);
                     auto n2 = m_ops.getNthChild(node, i+1);
                     assert(!m_ops.isNullNode(n1));
                     assert(!m_ops.isNullNode(n2));
-                    const auto& k1 = m_ops.getKey(m_ops.getLastHolder(n1));
-                    const auto& k2 = m_ops.getKey(m_ops.getFirstHolder(n2));
-                    assert(m_ops.keyCompareLess(k1, m_ops.getKey(h1)));
-                    assert(m_ops.keyCompareLess(m_ops.getKey(h1), k2));
+                    const auto& k1 = m_ops.isLeaf(n1) ? m_ops.leafGetLastKey(n1) : m_ops.interiorGetLastKey(n1);
+                    const auto& k2 = m_ops.isLeaf(n2) ? m_ops.leafGetFirstKey(n2) : m_ops.interiorGetFirstKey(n2);
+                    assert(m_ops.keyCompareLess(k1, h1));
+                    if (m_ops.isLeaf(n2)) {
+                        assert(!m_ops.keyCompareLess(k2, h1));
+                    } else {
+                        assert(m_ops.keyCompareLess(h1, k2));
+                    }
                 }
             }
         }
@@ -3176,6 +3180,9 @@ public:
         }
 
         currentIdx = m_ops.leaf_upper_bound(current, key);
+        if (currentIdx > 0 && m_ops.keyCompareEqual(key, m_ops.leafGetNthKey(current, currentIdx-1)))
+            return false;
+
         if (currentIdx < m_ops.leafGetNumberOfKeys(current))
             this->leafShiftRight(current, currentIdx);
 
@@ -3331,23 +3338,39 @@ public:
         if (m_ops.isNullNode(root))
             return path;
 
-        auto node=root;
-        size_t node_index = 0;
-        for (;!m_ops.isLeaf(node);) {
+        auto pp = path;
+        this->NodePathPush<NodePath>(pp.m_path, root, 0);
+        std::vector<HolderPath> cncn = {pp};
+
+        for (;!this->exists(path) && !cncn.empty();) {
+            path = cncn.back();
+            cncn.pop_back();
+            auto node=this->GetNodeAncestor(path.m_path, 0);
+            size_t node_index = this->GetNodeIndex(path.m_path, 0);
+            this->NodePathPop<NodePath>(path.m_path);
+
+            for (;!m_ops.isLeaf(node);) {
+                this->NodePathPush<NodePath>(path.m_path, node, node_index);
+
+                auto kn = m_ops.interior_lower_bound(node, key);
+                if (kn + 1 < m_ops.getNumberOfChildren(node)) {
+                    auto cpp = path;
+                    auto nn = m_ops.getNthChild(node, kn + 1);
+                    this->NodePathPush<NodePath>(cpp.m_path, nn, kn + 1);
+                    cncn.push_back(cpp);
+                }
+                node = m_ops.getNthChild(node, kn);
+                node_index = kn;
+            }
+
             this->NodePathPush<NodePath>(path.m_path, node, node_index);
-
-            auto kn = m_ops.interior_lower_bound(node, key);
-            node = m_ops.getNthChild(node, kn);
-            node_index = kn;
-        }
-
-        this->NodePathPush<NodePath>(path.m_path, node, node_index);
-        auto kn = m_ops.leaf_lower_bound(node, key);
-        if (kn < m_ops.leafGetNumberOfKeys(node) && m_ops.keyCompareEqual(key, m_ops.leafGetNthKey(node, kn))) {
-            assert(kn < invalid_idx);
-            path.m_index = kn;
-        } else {
-            path.m_path= this->InitPath<NodePath>();
+            auto kn = m_ops.leaf_lower_bound(node, key);
+            if (kn < m_ops.leafGetNumberOfKeys(node)) {
+                assert(kn < invalid_idx);
+                path.m_index = kn;
+            } else {
+                path.m_path= this->InitPath<NodePath>();
+            }
         }
 
         return path;
@@ -3359,23 +3382,39 @@ public:
         if (m_ops.isNullNode(root))
             return path;
 
-        auto node=root;
-        size_t node_index = 0;
-        for (;!m_ops.isLeaf(node);) {
+        auto pp = path;
+        this->NodePathPush<NodePath>(pp.m_path, root, 0);
+        std::vector<HolderPath> cncn = {pp};
+
+        for (;!this->exists(path) && !cncn.empty();) {
+            path = cncn.back();
+            cncn.pop_back();
+            auto node=this->GetNodeAncestor(path.m_path, 0);
+            size_t node_index = this->GetNodeIndex(path.m_path, 0);
+            this->NodePathPop<NodePath>(path.m_path);
+
+            for (;!m_ops.isLeaf(node);) {
+                this->NodePathPush<NodePath>(path.m_path, node, node_index);
+
+                auto kn = m_ops.interior_upper_bound(node, key);
+                if (kn + 1 < m_ops.getNumberOfChildren(node)) {
+                    auto cpp = path;
+                    auto nn = m_ops.getNthChild(node, kn+1);
+                    this->NodePathPush<NodePath>(cpp.m_path, nn, kn+1);
+                    cncn.push_back(cpp);
+                }
+                node = m_ops.getNthChild(node, kn);
+                node_index = kn;
+            }
+
             this->NodePathPush<NodePath>(path.m_path, node, node_index);
-
-            auto kn = m_ops.interior_upper_bound(node, key);
-            node = m_ops.getNthChild(node, kn);
-            node_index = kn;
-        }
-
-        this->NodePathPush<NodePath>(path.m_path, node, node_index);
-        auto kn = m_ops.leaf_upper_bound(node, key);
-        if (kn < m_ops.leafGetNumberOfKeys(node) && m_ops.keyCompareEqual(key, m_ops.leafGetNthKey(node, kn))) {
-            assert(kn < invalid_idx);
-            path.m_index = kn;
-        } else {
-            path.m_path= this->InitPath<NodePath>();
+            auto kn = m_ops.leaf_upper_bound(node, key);
+            if (kn < m_ops.leafGetNumberOfKeys(node)) {
+                assert(kn < invalid_idx);
+                path.m_index = kn;
+            } else {
+                path.m_path= this->InitPath<NodePath>();
+            }
         }
 
         return path;
