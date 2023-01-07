@@ -9,7 +9,7 @@
 using namespace SFFS;
 
 
-template<size_t Order=128, size_t Order2=Order*2>
+template<size_t Order, size_t Order2>
 struct TreeNode {
     bool isLeaf;
     struct InteriorNode {
@@ -75,13 +75,15 @@ struct TreeNode {
     }
 };
 
-template<size_t Order=128, size_t Order2=2*Order>
+template<size_t Order, size_t Order2, bool VallowEmptyLeaf>
 struct TreeNodeOps {
     typedef TreeNode<Order,Order2> *NODE;
     using HOLDER = int;
     using KEY = int;
 
     inline bool isLeaf(NODE node) const { return node->isLeaf; }
+
+    inline static constexpr bool allowEmptyLeaf(NODE node) { return VallowEmptyLeaf; }
 
     inline NODE getNthChild(NODE node, size_t nth) const {
         assert(nth < node->interior().children.size());
@@ -180,19 +182,19 @@ struct TreeNodeOps {
     inline bool nodeCompareEqual(NODE lhs, NODE rhs) const { return lhs == rhs; }
 };
 
-template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2=2*Order>
-using BASE_T = BPTreeAlgorithmImpl::BPTreeAlgorithm<TreeNodeOps<Order,Order2>,TreeNode<Order,Order2>*,int,int,parent_ops>;
+template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2, bool VallowEmptyLeaf>
+using BASE_T = BPTreeAlgorithmImpl::BPTreeAlgorithm<TreeNodeOps<Order,Order2,VallowEmptyLeaf>,TreeNode<Order,Order2>*,int,int,parent_ops>;
 
-template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2=2*Order>
-struct BPTREE: public BASE_T<Order,parent_ops,prev_ops,Order2> {
-    typedef TreeNode<Order>* NODE;
+template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2, bool VallowEmptyLeaf>
+struct BPTREE: public BASE_T<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf> {
+    typedef TreeNode<Order,Order2>* NODE;
 
     using NN   = std::remove_pointer_t<NODE>;
-    using BASE = BASE_T<Order,parent_ops,prev_ops,Order2>;
+    using BASE = BASE_T<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf>;
     using HolderPath = typename BASE::HolderPath;
     NODE root;
 
-    BPTREE(): BASE(TreeNodeOps<Order>()), root(nullptr) {}
+    BPTREE(): BASE(TreeNodeOps<Order,Order2,VallowEmptyLeaf>()), root(nullptr) {}
 
     bool insert(int val) {
         return this->insertHolder(this->root, std::move(val));
@@ -256,10 +258,10 @@ struct BPTREE: public BASE_T<Order,parent_ops,prev_ops,Order2> {
 
 
 static std::default_random_engine generator;
-template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2=2*Order>
+template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2, bool VallowEmptyLeaf>
 static void test_BPTREE_insert(size_t n) {
     std::uniform_int_distribution<int> distribution(-static_cast<int>(n) * 3,n * 3);
-    BPTREE<Order,parent_ops,prev_ops,Order2> tree;
+    BPTREE<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf> tree;
     std::set<int> vals;
 
     for (size_t i=0;i<n;i++) {
@@ -273,10 +275,10 @@ static void test_BPTREE_insert(size_t n) {
     }
 }
 
-template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2=2*Order>
+template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2, bool VallowEmptyLeaf>
 static void test_BPTREE_find(size_t n) {
     std::uniform_int_distribution<int> distribution(-static_cast<int>(n) * 3,n * 3);
-    BPTREE<Order,parent_ops,prev_ops,Order2> tree;
+    BPTREE<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf> tree;
     std::set<int> vals;
 
     for (size_t i=0;i<n;i++) {
@@ -296,10 +298,10 @@ static void test_BPTREE_find(size_t n) {
     }
 }
 
-template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2=2*Order>
+template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2, bool VallowEmptyLeaf>
 static void test_BPTREE_delete(size_t n) {
     std::uniform_int_distribution<int> distribution(-static_cast<int>(n) * 3,n * 3);
-    BPTREE<Order,parent_ops,prev_ops,Order2> tree;
+    BPTREE<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf> tree;
     std::set<int> vals;
 
     for (size_t i=0;i<n;i++) {
@@ -321,10 +323,10 @@ static void test_BPTREE_delete(size_t n) {
     }
 }
 
-template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2=2*Order>
+template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2, bool VallowEmptyLeaf>
 static void test_BPTREE_delete2(size_t n) {
     std::uniform_int_distribution<int> distribution(-static_cast<int>(n) * 3,n * 3);
-    BPTREE<Order,parent_ops,prev_ops,Order2> tree;
+    BPTREE<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf> tree;
     std::set<int> vals;
 
     for (size_t i=0;i<n;i++) {
@@ -344,10 +346,10 @@ static void test_BPTREE_delete2(size_t n) {
     }
 }
 
-template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2=2*Order>
+template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2, bool VallowEmptyLeaf>
 static void test_BPTREE_lower_bound(size_t n) {
     std::uniform_int_distribution<int> distribution(-static_cast<int>(n) * 3,n * 3);
-    BPTREE<Order,parent_ops,prev_ops,Order2> tree;
+    BPTREE<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf> tree;
     std::set<int> vals;
 
     for (size_t i=0;i<n;i++) {
@@ -368,10 +370,10 @@ static void test_BPTREE_lower_bound(size_t n) {
     }
 }
 
-template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2=2*Order>
+template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2, bool VallowEmptyLeaf>
 static void test_BPTREE_upper_bound(size_t n) {
     std::uniform_int_distribution<int> distribution(-static_cast<int>(n) * 3,n * 3);
-    BPTREE<Order,parent_ops,prev_ops,Order2> tree;
+    BPTREE<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf> tree;
     std::set<int> vals;
 
     for (size_t i=0;i<n;i++) {
@@ -392,10 +394,10 @@ static void test_BPTREE_upper_bound(size_t n) {
     }
 }
 
-template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2=2*Order>
+template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2, bool VallowEmptyLeaf>
 static void test_BPTREE_forward_backward(size_t n) {
     std::uniform_int_distribution<int> distribution(-static_cast<int>(n) * 3,n * 3);
-    BPTREE<Order,parent_ops,prev_ops,Order2> tree;
+    BPTREE<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf> tree;
     std::set<int> vals;
 
     for (size_t i=0;i<n;i++) {
@@ -433,81 +435,189 @@ static void test_BPTREE_forward_backward(size_t n) {
     }
 }
 
+template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2, bool VallowEmptyLeaf>
+static void test_BPTREE_mixture(size_t n) {
+    std::uniform_int_distribution<int> distribution(-static_cast<int>(n) * 3,n * 3);
+    BPTREE<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf> tree;
+    std::set<int> vals;
 
-#define SETUP_TEST_FUNC_N(func, Order, parent_ops,prev_ops,Order2) \
-    func<Order,parent_ops,prev_ops,Order2>(0); \
-    func<Order,parent_ops,prev_ops,Order2>(1); \
-    func<Order,parent_ops,prev_ops,Order2>(2); \
-    func<Order,parent_ops,prev_ops,Order2>(3); \
-    func<Order,parent_ops,prev_ops,Order2>(4); \
-    func<Order,parent_ops,prev_ops,Order2>(5); \
-    func<Order,parent_ops,prev_ops,Order2>(10); \
-    func<Order,parent_ops,prev_ops,Order2>(100); \
-    func<Order,parent_ops,prev_ops,Order2>(1000); \
-    func<Order,parent_ops,prev_ops,Order2>(10000); \
-    // func<Order,parent_ops,prev_ops,Order2>(100000); \
-    func<Order,parent_ops,prev_ops,Order2>(1000000); \
-    // func<Order,parent_ops,prev_ops,Order2>(10000000); \
-    func<Order,parent_ops,prev_ops,Order2>(100000000)
+    for (size_t i=0;i<n;i++) {
+        auto val = distribution(generator);
+        tree.insert(val);
+        vals.insert(val);
+    }
 
-#define SETUP_TEST_FUNC(func, parent_ops) \
-    SETUP_TEST_FUNC_N(func, 2, parent_ops,false,2*2); \
-    SETUP_TEST_FUNC_N(func, 3, parent_ops,false,2*3); \
-    SETUP_TEST_FUNC_N(func, 4, parent_ops,false,2*4); \
-    SETUP_TEST_FUNC_N(func, 8, parent_ops,false,2*8); \
-    SETUP_TEST_FUNC_N(func, 16, parent_ops,false,2*16); \
-    SETUP_TEST_FUNC_N(func, 32, parent_ops,false,2*32); \
-    SETUP_TEST_FUNC_N(func, 64, parent_ops,false,2*64); \
-    SETUP_TEST_FUNC_N(func, 128, parent_ops,false,2*128);
+    {
+        auto beg = vals.begin();
+        for (size_t i=0;i<n;i++) {
+            auto val = distribution(generator);
+            const auto found = vals.find(val) != vals.end();
+            if (found) vals.erase(vals.find(val));
+            auto a1 = tree.deleteByKey(val);
+            if (i % 1000 == 0 || i + 1 ==vals.size())
+                tree.check_consistency();
+            ASSERT_EQ(a1, found);
+        }
+    }
+
+    for (size_t i=0;i<n;i++) {
+        auto val = distribution(generator);
+        
+        const auto nofound = vals.find(val) == vals.end();
+        ASSERT_EQ(tree.insert(val), nofound);
+        if (i % 1000 == 0 || i + 1 ==n)
+            tree.check_consistency();
+        vals.insert(val);
+    }
+
+    {
+        auto tbeg = tree.begin();
+        auto beg  = vals.begin();
+        for (;beg != vals.end();beg++,tree.forward(tbeg)) {
+            ASSERT_TRUE(tree.exists(tbeg));
+            auto val = *beg;
+            auto v2  = tree.getHolder(tbeg);
+            ASSERT_EQ(val, v2);
+        }
+
+        ASSERT_TRUE(!tree.exists(tbeg));
+
+        if (n > 0) {
+            beg--;
+            tree.backward(tbeg);
+        }
+        for (;beg != vals.begin();beg--,tree.backward(tbeg)) {
+            ASSERT_TRUE(tree.exists(tbeg));
+            auto val = *beg;
+            auto v2  = tree.getHolder(tbeg);
+            ASSERT_EQ(val, v2);
+        }
+        if (n > 0) {
+            ASSERT_TRUE(tree.exists(tbeg));
+            auto val = *beg;
+            auto v2  = tree.getHolder(tbeg);
+            ASSERT_EQ(val, v2);
+        }
+    }
+
+    for (size_t i=0;i<n;i++) {
+        auto val = distribution(generator);
+        auto a1 = tree.lower_bound(val);
+        auto a2 = vals.lower_bound(val);
+
+        ASSERT_EQ(a1.has_value(), a2 != vals.end());
+        if (a1.has_value()) {
+            ASSERT_EQ(tree.getHolder(a1.value()), *a2);
+        }
+    }
+
+    for (size_t i=0;i<n;i++) {
+        auto val = distribution(generator);
+        auto a1 = tree.upper_bound(val);
+        auto a2 = vals.upper_bound(val);
+
+        ASSERT_EQ(a1.has_value(), a2 != vals.end());
+        if (a1.has_value()) {
+            ASSERT_EQ(tree.getHolder(a1.value()), *a2);
+        }
+    }
+}
+
+#define SETUP_TEST_FUNC_N(func, Order, parent_ops,prev_ops,Order2, allowEL) \
+    func<Order,parent_ops,prev_ops,Order2,allowEL>(0); \
+    func<Order,parent_ops,prev_ops,Order2,allowEL>(1); \
+    func<Order,parent_ops,prev_ops,Order2,allowEL>(2); \
+    func<Order,parent_ops,prev_ops,Order2,allowEL>(3); \
+    func<Order,parent_ops,prev_ops,Order2,allowEL>(4); \
+    func<Order,parent_ops,prev_ops,Order2,allowEL>(5); \
+    func<Order,parent_ops,prev_ops,Order2,allowEL>(10); \
+    func<Order,parent_ops,prev_ops,Order2,allowEL>(100); \
+    func<Order,parent_ops,prev_ops,Order2,allowEL>(1000); \
+    func<Order,parent_ops,prev_ops,Order2,allowEL>(10000); \
+    // func<Order,parent_ops,prev_ops,Order2,allowEL>(100000); \
+    func<Order,parent_ops,prev_ops,Order2,allowEL>(1000000); \
+    // func<Order,parent_ops,prev_ops,Order2,allowEL>(10000000); \
+    func<Order,parent_ops,prev_ops,Order2,allowEL>(100000000)
+
+#define SETUP_TEST_FUNC(func, parent_ops, allowEmptyLeaf) \
+    SETUP_TEST_FUNC_N(func, 2, parent_ops,false,2*2, allowEmptyLeaf); \
+    SETUP_TEST_FUNC_N(func, 3, parent_ops,false,2*3, allowEmptyLeaf); \
+    SETUP_TEST_FUNC_N(func, 4, parent_ops,false,2*4, allowEmptyLeaf); \
+    SETUP_TEST_FUNC_N(func, 8, parent_ops,false,2*8, allowEmptyLeaf); \
+    SETUP_TEST_FUNC_N(func, 16, parent_ops,false,2*16, allowEmptyLeaf); \
+    SETUP_TEST_FUNC_N(func, 32, parent_ops,false,2*32, allowEmptyLeaf); \
+    SETUP_TEST_FUNC_N(func, 64, parent_ops,false,2*64, allowEmptyLeaf); \
+    SETUP_TEST_FUNC_N(func, 128, parent_ops,false,2*128, allowEmptyLeaf);
 
 
-/*
 TEST(BPTREE_without_parent_ops, insert) {
-    SETUP_TEST_FUNC(test_BPTREE_insert, false);
+    SETUP_TEST_FUNC(test_BPTREE_insert, false, true);
+    SETUP_TEST_FUNC(test_BPTREE_insert, false, false);
 }
 TEST(BPTREE_with_parent_ops, insert) {
-    SETUP_TEST_FUNC(test_BPTREE_insert, true);
+    SETUP_TEST_FUNC(test_BPTREE_insert, true, true);
+    SETUP_TEST_FUNC(test_BPTREE_insert, true, false);
 }
 
 TEST(BPTREE_without_parent_ops, find) {
-    SETUP_TEST_FUNC(test_BPTREE_find, false);
+    SETUP_TEST_FUNC(test_BPTREE_find, false, true);
+    SETUP_TEST_FUNC(test_BPTREE_find, false, false);
 }
 TEST(BPTREE_with_parent_ops, find) {
-    SETUP_TEST_FUNC(test_BPTREE_find, true);
+    SETUP_TEST_FUNC(test_BPTREE_find, true, true);
+    SETUP_TEST_FUNC(test_BPTREE_find, true, false);
 }
 
 TEST(BPTREE_without_parent_ops, delete) {
-    SETUP_TEST_FUNC(test_BPTREE_delete, false);
+    SETUP_TEST_FUNC(test_BPTREE_delete, false, true);
+    SETUP_TEST_FUNC(test_BPTREE_delete, false, false);
 }
 TEST(BPTREE_with_parent_ops, delete) {
-    SETUP_TEST_FUNC(test_BPTREE_delete, true);
+    SETUP_TEST_FUNC(test_BPTREE_delete, true, true);
+    SETUP_TEST_FUNC(test_BPTREE_delete, true, false);
 }
 
 TEST(BPTREE_without_parent_ops, delete2) {
-    SETUP_TEST_FUNC(test_BPTREE_delete2, false);
+    SETUP_TEST_FUNC(test_BPTREE_delete2, false, true);
+    SETUP_TEST_FUNC(test_BPTREE_delete2, false, false);
 }
 TEST(BPTREE_with_parent_ops, delete2) {
-    SETUP_TEST_FUNC(test_BPTREE_delete2, true);
+    SETUP_TEST_FUNC(test_BPTREE_delete2, true, true);
+    SETUP_TEST_FUNC(test_BPTREE_delete2, true, false);
 }
 
 TEST(BPTREE_without_parent_ops, lower_bound) {
-    SETUP_TEST_FUNC(test_BPTREE_lower_bound, false);
+    SETUP_TEST_FUNC(test_BPTREE_lower_bound, false, true);
+    SETUP_TEST_FUNC(test_BPTREE_lower_bound, false, false);
 }
 TEST(BPTREE_with_parent_ops, lower_bound) {
-    SETUP_TEST_FUNC(test_BPTREE_lower_bound, true);
+    SETUP_TEST_FUNC(test_BPTREE_lower_bound, true, true);
+    SETUP_TEST_FUNC(test_BPTREE_lower_bound, true, false);
 }
 
 TEST(BPTREE_without_parent_ops, upper_bound) {
-    SETUP_TEST_FUNC(test_BPTREE_upper_bound, false);
+    SETUP_TEST_FUNC(test_BPTREE_upper_bound, false, true);
+    SETUP_TEST_FUNC(test_BPTREE_upper_bound, false, false);
 }
 TEST(BPTREE_with_parent_ops, upper_bound) {
-    SETUP_TEST_FUNC(test_BPTREE_upper_bound, true);
+    SETUP_TEST_FUNC(test_BPTREE_upper_bound, true, true);
+    SETUP_TEST_FUNC(test_BPTREE_upper_bound, true, false);
 }
 
 TEST(BPTREE_without_parent_ops, forward_backward) {
-    SETUP_TEST_FUNC(test_BPTREE_forward_backward, false);
+    SETUP_TEST_FUNC(test_BPTREE_forward_backward, false, true);
+    SETUP_TEST_FUNC(test_BPTREE_forward_backward, false, false);
 }
 TEST(BPTREE_with_parent_ops, forward_backward) {
-    SETUP_TEST_FUNC(test_BPTREE_forward_backward, true);
+    SETUP_TEST_FUNC(test_BPTREE_forward_backward, true, true);
+    SETUP_TEST_FUNC(test_BPTREE_forward_backward, true, false);
 }
-*/
+
+TEST(BPTREE_without_parent_ops, mixture) {
+    SETUP_TEST_FUNC(test_BPTREE_mixture, false, true);
+    SETUP_TEST_FUNC(test_BPTREE_mixture, false, false);
+}
+TEST(BPTREE_with_parent_ops, mixture) {
+    SETUP_TEST_FUNC(test_BPTREE_mixture, true, true);
+    SETUP_TEST_FUNC(test_BPTREE_mixture, true, false);
+}
