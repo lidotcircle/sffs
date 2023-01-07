@@ -3204,8 +3204,7 @@ public:
             auto ans = m_ops.extractNthHolder(node, path.m_index);
             if (path.m_index + 1 < s) {
                 this->leafShiftLeft(node, path.m_index);
-            }
-            if (path.m_index == s - 1) {
+            } else if (path.m_index + 1 == s) {
                 this->fixInteriorKey(path.m_path);
             }
             if (depth > 1) {
@@ -3452,45 +3451,48 @@ public:
         assert(m_ops.isLeaf(leaf));
         if (path.m_index + 1 < m_ops.leafGetNumberOfKeys(leaf)) {
             path.m_index++;
-        } else {
-            auto n = m_ops.leafGetNext(leaf);
-            if (m_ops.isNullNode(n)) {
-                path.m_path = this->InitPath<NodePath>();
-            } else {
-                if constexpr (parents_ops) {
-                    path.m_path = n;
-                } else {
-                    path.m_path.back() = { n, 0 };
-                    const size_t v = path.m_path.size();
-                    for (size_t i=2;i<=v;i++) {
-                        assert(i < v);
-                        auto pp = path.m_path[v-i-1].first;
-                        auto& kk = path.m_path[v-i];
-                        if (m_ops.getNumberOfChildren(pp) > kk.second + 1) {
-                            kk = { m_ops.getNthChild(pp, kk.second + 1), kk.second + 1 };
-
-                            for (size_t j=i-1;j>=2;j--) {
-                                auto upp = path.m_path[v-j-1].first;
-                                path.m_path[v-j] = { m_ops.getNthChild(upp, 0), 0 };
-                            }
-
-                            break;
-                        }
-                    }
-                }
-                path.m_index = 0;
-            }
+            return;
         }
+
+        auto n = m_ops.leafGetNext(leaf);
+        if (m_ops.isNullNode(n)) {
+            path.m_path = this->InitPath<NodePath>();
+            return;
+        }
+
+        if constexpr (parents_ops) {
+            path.m_path = n;
+        } else {
+            const size_t v = path.m_path.size();
+            for (size_t i=1;i<=v;i++) {
+                assert(i < v);
+                auto pp = path.m_path[v-i-1].first;
+                auto& kk = path.m_path[v-i];
+                if (m_ops.getNumberOfChildren(pp) > kk.second + 1) {
+                    kk = { m_ops.getNthChild(pp, kk.second + 1), kk.second + 1 };
+
+                    for (size_t j=i-1;j>=1;j--) {
+                        auto upp = path.m_path[v-j-1].first;
+                        path.m_path[v-j] = { m_ops.getNthChild(upp, 0), 0 };
+                    }
+
+                    break;
+                }
+            }
+            assert(m_ops.nodeCompareEqual(this->GetNodeAncestor(path.m_path, 0), n));
+        }
+        path.m_index = 0;
     }
 
     inline void backward(NODE root, HolderPath& path) {
-        if (path.m_index > 0) {
+        if (this->exists(path) && path.m_index > 0) {
             path.m_index--;
             return;
         }
 
         auto leaf = this->GetNodeAncestor(path.m_path, 0);
         auto prev = m_ops.getNullNode();
+        assert(m_ops.isNullNode(leaf) || m_ops.isLeaf(leaf));
 
         if constexpr (traits::has_leafGetPrev && traits::has_leafSetPrev) {
             prev = m_ops.isNullNode(leaf) ? this->getLastLeaf(root) : m_ops.leafGetPrev(leaf);
@@ -3506,33 +3508,45 @@ public:
 
         if (m_ops.isNullNode(prev)) {
             path.m_path = this->InitPath<NodePath>();
+            return;
+        }
+
+        if constexpr (parents_ops) {
+            path.m_path = prev;
         } else {
-            if constexpr (parents_ops) {
-                path.m_path = prev;
+            if (m_ops.isNullNode(leaf)) {
+                auto node = root;
+                auto idx = 0;
+                for (;!m_ops.isLeaf(node);) {
+                    this->NodePathPush<NodePath>(path.m_path, node, idx);
+                    idx = m_ops.getNumberOfChildren(node);
+                    assert(idx > 0);
+                    idx--;
+                    node = m_ops.getNthChild(node, idx);
+                }
+                this->NodePathPush<NodePath>(path.m_path, node, idx);
             } else {
                 const size_t v = path.m_path.size();
-                for (size_t i=2;i<=v;i++) {
+                for (size_t i=1;i<=v;i++) {
                     assert(i < v);
                     auto pp = path.m_path[v-i-1].first;
                     auto& kk = path.m_path[v-i];
-                    if (kk.second > 1) {
+                    if (kk.second >= 1) {
                         kk = { m_ops.getNthChild(pp, kk.second - 1), kk.second - 1 };
 
-                        for (size_t j=i-1;j>=2;j--) {
+                        for (size_t j=i-1;j>=1;j--) {
                             auto upp = path.m_path[v-j-1].first;
-                            auto ss = m_ops.getNumberOfChildren(upp);
+                            const auto ss = m_ops.getNumberOfChildren(upp);
                             path.m_path[v-j] = { m_ops.getNthChild(upp, ss-1), ss-1 };
                         }
 
                         break;
                     }
                 }
-                auto pp =this->GetNodeAncestor(path.m_path, 1);
-                assert(m_ops.nodeCompareEqual(m_ops.getLastChild(pp), prev));
-                path.m_path.back() = { prev, m_ops.getNumberOfChildren(pp) - 1};
             }
-            path.m_index = m_ops.leafGetNumberOfKeys(prev) - 1;
+            assert(m_ops.nodeCompareEqual(this->GetNodeAncestor(path.m_path, 0), prev));
         }
+        path.m_index = m_ops.leafGetNumberOfKeys(prev) - 1;
     }
 
     inline HOLDER getHolder(const HolderPath& path) {
