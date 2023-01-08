@@ -1,5 +1,5 @@
 #pragma once
-#include <optional>
+#include <utility>
 #include <cassert>
 #include <cstddef>
 
@@ -17,7 +17,7 @@ public:
     inline void push_back(K&& val) { assert(m_size < N); m_array[m_size++].construct_with(std::forward<K>(val));  }
     template<typename ... Args>
     inline void emplace_back(Args&& ... args) { assert(m_size < N); m_array[m_size++].construct_with(std::forward<Args>(args)...);  }
-    inline void pop_back()       { assert(m_size > 0); m_array[m_size--].destroy();  }
+    inline void pop_back()       { assert(m_size > 0); m_array[--m_size].destroy();  }
 
     inline T&       operator[](size_t idx) { assert(idx < m_size); return m_array[idx].as(); }
     inline const T& operator[](size_t idx) const { assert(idx < m_size); return m_array[idx].as(); }
@@ -30,19 +30,20 @@ public:
     }
 
     inline maxsize_vector(): m_size(0) {}
+    inline ~maxsize_vector() { this->clear(); }
 
 private:
     struct DT {
         template<typename ... Args>
-        void construct_with(Args&& ... args) { m_value = T(std::forward<Args>(args)...); }
+        void construct_with(Args&& ... args) { new (m_buf) T(std::forward<Args>(args)...); }
 
-        void destroy() { m_value = std::nullopt; }
+        void destroy() { this->as().~T(); }
 
-        T& as() { return m_value.value(); }
-        const T& as() const { return m_value.value(); }
+        const T& as() const { return const_cast<DT*>(this)->as(); }
+        T& as() { return *reinterpret_cast<T*>(static_cast<void*>(m_buf)); }
 
     private:
-        std::optional<T> m_value;
+        alignas(T) std::byte m_buf[sizeof(T)];
     };
     size_t m_size;
     DT m_array[N];
