@@ -83,7 +83,7 @@ struct TreeNodeOps {
 
     inline bool isLeaf(NODE node) const { return node->isLeaf; }
 
-    inline static constexpr bool allowEmptyLeaf(NODE node) { return VallowEmptyLeaf; }
+    inline static constexpr bool allowEmptyLeaf() { return VallowEmptyLeaf; }
 
     inline NODE getNthChild(NODE node, size_t nth) const {
         assert(nth < node->interior().children.size());
@@ -267,8 +267,8 @@ static void test_BPTREE_insert(size_t n) {
     for (size_t i=0;i<n;i++) {
         auto val = distribution(generator);
         
-        const auto nofound = vals.find(val) == vals.end();
-        ASSERT_EQ(tree.insert(val), nofound);
+        const auto notfound = vals.find(val) == vals.end();
+        ASSERT_EQ(tree.insert(val), notfound);
         if (i % 1000 == 0 || i + 1 ==n)
             tree.check_consistency();
         vals.insert(val);
@@ -463,8 +463,16 @@ static void test_BPTREE_mixture(size_t n) {
     for (size_t i=0;i<n;i++) {
         auto val = distribution(generator);
         
-        const auto nofound = vals.find(val) == vals.end();
-        ASSERT_EQ(tree.insert(val), nofound);
+        const auto notfound = vals.find(val) == vals.end();
+        const auto irss = tree.insert(val);
+        if (irss != notfound) {
+            tree.check_consistency();
+            if (!irss) {
+                const auto kk = tree.find(val);
+                const auto jj = tree.insert(val);
+            }
+        }
+        ASSERT_EQ(irss, notfound);
         if (i % 1000 == 0 || i + 1 ==n)
             tree.check_consistency();
         vals.insert(val);
@@ -505,6 +513,10 @@ static void test_BPTREE_mixture(size_t n) {
         auto a1 = tree.lower_bound(val);
         auto a2 = vals.lower_bound(val);
 
+        if (a1.has_value() != (a2 != vals.end())) {
+            const auto ax = tree.lower_bound(val);
+            ax.has_value();
+        }
         ASSERT_EQ(a1.has_value(), a2 != vals.end());
         if (a1.has_value()) {
             ASSERT_EQ(tree.getHolder(a1.value()), *a2);
