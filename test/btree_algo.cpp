@@ -4,8 +4,7 @@
 #include <set>
 #include <random>
 #include <optional>
-#include "sffs.h"
-using namespace SFFS;
+#include "btree.h"
 
 
 template<size_t Order=128>

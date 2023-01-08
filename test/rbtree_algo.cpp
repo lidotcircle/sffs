@@ -3,8 +3,7 @@
 #include <map>
 #include <set>
 #include <random>
-#include "sffs.h"
-using namespace SFFS;
+#include "rbtree.h"
 
 
 struct TreeNode {

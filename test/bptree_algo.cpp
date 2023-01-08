@@ -5,8 +5,7 @@
 #include <random>
 #include <optional>
 #include <variant>
-#include "sffs.h"
-using namespace SFFS;
+#include "bptree.h"
 
 
 template<size_t Order, size_t Order2>
@@ -546,7 +545,7 @@ static void test_BPTREE_mixture(size_t n) {
     func<Order,parent_ops,prev_ops,Order2,allowEL>(100); \
     func<Order,parent_ops,prev_ops,Order2,allowEL>(1000); \
     func<Order,parent_ops,prev_ops,Order2,allowEL>(10000); \
-    // func<Order,parent_ops,prev_ops,Order2,allowEL>(100000); \
+    func<Order,parent_ops,prev_ops,Order2,allowEL>(100000); \
     func<Order,parent_ops,prev_ops,Order2,allowEL>(1000000); \
     // func<Order,parent_ops,prev_ops,Order2,allowEL>(10000000); \
     func<Order,parent_ops,prev_ops,Order2,allowEL>(100000000)
