@@ -45,8 +45,8 @@ public:
     inline void emplace_back(Args&& ... args) { assert(m_size < N); m_array[m_size++].construct_with(std::forward<Args>(args)...);  }
     inline void pop_back()       { assert(m_size > 0); m_array[m_size--].destroy();  }
 
-    inline T&       operator[](size_t idx) { return m_array[idx].as(); }
-    inline const T& operator[](size_t idx) const { return m_array[idx].as(); }
+    inline T&       operator[](size_t idx) { assert(idx < m_size); return m_array[idx].as(); }
+    inline const T& operator[](size_t idx) const { assert(idx < m_size); return m_array[idx].as(); }
 
     inline bool empty() const { return m_size == 0; }
 
@@ -60,24 +60,15 @@ public:
 private:
     struct DT {
         template<typename ... Args>
-        void construct_with(Args&& ... args) {
-            new (m_buff)T(std::forward<Args>(args)...);
-        }
+        void construct_with(Args&& ... args) { m_value = T(std::forward<Args>(args)...); }
 
-        void destroy() { this->as().~T(); }
+        void destroy() { m_value = std::nullopt; }
 
-        T& as() {
-            auto ptr = reinterpret_cast<T*>(static_cast<void*>(m_buff));
-            return *ptr;
-        }
-
-        const T& as() const {
-            const auto ptr = reinterpret_cast<const T*>(static_cast<const void*>(m_buff));
-            return *ptr;
-        }
+        T& as() { return m_value.value(); }
+        const T& as() const { return m_value.value(); }
 
     private:
-        alignas(T) std::byte m_buff[sizeof(T)];
+        std::optional<T> m_value;
     };
     size_t m_size;
     DT m_array[N];
@@ -1626,6 +1617,7 @@ private:
             }
         }
         assert(false && "NOT FOUND");
+        return 0;
     }
 
     template<typename N,std::enable_if_t<!std::is_same_v<N,NODE>,bool> = true>
@@ -2591,6 +2583,7 @@ struct BPTreeOpWrapper {
         if constexpr (traits::has_leafGetPrev) {
             return m_ops.leafGetPrev(node);
         } else {
+            assert(false);
             return this->getNullNode();
         }
     }
@@ -2795,6 +2788,7 @@ private:
             }
         }
         assert(false && "NOT FOUND");
+        return 0;
     }
 
     template<typename N,std::enable_if_t<!std::is_same_v<N,NODE>,bool> = true>
@@ -3128,6 +3122,30 @@ private:
         return root;
     }
 
+    inline NodePath getLastLeafPath(NODE root) {
+        auto ans = this->InitPath<NodePath>();
+        if (m_ops.isNullNode(root)) return ans;
+
+        auto node=root;
+        auto ss = 1;
+        for (;!m_ops.isLeaf(node);ss=m_ops.getNumberOfChildren(node), node=m_ops.getLastChild(node)) {
+            assert(!m_ops.isNullNode(node));
+            if constexpr (parents_ops) {
+                ans = node;
+            } else {
+                ans.push_back(std::make_pair(node,ss-1));
+            }
+        }
+
+        if constexpr (parents_ops) {
+            ans = node;
+        } else {
+            ans.push_back(std::make_pair(node,ss-1));
+        }
+
+        return ans;
+    }
+
     inline NODE nextLeafNode(NODE node) { return m_ops.leafGetNext(node); }
 
     inline NODE prevLeafNode(NODE root, NODE node) {
@@ -3156,9 +3174,11 @@ private:
     inline void nextLeafPath(NodePath& path)
     {
         if constexpr (parents_ops) {
+            assert(!m_ops.isNullNode(path));
             path = this->nextLeafNode(path);
         } else {
             const size_t v = this->GetPathDepth(path);
+            assert(v > 0);
             for (size_t i=1;i<=v;i++) {
                 if (i==v) {
                     path = this->InitPath<NodePath>();
@@ -3192,9 +3212,11 @@ private:
 
     inline void prevLeafPath(NodePath& path) {
         if constexpr (parents_ops) {
+            assert(!m_ops.isNullNode(path));
             path = this->prevLeafNode(this->GetRoot(path), path);
         } else {
             const size_t v = this->GetPathDepth(path);
+            assert(v > 0);
             for (size_t i=1;i<=v;i++) {
                 if (i==v) {
                     path = this->InitPath<NodePath>();
@@ -3211,7 +3233,7 @@ private:
                     for (size_t j=i-1;j>=1;j--) {
                         auto upp = this->GetNodeAncestor(path, 0);
                         const auto ss = m_ops.getNumberOfChildren(upp);
-                        this->NodePathPush<NodePath>(path, m_ops.getNthChild(upp, ss), ss-1);
+                        this->NodePathPush<NodePath>(path, m_ops.getNthChild(upp, ss - 1), ss-1);
                     }
                     break;
                 }
@@ -3621,41 +3643,15 @@ public:
     }
 
     inline void forward(NODE root, HolderPath& path) {
-        auto leaf = this->GetNodeAncestor(path.m_path, 0);
+        const auto leaf = this->GetNodeAncestor(path.m_path, 0);
         assert(m_ops.isLeaf(leaf));
         if (path.m_index + 1 < m_ops.leafGetNumberOfKeys(leaf)) {
             path.m_index++;
             return;
         }
 
-        auto n = m_ops.leafGetNext(leaf);
-        if (m_ops.isNullNode(n)) {
-            path.m_path = this->InitPath<NodePath>();
-            return;
-        }
-
-        if constexpr (parents_ops) {
-            path.m_path = n;
-        } else {
-            const size_t v = path.m_path.size();
-            for (size_t i=1;i<=v;i++) {
-                assert(i < v);
-                auto pp = path.m_path[v-i-1].first;
-                auto& kk = path.m_path[v-i];
-                if (m_ops.getNumberOfChildren(pp) > kk.second + 1) {
-                    kk = { m_ops.getNthChild(pp, kk.second + 1), kk.second + 1 };
-
-                    for (size_t j=i-1;j>=1;j--) {
-                        auto upp = path.m_path[v-j-1].first;
-                        path.m_path[v-j] = { m_ops.getNthChild(upp, 0), 0 };
-                    }
-
-                    break;
-                }
-            }
-            assert(m_ops.nodeCompareEqual(this->GetNodeAncestor(path.m_path, 0), n));
-        }
         path.m_index = 0;
+        this->nextLeafPath(path.m_path);
         if constexpr (t_allowEmptyLeaf) this->emptyLeafNodeForward(path);
     }
 
@@ -3663,54 +3659,20 @@ public:
         if (this->exists(path) && path.m_index > 0) {
             path.m_index--;
             return;
-        }
-
-        auto leaf = this->GetNodeAncestor(path.m_path, 0);
-        assert(m_ops.isNullNode(leaf) || m_ops.isLeaf(leaf));
-        auto prev = this->prevLeafNode(root, leaf);;
-
-        if (m_ops.isNullNode(prev)) {
-            path.m_path = this->InitPath<NodePath>();
+        } else if (!this->exists(path)) {
+            path = { this->getLastLeafPath(root), 0 };
+            if constexpr (t_allowEmptyLeaf) this->emptyLeafNodeBackward(path);
+            const auto ss = m_ops.leafGetNumberOfKeys(this->GetNodeAncestor(path.m_path, 0));
+            path.m_index = ss - 1;
             return;
         }
 
-        if constexpr (parents_ops) {
-            path.m_path = prev;
-        } else {
-            if (m_ops.isNullNode(leaf)) {
-                auto node = root;
-                auto idx = 0;
-                for (;!m_ops.isLeaf(node);) {
-                    this->NodePathPush<NodePath>(path.m_path, node, idx);
-                    idx = m_ops.getNumberOfChildren(node);
-                    assert(idx > 0);
-                    idx--;
-                    node = m_ops.getNthChild(node, idx);
-                }
-                this->NodePathPush<NodePath>(path.m_path, node, idx);
-            } else {
-                const size_t v = path.m_path.size();
-                for (size_t i=1;i<=v;i++) {
-                    assert(i < v);
-                    auto pp = path.m_path[v-i-1].first;
-                    auto& kk = path.m_path[v-i];
-                    if (kk.second >= 1) {
-                        kk = { m_ops.getNthChild(pp, kk.second - 1), kk.second - 1 };
-
-                        for (size_t j=i-1;j>=1;j--) {
-                            auto upp = path.m_path[v-j-1].first;
-                            const auto ss = m_ops.getNumberOfChildren(upp);
-                            path.m_path[v-j] = { m_ops.getNthChild(upp, ss-1), ss-1 };
-                        }
-
-                        break;
-                    }
-                }
-            }
-            assert(m_ops.nodeCompareEqual(this->GetNodeAncestor(path.m_path, 0), prev));
-        }
-        path.m_index = m_ops.leafGetNumberOfKeys(prev) - 1;
+        this->prevLeafPath(path.m_path);
         if constexpr (t_allowEmptyLeaf) this->emptyLeafNodeBackward(path);
+        if (this->exists(path)) {
+            const auto leaf = this->GetNodeAncestor(path.m_path, 0);
+            path.m_index = m_ops.leafGetNumberOfKeys(leaf) - 1;
+        }
     }
 
     inline HOLDER getHolder(const HolderPath& path) {

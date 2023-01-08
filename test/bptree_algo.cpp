@@ -257,7 +257,7 @@ struct BPTREE: public BASE_T<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf> {
 };
 
 
-static std::default_random_engine generator;
+static std::default_random_engine generator(0);
 template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2, bool VallowEmptyLeaf>
 static void test_BPTREE_insert(size_t n) {
     std::uniform_int_distribution<int> distribution(-static_cast<int>(n) * 3,n * 3);
