@@ -244,7 +244,6 @@ struct treeop_traits {
     static_assert(!complain ||  has_releaseEmptyNode,                 "should implement 'void releaseEmptyNode(NODE);'");
     static_assert(!complain ||  has_getKey,                           "should implement 'KEY getKey(const HOLDER&) const;'");
     static_assert(!complain ||  has_keyCompareLess,                   "should implement 'bool keyCompareLess(const KEY&, const KEY&) const;'");
-    static_assert(!complain ||  has_keyCompareEqual,                  "should implement 'bool keyCompareEqual(const KEY&, const KEY&) const;'");
     static_assert(!complain ||  has_nodeCompareEqual,                 "should implement 'bool nodeCompareEqual(NODE, NODE) const;'");
 
     static constexpr bool value = !std::is_reference_v<NODE> && !std::is_const_v<NODE> && std::is_copy_assignable_v<NODE> &&
@@ -259,7 +258,7 @@ struct treeop_traits {
                                   has_isNullNode && has_getNullNode &&
                                   has_leafGetNext && has_leafSetNext &&
                                   has_leafCreateEmptyNode && has_interiorCreateEmptyNode &&
-                                  has_getKey && has_keyCompareLess && has_keyCompareEqual &&
+                                  has_getKey && has_keyCompareLess &&
                                   has_nodeCompareEqual;
 };
 
@@ -375,7 +374,11 @@ struct BPTreeOpWrapper {
     inline bool keyCompareLess(const KEY& lhs, const KEY& rhs) const { return m_ops.keyCompareLess(lhs, rhs); }
 
     inline bool keyCompareEqual(const KEY& lhs, const KEY& rhs) const {
-        return m_ops.keyCompareEqual(lhs, rhs);
+        if constexpr (traits::has_keyCompareEqual) {
+            return m_ops.keyCompareEqual(lhs, rhs);
+        } else {
+            return !this->keyCompareLess(lhs, rhs) && !this->keyCompareLess(rhs, lhs);
+        }
     }
 
     inline bool nodeCompareEqual(NODE lhs, NODE rhs) const {
@@ -1453,5 +1456,3 @@ private:
     static constexpr bool t_allowEmptyLeaf = OpWrapper::allowEmptyLeaf();
 };
 }
-
-

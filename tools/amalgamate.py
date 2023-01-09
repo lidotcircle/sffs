@@ -70,6 +70,14 @@ class CharStream:
     def moveback(self):
         self.idx -= 1
 
+    def stripUntilNextline(self):
+        while not self.eof():
+            char = self.next()
+            if char_is_space(char) or char == '\n' or char == '\r':
+                continue;
+            self.moveback()
+            break
+
 
 class RuleEvaluator:
     def __init__(self):
@@ -291,11 +299,12 @@ class DFA_singleline(DFA):
 
 
 class TranslationUnitX:
-    def __init__(self, include_file_map):
+    def __init__(self, include_file_map, add_fileinfo):
         self.include_file_map = include_file_map
         self.result = []
         self.included = set()
         self.has_pragmaonce = False
+        self.add_fileinfo = add_fileinfo
 
     def log(self, *args, **kwargs):
         print(*args, file=sys.stderr, **kwargs);
@@ -349,17 +358,19 @@ class TranslationUnitX:
             self.log()
         else:
             text = self.readfile(filename)
-        streamTr = StreamTranslator(self, CharStream(text), real_filename)
+        streamTr = StreamTranslator(self, CharStream(text), real_filename,
+                                    filename is not None and self.add_fileinfo)
         streamTr.eval()
         return ''.join(self.result)
 
 
 class StreamTranslator:
-    def __init__(self, tu, stream, filename):
+    def __init__(self, tu, stream, filename, add_fileinfo):
         self.translationUnit = tu
         self.stream = stream
-        self.filename = filename
+        self.filename = os.path.abspath(filename)
         self.ruleEv = RuleEvaluator()
+        self.add_fileinfo = add_fileinfo
 
         def inc_rule(text, _):
             self.__rule_include(text)
@@ -373,8 +384,12 @@ class StreamTranslator:
         self.ruleEv.addRule(DFA_singleline(), sgl_rule)
 
     def eval(self):
+        if self.add_fileinfo:
+            self.translationUnit.pushtext(f"// @begin {self.filename} {'{'}\n")
         self.translationUnit.process(self.filename)
         self.ruleEv.eval(self.stream)
+        if self.add_fileinfo:
+            self.translationUnit.pushtext(f"// @end {self.filename} {'}'}\n")
 
     def __rule_include(self, text):
         mark = " "
@@ -416,12 +431,13 @@ class StreamTranslator:
             return
 
         if self.translationUnit.inc_has(mkt):
-            # TODO purge until next line
+            self.stream.stripUntilNextline();
             return
 
         mktfilename = self.translationUnit.include_file_map[mkt]
         mkttext = self.translationUnit.readfile(mktfilename)
-        mkteval = StreamTranslator(self.translationUnit, CharStream(mkttext), mktfilename)
+        mkteval = StreamTranslator(self.translationUnit, CharStream(mkttext),
+                                   mktfilename, self.translationUnit.add_fileinfo)
         mkteval.eval()
 
     def __rule_pragmaonce(self, _):
@@ -457,6 +473,9 @@ def main():
     argsparser.add_argument("-s", "--source",
         required=False, metavar="", help="input file, if not specified bundle all files with include")
     
+    argsparser.add_argument("--fileinfo", action="store_true",
+        help="add source files info to output file")
+
     argsparser.add_argument("-o", "--output",
         required=False, metavar="", help="output file")
     
@@ -466,7 +485,7 @@ def main():
     for incpath in args.inc:
         add_inc2map(include_file_map, os.path.abspath(incpath))
 
-    translationUnit = TranslationUnitX(include_file_map)
+    translationUnit = TranslationUnitX(include_file_map, args.fileinfo)
     output = translationUnit.eval(args.source)
     if args.output is not None:
         with open(args.output, 'w') as f:
@@ -477,4 +496,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

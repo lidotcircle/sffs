@@ -115,7 +115,6 @@ struct treeop_traits {
     static_assert(!complain ||  has_getNullNode,                 "should implement 'NODE getNullNode() const;'");
     static_assert(!complain ||  has_getKey,                      "should implement 'KYE getKey(NODE) const;'");
     static_assert(!complain ||  has_keyCompareLess,              "should implement 'bool keyCompareLess(const KEY&, const KEY&) const;'");
-    static_assert(!complain ||  has_keyCompareEqual,             "should implement 'bool keyCompareEqual(const KEY&, const KEY&) const;'");
     static_assert(!complain ||  has_nodeCompareEqual,            "should implement 'bool nodeCompareEqual(NODE, NODE) const;'");
 
     static constexpr bool value = !std::is_reference_v<NODE> && !std::is_const_v<NODE> && std::is_copy_assignable_v<NODE> &&
@@ -124,7 +123,7 @@ struct treeop_traits {
                                   has_getRight   && has_setRight &&
                                   has_isBlack    && has_setBlack &&
                                   has_isNullNode && has_getNullNode &&
-                                  has_getKey && has_keyCompareLess && has_keyCompareEqual &&
+                                  has_getKey && has_keyCompareLess &&
                                   has_nodeCompareEqual;
 };
 
@@ -164,11 +163,15 @@ struct RbtreeOpWrapper {
     inline bool keyCompareLess(NODE lhs, NODE rhs) const { return m_ops.keyCompareLess(m_ops.getKey(lhs), m_ops.getKey(rhs)); }
 
     inline bool keyCompareEqual(const KEY& lhs, const KEY& rhs) const {
-        return m_ops.keyCompareEqual(lhs, rhs);
+        if constexpr (traits::has_keyCompareEqual) {
+            return m_ops.keyCompareEqual(lhs, rhs);
+        } else {
+            return !this->keyCompareLess(lhs, rhs) && !this->keyCompareLess(rhs, lhs);
+        }
     }
 
     inline bool nodeCompareEqual(NODE lhs, NODE rhs) const {
-        if constexpr (treeop_traits<T,NODE,KEY>::has_nodeCompareEqual) {
+        if constexpr (traits::has_nodeCompareEqual) {
             return m_ops.nodeCompareEqual(lhs, rhs);
         } else {
             return lhs == rhs;
@@ -176,6 +179,7 @@ struct RbtreeOpWrapper {
     }
 
 private:
+    using traits = treeop_traits<T,NODE,KEY>;
     T m_ops;
 };
 
