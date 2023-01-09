@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 import argparse
 import os
 import glob
+import sys
 
 
 class DFA(ABC):
@@ -269,16 +270,19 @@ class DFA_singleline(DFA):
 class TranslationUnitX:
     def __init__(self, include_file_map):
         self.include_file_map = include_file_map
-        self.result = ""
+        self.result = []
         self.included = set()
         self.has_pragmaonce = False
 
+    def log(self, *args, **kwargs):
+        print(*args, file=sys.stderr, **kwargs);
+
     def pushtext(self, newtext):
-        self.result += newtext
+        self.result.append(newtext)
 
     def push_pragmaonce(self):
         if not self.has_pragmaonce:
-            self.result += "#pragma once"
+            self.result.append("#pragma once")
             self.has_pragmaonce = True
 
     def inc_has(self, inc):
@@ -292,18 +296,39 @@ class TranslationUnitX:
         return inc in self.include_file_map
 
     def process(self, file):
+        self.log(f"INFO: processing {file}")
         self.included.add(file)
 
     def readfile(self, file):
         return open(file, "r").read()
 
+    def _generate_bundler(self):
+        valid_suffix = [ '.h', '.c', '.hpp', '.cpp', '.cx', '.cxx', '.hx', '.hxx', '' ]
+        text = "#pragma once\n"
+        for key in self.include_file_map:
+            if self.include_file_map[key] != key:
+                continue
+            if os.path.splitext(key)[1] not in valid_suffix:
+                continue
+            text += f"#include\"{key}\"\n"
+        return text
+
     def eval(self, filename):
-        self.result = ""
+        self.result = []
         self.included = set()
         self.has_pragmaonce = False
-        streamTr = StreamTranslator(self, CharStream(self.readfile(filename)), filename)
+        real_filename = filename
+        text = ""
+        if filename is None:
+            real_filename = os.path.join(os.path.curdir, "__dummy_filename")
+            text = self._generate_bundler()
+            self.log(text)
+            self.log()
+        else:
+            text = self.readfile(filename)
+        streamTr = StreamTranslator(self, CharStream(text), real_filename)
         streamTr.eval()
-        return self.result
+        return ''.join(self.result)
 
 
 class StreamTranslator:
@@ -384,15 +409,17 @@ class StreamTranslator:
 
 
 def add_inc2map(incmap, incpath):
-    files = glob.glob(incpath + "**/*", recursive=True)
+    files = glob.glob(incpath + "/**/*", recursive=True)
     for inc in files:
+        if not os.path.isfile(inc):
+            continue
         pt = os.path.relpath(inc, incpath)
         kk = []
         pt, u = os.path.split(pt)
         kk.append(u)
         while pt != "":
             pt, u = os.path.split(pt)
-            kk.append(u)
+            kk.insert(0, u)
         incmap[inc] = inc
         incmap["/".join(kk)] = inc
 
@@ -405,7 +432,7 @@ def main():
         required=True, metavar="", help="include path (repeatable)")
     
     argsparser.add_argument("-s", "--source",
-        required=True, metavar="", help="input file")
+        required=False, metavar="", help="input file, if not specified bundle all files with include")
     
     argsparser.add_argument("-o", "--output",
         required=False, metavar="", help="output file")
@@ -417,7 +444,7 @@ def main():
         add_inc2map(include_file_map, os.path.abspath(incpath))
 
     translationUnit = TranslationUnitX(include_file_map)
-    output = translationUnit.eval(os.path.abspath(args.source))
+    output = translationUnit.eval(args.source)
     if args.output is not None:
         with open(args.output, 'w') as f:
             f.write(output)
