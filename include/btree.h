@@ -298,7 +298,7 @@ private:
 };
 
 template<typename T, typename NODE, typename HOLDER, typename KEY, bool enableParent=true,
-         size_t static_vector_size = 32,
+         bool multikey = false, size_t static_vector_size = 32,
          std::enable_if_t<treeop_traits<T,NODE,HOLDER,KEY,true>::value,bool> = true>
 class BTreeAlgorithm {
 public:
@@ -615,39 +615,55 @@ public:
         }
     }
 
-    inline bool insertHolder(NODE& root, HOLDER&& holder) {
+    inline HolderPath insertHolder(NODE& root, HOLDER&& holder) {
+        HolderPath ans = { this->InitPath<NodePath>(), 0 };
         if (m_ops.isNullNode(root)) {
             root = m_ops.createEmptyNode();
             m_ops.setNthHolder(root, 0, std::move(holder));
-            return true;
+            this->NodePathPush<NodePath>(ans.m_path, root, 0);
+            return ans;
         }
 
         const auto t = m_ops.getOrder();
         const auto key = m_ops.getKey(holder);
 
         auto parentNode = m_ops.getNullNode();
-        auto currentIdx = 2 * t;
+        auto currentIdx = 0;
         auto current = root;
 
         while (true) {
+            this->NodePathPush<NodePath>(ans.m_path, current, currentIdx);
             if (m_ops.isFull(current)) {
+                this->NodePathPop<NodePath>(ans.m_path);
                 auto result = this->splitFullNode(root, parentNode, currentIdx, current);
                 if (!m_ops.keyCompareLess(key, result.first)) {
                     current = result.second;
+                    currentIdx++;
                 }
+
+                if (m_ops.isNullNode(parentNode)) {
+                    this->NodePathPush<NodePath>(ans.m_path, root, 0);
+                }
+
+                this->NodePathPush<NodePath>(ans.m_path, current, currentIdx);
             }
 
             currentIdx = m_ops.upper_bound(current, key);
             assert (currentIdx <= m_ops.getNumberOfKeys(current));
 
-            if (currentIdx > 0 && m_ops.keyCompareEqual(key, m_ops.getNthKey(current, currentIdx-1))) {
-                return false;
+            if constexpr (!multikey) {
+                if (currentIdx > 0 &&
+                    m_ops.keyCompareEqual(key, m_ops.getNthKey(current, currentIdx-1)))
+                {
+                    return { this->InitPath<NodePath>(), 0 };
+                }
             }
 
             if (m_ops.isLeaf(current)) {
                 if (currentIdx < m_ops.getNumberOfKeys(current))
                     this->holderShiftRight(current, currentIdx);
 
+                ans.m_index = currentIdx;
                 m_ops.setNthHolder(current, currentIdx, std::move(holder));
                 break;
             } else {
@@ -656,7 +672,7 @@ public:
             }
         }
 
-        return true;
+        return ans;
     }
 
     inline HOLDER deleteHolder(NODE& root, HolderPath path) {

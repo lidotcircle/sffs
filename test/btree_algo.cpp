@@ -118,7 +118,7 @@ struct BTREE: public BASE_T<Order,parent_ops> {
     BTREE(): BASE(TreeNodeOps<Order>()), root(nullptr) {}
 
     bool insert(int val) {
-        return this->insertHolder(this->root, std::move(val));
+        return this->exists(this->insertHolder(this->root, std::move(val)));
     }
 
     std::optional<int> find(int key) {

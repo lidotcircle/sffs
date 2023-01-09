@@ -184,7 +184,7 @@ private:
 };
 
 template<typename T, typename NODE, typename KEY,
-         size_t static_vector_size = 128,
+         bool multikey = false, size_t static_vector_size = 128,
          std::enable_if_t<treeop_traits<T,NODE,KEY,true>::value,bool> = true>
 class RBTreeAlgorithm {
 public:
@@ -202,6 +202,22 @@ private:
     template<typename N,std::enable_if_t<!std::is_same_v<N,NODE>,bool> = true>
     inline NodePath InitPath() const {
         return NodePath();
+    }
+
+    inline void NodePathPush(NodePath& path, NODE node) const {
+        if constexpr (parents_ops) {
+            path = node;
+        } else {
+            path.push_back(node);
+        }
+    }
+
+    inline void NodePathPop(NodePath& path) const {
+        if constexpr (parents_ops) {
+            path = m_ops.getParent(path);
+        } else {
+            path.pop_back();
+        }
     }
 
     template<typename N,std::enable_if_t<std::is_same_v<N,NODE>,bool> = true>
@@ -449,11 +465,7 @@ private:
         if (m_ops.isNullNode(root)) return ans;
 
         for (auto node=root;!m_ops.isNullNode(node);node=m_ops.getRight(node)) {
-            if constexpr (parents_ops) {
-                ans = node;
-            } else {
-                ans.push_back(node);
-            }
+            this->NodePathPush(ans, node);
         }
 
         return ans;
@@ -478,16 +490,13 @@ public:
         NodePath nodepath = this->InitPath<NodePath>();
         m_ops.setBlack(node, false);
         for(;;) {
-            if (m_ops.keyCompareEqual(m_ops.getKey(node), m_ops.getKey(cn))) {
-                return false;
+            if constexpr (!multikey) {
+                if (m_ops.keyCompareEqual(m_ops.getKey(node), m_ops.getKey(cn))) {
+                    return false;
+                }
             }
 
-            if constexpr (parents_ops) {
-                nodepath = cn;
-            } else {
-                nodepath.push_back(cn);
-            }
-
+            this->NodePathPush(nodepath, cn);
             if (m_ops.keyCompareLess(node, cn)) {
                 if (m_ops.isNullNode(m_ops.getLeft(cn))) {
                     m_ops.setLeft(cn, node);
@@ -515,12 +524,7 @@ public:
             return true;
         }
 
-        if constexpr (parents_ops) {
-            nodepath = node;
-        } else {
-            nodepath.push_back(node);
-        }
-
+        this->NodePathPush(nodepath, node);
         for (auto p = this->GetNodeAncestor(nodepath, 1);
              !m_ops.isBlack(node) && p && !m_ops.isBlack(p);
              p = this->GetNodeAncestor(nodepath, 1))
@@ -536,11 +540,7 @@ public:
                     node = this->GetNodeAncestor(nodepath, 0);
                 } else {
                     node = p;
-                    if constexpr (!parents_ops) {
-                        nodepath.pop_back();
-                    } else {
-                        nodepath = node;
-                    }
+                    this->NodePathPop(nodepath);
                 }
                 assert(m_ops.nodeCompareEqual(m_ops.getLeft(pp), node));
                 nodeRightRotate(nodepath);
@@ -555,11 +555,7 @@ public:
                     node = this->GetNodeAncestor(nodepath, 0);
                 } else {
                     node = p;
-                    if constexpr (!parents_ops) {
-                        nodepath.pop_back();
-                    } else {
-                        nodepath = node;
-                    }
+                    this->NodePathPop(nodepath);
                 }
                 assert(m_ops.nodeCompareEqual(m_ops.getRight(pp), node));
                 nodeLeftRotate(nodepath);
@@ -633,18 +629,10 @@ public:
         {
             NodePath successor = nodePath;
             auto nn2 = m_ops.getRight(node);
-            if constexpr (parents_ops) {
-                successor = nn2;
-            } else {
-                successor.push_back(nn2);
-            }
+            this->NodePathPush(successor, nn2);
             for (;!m_ops.isNullNode(m_ops.getLeft(nn2));) {
                 nn2 = m_ops.getLeft(nn2);
-                if constexpr (parents_ops) {
-                    successor = nn2;
-                } else {
-                    successor.push_back(nn2);
-                }
+                this->NodePathPush(successor, nn2);
             }
 
             if (m_ops.nodeCompareEqual(root, node)) {
@@ -676,11 +664,7 @@ public:
 
         const auto node_parent = GetNodeAncestor(nodePath, 1);
         auto extra_parent_path = std::move(nodePath);
-        if constexpr (parents_ops) {
-            extra_parent_path = m_ops.getParent(extra_parent_path);
-        } else {
-            extra_parent_path.pop_back();
-        }
+        this->NodePathPop(extra_parent_path);
         bool need_extra_black = m_ops.isBlack(node) && !m_ops.isNullNode(node_parent);
         if (m_ops.isNullNode(m_ops.getLeft(node))) {
             if (!m_ops.isNullNode(m_ops.getRight(node))) {
@@ -766,11 +750,7 @@ public:
                         root = sibling;
                     }
 
-                    if constexpr (parents_ops) {
-                        extra_parent_path = sibling;
-                    } else {
-                        extra_parent_path.push_back(sibling);
-                    }
+                    this->NodePathPush(extra_parent_path, sibling);
                     this->nodeLeftRotate(extra_parent_path);
                     const auto siblingx = this->GetNodeAncestor(extra_parent_path, 0);
                     assert(m_ops.nodeCompareEqual(sibling, siblingx));
@@ -779,11 +759,7 @@ public:
 
                     extra_parent = m_ops.getLeft(sibling);
                     sibling = m_ops.getRight(extra_parent);
-                    if constexpr (parents_ops) {
-                        extra_parent_path = extra_parent;
-                    } else {
-                        extra_parent_path.push_back(extra_parent);
-                    }
+                    this->NodePathPush(extra_parent_path, extra_parent);
                 }
 
                 assert(m_ops.isBlack(sibling));
@@ -791,11 +767,7 @@ public:
                     m_ops.setBlack(sibling, false);
                     extra_black = extra_parent;
                     extra_parent = this->GetNodeAncestor(extra_parent_path, 1);
-                    if constexpr (parents_ops) {
-                        extra_parent_path = extra_parent;
-                    } else {
-                        extra_parent_path.pop_back();
-                    }
+                    this->NodePathPop(extra_parent_path);
                     extra_is_left_child = !m_ops.isNullNode(extra_parent) ? m_ops.nodeCompareEqual(m_ops.getLeft(extra_parent), extra_black) : false;
                     if (m_ops.isNullNode(extra_parent)) {
                         m_ops.nodeCompareEqual(extra_black, root);
@@ -866,11 +838,7 @@ public:
                         root = sibling;
                     }
 
-                    if constexpr (parents_ops) {
-                        extra_parent_path = sibling;
-                    } else {
-                        extra_parent_path.push_back(sibling);
-                    }
+                    this->NodePathPush(extra_parent_path, sibling);
                     this->nodeRightRotate(extra_parent_path);
                     const auto siblingx = this->GetNodeAncestor(extra_parent_path, 0);
                     assert(m_ops.nodeCompareEqual(sibling, siblingx));
@@ -879,11 +847,7 @@ public:
 
                     extra_parent = m_ops.getRight(sibling);
                     sibling = m_ops.getLeft(extra_parent);
-                    if constexpr (parents_ops) {
-                        extra_parent_path = extra_parent;
-                    } else {
-                        extra_parent_path.push_back(extra_parent);
-                    }
+                    this->NodePathPush(extra_parent_path, extra_parent);
                 }
 
                 assert(m_ops.isBlack(sibling));
@@ -891,11 +855,7 @@ public:
                     m_ops.setBlack(sibling, false);
                     extra_black = extra_parent;
                     extra_parent = this->GetNodeAncestor(extra_parent_path, 1);
-                    if constexpr (parents_ops) {
-                        extra_parent_path = extra_parent;
-                    } else {
-                        extra_parent_path.pop_back();
-                    }
+                    this->NodePathPop(extra_parent_path);
                     extra_is_left_child = !m_ops.isNullNode(extra_parent) ? m_ops.nodeCompareEqual(m_ops.getLeft(extra_parent), extra_black) : false;
                     if (m_ops.isNullNode(extra_parent)) {
                         m_ops.nodeCompareEqual(extra_black, root);
@@ -968,17 +928,10 @@ public:
         auto cn = root;
 
         for (;!m_ops.isNullNode(cn);) {
-            if constexpr (!parents_ops) {
-                ans.push_back(cn);
-            }
+            this->NodePathPush(ans, cn);
 
-            if (m_ops.keyCompareEqual(key, m_ops.getKey(cn))) {
-                if constexpr (parents_ops) {
-                    ans = cn;
-                }
-
+            if (m_ops.keyCompareEqual(key, m_ops.getKey(cn)))
                 return ans;
-            }
 
             if (m_ops.keyCompareLess(key, m_ops.getKey(cn))) {
                 cn = m_ops.getLeft(cn);
@@ -996,11 +949,7 @@ public:
 
         NodePath current_path = this->InitPath<NodePath>();
         for (auto node=root;!m_ops.isNullNode(node);) {
-            if constexpr (parents_ops) {
-                current_path = node;
-            } else {
-                current_path.push_back(node);
-            }
+            this->NodePathPush(current_path, node);
 
             if (!m_ops.keyCompareLess(m_ops.getKey(node), val)) {
                 ans = current_path;
@@ -1019,11 +968,7 @@ public:
 
         NodePath current_path = this->InitPath<NodePath>();
         for (auto node=root;!m_ops.isNullNode(node);) {
-            if constexpr (parents_ops) {
-                current_path = node;
-            } else {
-                current_path.push_back(node);
-            }
+            this->NodePathPush(current_path, node);
 
             if (m_ops.keyCompareLess(val, m_ops.getKey(node))) {
                 ans = current_path;
@@ -1041,11 +986,7 @@ public:
         if (m_ops.isNullNode(root)) return ans;
 
         for (auto node=root;!m_ops.isNullNode(node);node=m_ops.getLeft(node)) {
-            if constexpr (parents_ops) {
-                ans = node;
-            } else {
-                ans.push_back(node);
-            }
+            this->NodePathPush(ans, node);
         }
 
         return ans;
@@ -1073,30 +1014,18 @@ public:
         auto node = this->GetNodeAncestor(path, 0);
         if (!m_ops.isNullNode(m_ops.getRight(node))) {
             for (node = m_ops.getRight(node);!m_ops.isNullNode(node);node = m_ops.getLeft(node)) {
-                if constexpr (parents_ops) {
-                    path = node;
-                } else {
-                    path.push_back(node);
-                }
+                this->NodePathPush(path, node);
             }
         } else {
             for (;!m_ops.isNullNode(node);node=this->GetNodeAncestor(path,0)) {
                 if (!m_ops.isNullNode(this->GetNodeAncestor(path, 1)) &&
                     m_ops.nodeCompareEqual(m_ops.getLeft(this->GetNodeAncestor(path, 1)), node))
                 {
-                    if constexpr (parents_ops) {
-                        path = m_ops.getParent(path);
-                    } else {
-                        path.pop_back();
-                    }
+                    this->NodePathPop(path);
                     break;
                 }
 
-                if constexpr (parents_ops) {
-                    path = m_ops.getParent(path);
-                } else {
-                    path.pop_back();
-                }
+                this->NodePathPop(path);
             }
         }
     }
@@ -1110,30 +1039,18 @@ public:
         auto node = this->GetNodeAncestor(path, 0);
         if (!m_ops.isNullNode(m_ops.getLeft(node))) {
             for (node = m_ops.getLeft(node);!m_ops.isNullNode(node);node = m_ops.getRight(node)) {
-                if constexpr (parents_ops) {
-                    path = node;
-                } else {
-                    path.push_back(node);
-                }
+                this->NodePathPush(path, node);
             }
         } else {
             for (;!m_ops.isNullNode(node);node=this->GetNodeAncestor(path,0)) {
                 if (!m_ops.isNullNode(this->GetNodeAncestor(path, 1)) &&
                     m_ops.nodeCompareEqual(m_ops.getRight(this->GetNodeAncestor(path, 1)), node))
                 {
-                    if constexpr (parents_ops) {
-                        path = m_ops.getParent(path);
-                    } else {
-                        path.pop_back();
-                    }
+                    this->NodePathPop(path);
                     break;
                 }
 
-                if constexpr (parents_ops) {
-                    path = m_ops.getParent(path);
-                } else {
-                    path.pop_back();
-                }
+                this->NodePathPop(path);
             }
         }
     }
