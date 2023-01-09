@@ -474,7 +474,8 @@ private:
 public:
     inline explicit RBTreeAlgorithm(T treeop): m_ops(treeop) {}
 
-    inline bool insertNode(NODE& root, NODE node) {
+    inline NodePath insertNode(NODE& root, NODE node) {
+        auto ans = this->InitPath<NodePath>();
         if (m_ops.isNullNode(root)) {
             root = node;
             m_ops.setBlack(node, true);
@@ -483,7 +484,8 @@ public:
             if constexpr (parents_ops) {
                 m_ops.setParent(node, m_ops.getNullNode());
             }
-            return true;
+            this->NodePathPush(ans, root);
+            return ans;
         }
 
         auto cn = root;
@@ -492,7 +494,7 @@ public:
         for(;;) {
             if constexpr (!multikey) {
                 if (m_ops.keyCompareEqual(m_ops.getKey(node), m_ops.getKey(cn))) {
-                    return false;
+                    return ans;
                 }
             }
 
@@ -520,11 +522,14 @@ public:
             }
         }
 
+        this->NodePathPush(nodepath, node);
         if (m_ops.isBlack(cn)) {
-            return true;
+            return nodepath;
+        }
+        if constexpr (parents_ops) {
+            ans = node;
         }
 
-        this->NodePathPush(nodepath, node);
         for (auto p = this->GetNodeAncestor(nodepath, 1);
              !m_ops.isBlack(node) && p && !m_ops.isBlack(p);
              p = this->GetNodeAncestor(nodepath, 1))
@@ -537,14 +542,15 @@ public:
                 if (!m_ops.nodeCompareEqual(m_ops.getLeft(p), node)) {
                     assert(m_ops.nodeCompareEqual(m_ops.getRight(p), node));
                     this->nodeLeftRotate(nodepath);
-                    node = this->GetNodeAncestor(nodepath, 0);
                 } else {
+                    if constexpr (!parents_ops) {
+                        ans.push_back(node);
+                    }
                     node = p;
                     this->NodePathPop(nodepath);
                 }
                 assert(m_ops.nodeCompareEqual(m_ops.getLeft(pp), node));
                 nodeRightRotate(nodepath);
-                node = this->GetNodeAncestor(nodepath, 0);
                 m_ops.setBlack(m_ops.getLeft(node), true);
             } else {
                 assert(m_ops.nodeCompareEqual(m_ops.getRight(pp), p));
@@ -552,14 +558,15 @@ public:
                 if (!m_ops.nodeCompareEqual(m_ops.getRight(p), node)) {
                     assert(m_ops.nodeCompareEqual(m_ops.getLeft(p), node));
                     this->nodeRightRotate(nodepath);
-                    node = this->GetNodeAncestor(nodepath, 0);
                 } else {
+                    if constexpr (!parents_ops) {
+                        ans.push_back(node);
+                    }
                     node = p;
                     this->NodePathPop(nodepath);
                 }
                 assert(m_ops.nodeCompareEqual(m_ops.getRight(pp), node));
                 nodeLeftRotate(nodepath);
-                node = this->GetNodeAncestor(nodepath, 0);
                 m_ops.setBlack(m_ops.getRight(node), true);
             }
 
@@ -569,7 +576,15 @@ public:
             }
         }
 
-        return true;
+        if constexpr (!parents_ops) {
+            while (!ans.empty()) {
+                nodepath.push_back(std::move(ans.back()));
+                ans.pop_back();
+            }
+            ans = std::move(nodepath);
+        }
+
+        return ans;
     }
 
     void check_consistency(NODE root) const {

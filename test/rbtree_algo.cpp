@@ -91,8 +91,8 @@ struct rbtree: public RBTreeAlgo {
         } else {
             auto node = new NN(val);
             auto ans = this->insertNode(this->root, node);
-            if (!ans) delete node;
-            return ans;
+            if (!this->exists(ans)) delete node;
+            return this->exists(ans);
         }
     }
 
