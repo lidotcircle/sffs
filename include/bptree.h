@@ -1516,3 +1516,269 @@ private:
     static constexpr bool t_allowEmptyLeaf = OpWrapper::allowEmptyLeaf();
 };
 }
+
+
+#include "./unarray.h"
+#include <variant>
+namespace BPTreeBasicContainerImpl {
+template<typename Key, typename Value, size_t Order, size_t LeafOrder, bool parentsOps, bool prevOp>
+struct TreeNode {
+    using TPNB = std::conditional_t<parentsOps,std::tuple<bool,TreeNode*>,std::tuple<bool>>;
+    using Bun = std::conditional_t<std::is_same_v<Value,void>,const Key,std::pair<const Key,Value>>;
+    TPNB isLeaf_parent;
+
+    struct InteriorNode {
+        unarray<TreeNode*,2*Order> children;
+        unarray<const Key,2*Order - 1> keys;
+
+        InteriorNode() = default;
+    };
+    struct LeafNode {
+        unarray<Bun,2*LeafOrder - 1> datas;
+        using TNB = std::conditional_t<prevOp,std::tuple<TreeNode*,TreeNode*>,std::tuple<TreeNode*>>;
+        TNB prevnext;
+       
+        inline LeafNode() {
+            if constexpr (prevOp) {
+                prevnext = { nullptr, nullptr };
+            } else {
+                prevnext = { nullptr };
+            }
+        }
+    };
+    std::variant<InteriorNode,LeafNode> m_nodeimpl;
+
+    inline explicit TreeNode(bool isLeaf):
+        m_nodeimpl(isLeaf ? decltype(m_nodeimpl)(LeafNode()) : decltype(m_nodeimpl)(InteriorNode()))
+    {
+        if constexpr (parentsOps) {
+            isLeaf_parent = { isLeaf, nullptr };
+        } else {
+            isLeaf_parent = { isLeaf };
+        }
+
+    }
+
+    inline bool isLeaf() const { return std::get<0>(isLeaf_parent); }
+
+    InteriorNode& interior() {
+        assert(!this->isLeaf());
+        return std::get<InteriorNode>(m_nodeimpl);
+    }
+
+    const InteriorNode& interior() const {
+        assert(!this->isLeaf());
+        return std::get<InteriorNode>(m_nodeimpl);
+    }
+
+    LeafNode& leaf() {
+        assert(this->isLeaf());
+        return std::get<LeafNode>(m_nodeimpl);
+    }
+
+    const LeafNode& leaf() const {
+        assert(this->isLeaf());
+        return std::get<LeafNode>(m_nodeimpl);
+    }
+
+    ~TreeNode() {
+        if (!this->isLeaf()) {
+            auto& vn = std::get<InteriorNode>(m_nodeimpl);
+            for (size_t i=0;i<vn.children.size();i++) {
+                auto& child = vn.children[i];
+                delete child;
+            }
+        }
+    }
+};
+
+template<typename Key, typename Value, size_t Order, size_t LeafOrder, typename CmpLess, typename Allocator,
+         bool VallowEmptyLeaf, bool parentsOps, bool prevOps>
+struct TreeNodeOps {
+    using TNODE = TreeNode<Key,Value,Order,LeafOrder,parentsOps,prevOps>;
+    typedef TNODE* NODE;
+    using HOLDER = typename TNODE::Bun;
+    using KEY = Key;
+    using storage_allocator = typename std::allocator_traits<Allocator>::template rebind_alloc<TNODE>;
+    CmpLess m_cmp;
+    storage_allocator m_allocator;
+
+    TreeNodeOps(const CmpLess& cmp, const Allocator& allocator): m_cmp(cmp), m_allocator(allocator) {}
+
+    inline bool isLeaf(NODE node) const { return node->isLeaf(); }
+
+    inline static constexpr bool allowEmptyLeaf() { return VallowEmptyLeaf; }
+
+    inline NODE getNthChild(NODE node, size_t nth) const {
+        return node->interior().at(nth);
+    }
+
+    inline void setNthChild(NODE node, size_t nth, NODE n)  {
+        if (n == nullptr) {
+            node->interior().children.destroy(nth);
+        } else {
+            node->interior().children.construct(nth, n);
+        }
+    }
+
+    inline HOLDER getNthHolder(NODE node, size_t nth) const {
+        return node->leaf().datas.at(nth);
+    }
+    inline KEY interiorGetNthKey(NODE node, size_t nth) const {
+        return node->interior().at(nth);
+    }
+    inline void interiorSetNthKey(NODE node, size_t nth, const KEY& key) {
+        node->interior().keys.construct(nth, key);
+    }
+    inline void interiorClearNthKey(NODE node, size_t nth) {
+        node->interior().keys.destroy(nth);
+    }
+
+    inline HOLDER extractNthHolder(NODE node, size_t nth) {
+        auto n = std::move(node->leaf().datas.at(nth));
+        node->leaf().datas.destroy(nth);
+        return n;
+    }
+
+    inline void setNthHolder(NODE node, size_t nth, HOLDER&& holder) {
+        node->leaf().datas.construct(nth, std::move(holder));
+    }
+
+    inline NODE getParent(NODE node) const  {
+        if constexpr (parentsOps) {
+            return std::get<1>(node->isLeaf_parent);
+        } else {
+            return nullptr;
+        }
+    }
+    inline void setParent(NODE node, NODE n)  {
+        if constexpr (parentsOps) {
+            std::get<1>(node->isLeaf_parent) = n;
+        }
+    }
+
+    inline NODE leafGetNext(NODE node) const  {
+        return std::get<0>(node->leaf().prevnext);
+    }
+    inline void leafSetNext(NODE node, NODE n)  {
+        std::get<0>(node->leaf().prevnext) = n;
+    }
+    inline NODE leafGetPrev(NODE node) const  {
+        if constexpr (prevOps) {
+            return std::get<1>(node->leaf().prevnext);
+        } else {
+            return nullptr;
+        }
+    }
+    inline void leafSetPrev(NODE node, NODE n)  {
+        if constexpr (prevOps) {
+            std::get<1>(node->leaf().prevnext) = n;
+        }
+    }
+
+    inline size_t leafGetOrder() const { return LeafOrder; }
+
+    inline size_t getNumberOfChildren(NODE node) const { return node->interior().children.size(); }
+    inline size_t leafGetNumberOfKeys(NODE node) const { return node->leaf().datas.size(); }
+
+    inline size_t interiorGetOrder() const { return Order; }
+    inline size_t interiorGetNumberOfKeys(NODE node) const { return node->interior().keys.size(); }
+
+    inline bool isNullNode(NODE node) const { return node == nullptr; }
+    inline NODE getNullNode() const { return nullptr; }
+    inline NODE interiorCreateEmptyNode() {
+        auto ptr = this->allocator.allocate(1);
+        return new (ptr) TNODE(false);
+    }
+    inline NODE leafCreateEmptyNode() {
+        auto ptr = this->allocator.allocate(1);
+        return new (ptr) TNODE(true);
+    }
+    inline void releaseEmptyNode(NODE&& node) {
+        std::destroy_n(node, 1);
+        this->allocator.deallocate(node, 1);
+    }
+
+    inline KEY getKey(const HOLDER& n) const {
+        if constexpr (std::is_same_v<Value,void>) {
+            return n;
+        } else {
+            return n.first;
+        }
+    }
+
+    inline bool keyCompareLess(const KEY& lhs, const KEY& rhs) const { return m_cmp(lhs, rhs); }
+
+    inline bool nodeCompareEqual(NODE lhs, NODE rhs) const { return lhs == rhs; }
+};
+
+template<typename Key, typename Value, size_t Order, size_t LeafOrder, typename CmpLess, 
+         typename Allocator, bool VallowEmptyLeaf, bool parentsOps, bool prevOps, bool multikey>
+using BPTreeAlgo = BPTreeAlgorithmImpl::BPTreeAlgorithm<
+                         TreeNodeOps<Key,Value,Order,LeafOrder,CmpLess,Allocator,VallowEmptyLeaf,parentsOps,prevOps>,
+                         TreeNode<Key,Value,Order,LeafOrder,parentsOps,prevOps>*,
+                         typename TreeNode<Key,Value,Order,LeafOrder,parentsOps,prevOps>::HOLDER,
+                         typename TreeNode<Key,Value,Order,LeafOrder,parentsOps,prevOps>::KEY,
+                         parentsOps, multikey>;
+
+template<typename Key, typename Value, size_t Order, size_t LeafOrder, typename CmpLess, 
+         typename Allocator, bool VallowEmptyLeaf, bool parentsOps, bool prevOps, bool multikey>
+struct BPTREE: public BPTreeAlgo<Key,Value,Order,LeafOrder,CmpLess,Allocator,VallowEmptyLeaf,parentsOps,prevOps,multikey> {
+    typedef TreeNode<Key,Value,Order,LeafOrder,parentsOps,prevOps>* NODE;
+    using TNODE   = std::remove_pointer_t<NODE>;
+    using BASE = BPTreeAlgo<Key,Value,Order,LeafOrder,CmpLess,Allocator,VallowEmptyLeaf,parentsOps,prevOps,multikey>;
+    using ITERATOR = typename BASE::HolderPath;
+    using Bun = typename TNODE::Bun;
+
+
+private:
+    NODE m_root;
+    size_t m_size;
+
+
+public:
+    inline BPTREE(const CmpLess& cmp, const Allocator& alloc): 
+        BASE(TreeNodeOps<Key,Value,Order,LeafOrder,CmpLess,Allocator,VallowEmptyLeaf,parentsOps,prevOps>(cmp, alloc)),
+        m_root(nullptr), m_size(0) {}
+
+    inline ITERATOR insert(Bun&& val) {
+        auto ans = this->insertHolder(this->m_root, std::move(val));
+        if (this->exists(ans)) m_size++;
+        return ans;
+    }
+
+    inline ITERATOR find(const Key& key) {
+        if (this->m_root == nullptr) return this->end();
+
+        return this->findKey(m_root, key);
+    }
+
+    ITERATOR lower_bound(const Key& key) {
+        if (this->m_root == nullptr) return this->end();
+
+        return BASE::lower_bound(this->m_root, key);
+    }
+
+    ITERATOR upper_bound(const Key& key) {
+        if (this->m_root == nullptr) return this->end();
+
+        return BASE::upper_bound(this->m_root, key);
+    }
+
+    ITERATOR begin() { return BASE::begin(this->m_root); }
+    ITERATOR end()   { return BASE::end(this->m_root); }
+
+    void forward(ITERATOR& path) { BASE::forward(this->m_root, path); }
+
+    void backward(ITERATOR& path) { BASE::backward(this->m_root, path); }
+
+    Bun deleteIter(ITERATOR iter) {
+        assert(this->m_root && this->exists(iter));
+        const auto ans = this->deleteHolder(this->m_root, iter);
+        m_size--;
+        return ans;
+    }
+
+    ~BPTREE() { if (m_root) delete m_root; }
+};
+}
