@@ -10,6 +10,14 @@ class maxsize_vector {
 private:
     template<bool reverse>
     class const_iterator_impl {
+    public:
+        using iterator_category = std::random_access_iterator_tag;
+        using difference_type   = std::ptrdiff_t;
+        using value_type        = T;
+        using pointer           = T*;
+        using reference         = T&;
+        using const_reference   = const T&;
+
     protected:
         const maxsize_vector& m_vec;
         size_t m_idx;
@@ -57,6 +65,13 @@ private:
     template<bool reverse>
     class iterator_impl: public const_iterator_impl<reverse> {
     public:
+        using iterator_category = typename const_iterator_impl<reverse>::iterator_category;
+        using difference_type   = typename const_iterator_impl<reverse>::difference_type;
+        using value_type        = typename const_iterator_impl<reverse>::value_type;
+        using pointer           = typename const_iterator_impl<reverse>::pointer;
+        using reference         = typename const_iterator_impl<reverse>::reference;
+        using const_reference   = typename const_iterator_impl<reverse>::const_reference;
+
         iterator_impl(maxsize_vector& vec, size_t idx): const_iterator_impl<reverse>(vec, idx) {}
 
         T& operator*() { return const_cast<T&>(static_cast<const const_iterator_impl<reverse>*>(this)->operator*()); }
@@ -67,11 +82,6 @@ public:
     using reverse_iterator       = iterator_impl<true>;
     using const_iterator         = const_iterator_impl<false>;
     using const_reverse_iterator = const_iterator_impl<true>;
-    using iterator_category      = std::random_access_iterator_tag;
-    using difference_type        = std::ptrdiff_t;
-    using value_type             = T;
-    using pointer                = T*;
-    using reference              = T&;
 
     inline size_t size() const { return this->m_size; }
 

@@ -101,7 +101,7 @@ struct TreeNodeOps {
         node->interior().children[nth] = n;
     }
 
-    inline HOLDER getNthHolder(NODE node, size_t nth) const {
+    inline HOLDER& getNthHolderRef(NODE node, size_t nth) const {
         assert(nth < node->leaf().datas.size());
         return node->leaf().datas[nth].value();
     }
@@ -182,7 +182,7 @@ struct TreeNodeOps {
 };
 
 template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2, bool VallowEmptyLeaf>
-using BASE_T = BPTreeAlgorithmImpl::BPTreeAlgorithm<TreeNodeOps<Order,Order2,VallowEmptyLeaf>,TreeNode<Order,Order2>*,int,int,parent_ops>;
+using BASE_T = BPTreeAlgorithmImpl::BPTreeAlgorithm<TreeNodeOps<Order,Order2,VallowEmptyLeaf>,TreeNode<Order,Order2>*,int,int,void,parent_ops>;
 
 template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2, bool VallowEmptyLeaf>
 struct BPTREE: public BASE_T<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf> {

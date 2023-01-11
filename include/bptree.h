@@ -10,7 +10,7 @@
 
 
 namespace BPTreeAlgorithmImpl {
-template <typename T, typename NODE, typename HOLDER, typename KEY, bool complain=false>
+template <typename T, typename NODE, typename HOLDER, typename KEY, typename VALUE, bool complain=false>
 struct treeop_traits {
     static NODE& node;
     static const NODE& const_node;
@@ -78,6 +78,21 @@ struct treeop_traits {
     static uint8_t  test_getNthHolder(...);
     template<typename U,std::enable_if_t<std::is_same_v<HOLDER,decltype(static_cast<const U*>(nullptr)->getNthHolder(node,index))>,bool> = true>
     static uint16_t test_getNthHolder(int);
+
+    template<typename U>
+    static uint8_t  test_getNthHolderRef(...);
+    template<typename U,std::enable_if_t<std::is_same_v<HOLDER&,decltype(static_cast<U*>(nullptr)->getNthHolderRef(node,index))>,bool> = true>
+    static uint16_t test_getNthHolderRef(int);
+
+    template<typename U>
+    static uint8_t  test_setNthHolderValue(...);
+    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(static_cast<U*>(nullptr)->setNthHolderValue(node,index,std::declval<VALUE>()))>,bool> = true>
+    static uint16_t test_setNthHolderValue(int);
+
+    template<typename U>
+    static uint8_t  test_setHolderValue(...);
+    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(static_cast<U*>(nullptr)->setHolderValue(std::declval<HOLDER&>(),std::declval<VALUE>()))>,bool> = true>
+    static uint16_t test_setHolderValue(int);
 
     template<typename U>
     static uint8_t  test_leafGetNthKey(...);
@@ -191,6 +206,9 @@ struct treeop_traits {
     static constexpr bool has_leafGetPrev             = sizeof(test_leafGetPrev<T>(1))             == sizeof(uint16_t);
     static constexpr bool has_leafSetPrev             = sizeof(test_leafSetPrev<T>(1))             == sizeof(uint16_t);
     static constexpr bool has_getNthHolder            = sizeof(test_getNthHolder<T>(1))            == sizeof(uint16_t);
+    static constexpr bool has_getNthHolderRef         = sizeof(test_getNthHolderRef<T>(1))         == sizeof(uint16_t);
+    static constexpr bool has_setNthHolderValue       = sizeof(test_setNthHolderValue<T>(1))       == sizeof(uint16_t);
+    static constexpr bool has_setHolderValue          = sizeof(test_setHolderValue<T>(1))          == sizeof(uint16_t);
     static constexpr bool has_leafGetNthKey           = sizeof(test_leafGetNthKey<T>(1))           == sizeof(uint16_t);
     static constexpr bool has_interiorGetNthKey       = sizeof(test_interiorGetNthKey<T>(1))       == sizeof(uint16_t);
     static constexpr bool has_interiorSetNthKey       = sizeof(test_interiorSetNthKey<T>(1))       == sizeof(uint16_t);
@@ -225,7 +243,10 @@ struct treeop_traits {
     static_assert(!complain ||  has_isLeaf,                           "should implement 'bool isLeaf(NODE) const;'");
     static_assert(!complain ||  has_getNthChild,                      "should implement 'NODE getNthChild(NODE, size_t) const;'");
     static_assert(!complain ||  has_setNthChild,                      "should implement 'void setNthChild(NODE, size_t, NODE);'");
-    static_assert(!complain ||  has_getNthHolder,                     "should implement 'HOLDER getNthHolder(NODE, size_t) const;'");
+    static_assert(!complain ||  has_getNthHolder || has_getNthHolderRef,
+                                                                      "should implement 'HOLDER getNthHolder(NODE, size_t) const;'");
+    static_assert(!complain ||  std::is_same_v<VALUE,void> || (has_setNthHolderValue || (has_getNthHolderRef && has_setHolderValue)), 
+                                                                      "should provide value accessor for not void value");
     static_assert(!complain ||  has_interiorGetNthKey,                "should implement 'KEY interiorGetNthKey(NODE, size_t) const;'");
     static_assert(!complain ||  has_interiorSetNthKey,                "should implement 'void interiorSetNthKey(NODE, size_t, const KEY&);'");
     static_assert(!complain ||  has_interiorClearNthKey,              "should implement 'void interiorClearNthKey(NODE, size_t);'");
@@ -251,8 +272,9 @@ struct treeop_traits {
                                   !std::is_reference_v<HOLDER>  && !std::is_const_v<HOLDER> && std::is_copy_assignable_v<HOLDER> &&
                                    std::is_move_constructible_v<HOLDER> &&
                                   !std::is_reference_v<KEY>  && !std::is_const_v<KEY> && std::is_copy_assignable_v<KEY> &&
+                                  (std::is_same_v<VALUE,void> || (has_setNthHolderValue || (has_getNthHolderRef && has_setHolderValue))) &&
                                   has_getNthChild && has_setNthChild  &&
-                                  has_getNthHolder && has_extractNthHolder && has_setNthHolder  &&
+                                  (has_getNthHolder || has_getNthHolderRef) && has_extractNthHolder && has_setNthHolder  &&
                                   has_interiorGetNthKey && has_interiorSetNthKey && has_interiorClearNthKey &&
                                   has_leafGetOrder && has_getNumberOfChildren && has_leafGetNumberOfKeys &&
                                   has_interiorGetOrder && has_interiorGetNumberOfKeys &&
@@ -263,10 +285,10 @@ struct treeop_traits {
                                   has_nodeCompareEqual;
 };
 
-template<typename T, typename NODE, typename HOLDER, typename KEY,
-         std::enable_if_t<treeop_traits<T,NODE,HOLDER,KEY>::value,bool> = true>
+template<typename T, typename NODE, typename HOLDER, typename KEY, typename VALUE,
+         std::enable_if_t<treeop_traits<T,NODE,HOLDER,KEY,VALUE>::value,bool> = true>
 struct BPTreeOpWrapper {
-    using traits = treeop_traits<T,NODE,HOLDER,KEY>;
+    using traits = treeop_traits<T,NODE,HOLDER,KEY,VALUE>;
 
     inline explicit BPTreeOpWrapper(T treeop): m_ops (treeop) {}
 
@@ -283,12 +305,48 @@ struct BPTreeOpWrapper {
     inline NODE   getNthChild(NODE node, size_t nth) const { return m_ops.getNthChild(node, nth); }
     inline void   setNthChild(NODE node, size_t nth, NODE n)  { m_ops.setNthChild(node, nth, n); }
 
-    inline HOLDER getNthHolder(NODE node, size_t nth) const { return m_ops.getNthHolder(node, nth); }
+    inline HOLDER getNthHolder(NODE node, size_t nth) const {
+        if constexpr (traits::has_getNthHolder) {
+            return m_ops.getNthHolder(node, nth);
+        } else {
+            return m_ops.getNthHolderRef(node, nth);
+        }
+    }
+
+    inline HOLDER& getNthHolderRef(NODE node, size_t nth) {
+        if constexpr (traits::has_getNthHolderRef) {
+            return m_ops.getNthHolderRef(node, nth);
+        } else {
+            return std::declval<HOLDER&>();
+        }
+    }
+
+    using HolderValue = std::conditional_t<std::is_same_v<VALUE,void>,BPTreeOpWrapper,VALUE>;
+    inline void setHolderValue(HOLDER& holder, HolderValue val) {
+        if constexpr (traits::has_setHolderValue) {
+            m_ops.setHolderValue(holder, val);
+        } else {
+            assert(false);
+        }
+    }
+
+    inline void setNthHolderValue(NODE node, size_t nth, HolderValue val) {
+        if constexpr (traits::has_setNthHolderValue) {
+            return m_ops.setNthHolderValue(node, nth, val);
+        } else if constexpr (traits::has_getNthHolderRef && traits::has_setHolderValue) {
+            m_ops.setHolderValue(m_ops.getNthHolderRef(node, nth), val);
+        } else if constexpr (std::is_same_v<VALUE,void>) {
+        } else {
+            static_assert(std::is_same_v<VALUE,void> ||traits::has_setNthHolderValue || (traits::has_getNthHolderRef && traits::has_setHolderValue),
+                          "failed to implement setNthHolderValue");
+        }
+    }
+
     inline KEY    leafGetNthKey(NODE node, size_t nth) const {
         if constexpr (traits::has_leafGetNthKey) {
             return m_ops.leafGetNthKey(node, nth);
         } else {
-            return this->getKey(m_ops.getNthHolder(node, nth));
+            return this->getKey(this->getNthHolder(node, nth));
         }
     }
     inline KEY interiorGetNthKey(NODE node, size_t nth) const { return m_ops.interiorGetNthKey(node, nth); }
@@ -458,13 +516,15 @@ private:
     T m_ops;
 };
 
-template<typename T, typename NODE, typename HOLDER, typename KEY, bool enableParent=true,
+template<typename T, typename NODE, typename HOLDER, typename KEY, typename VALUE, bool enableParent=true,
          bool multikey=false, size_t static_vector_size = 32,
-         std::enable_if_t<treeop_traits<T,NODE,HOLDER,KEY,true>::value,bool> = true>
+         std::enable_if_t<treeop_traits<T,NODE,HOLDER,KEY,VALUE,true>::value,bool> = true>
 class BPTreeAlgorithm {
 public:
-    using traits = treeop_traits<T,NODE,HOLDER,KEY>;
-    static constexpr bool parents_ops = traits::has_getParent && traits::has_getParent && enableParent;
+    using traits = treeop_traits<T,NODE,HOLDER,KEY,VALUE>;
+    static constexpr bool parents_ops  = traits::has_getParent && traits::has_getParent && enableParent;
+    static constexpr bool ref_accessor = traits::has_getNthHolderRef;
+
     using NodePath = std::conditional_t<parents_ops, NODE,
                          std::conditional_t<static_cast<bool>(static_vector_size > 0), maxsize_vector<std::pair<NODE,size_t>,static_vector_size>,std::vector<std::pair<NODE,size_t>>>>;
 
@@ -1502,6 +1562,16 @@ public:
         return m_ops.getNthHolder(this->GetNodeAncestor(path.m_path, 0), path.m_index);
     }
 
+    inline void setHolderValue(const HolderPath& path, typename BPTreeOpWrapper<T,NODE,HOLDER,KEY,VALUE>::HolderValue value) {
+        assert(this->exists(path));
+        m_ops.setNthHolderValue(this->GetNodeAncestor(path.m_path, 0), path.m_index, value);
+    }
+
+    HOLDER& getHolderRef(const HolderPath& path) {
+        assert(this->exists(path));
+        return m_ops.getNthHolderRef(this->GetNodeAncestor(path.m_path, 0), path.m_index);
+    }
+
     inline bool exists(const HolderPath& path) {
         if constexpr (parents_ops) {
             return !m_ops.isNullNode(path.m_path);
@@ -1510,8 +1580,8 @@ public:
         }
     }
 
-private:
-    using OpWrapper = BPTreeOpWrapper<T,NODE,HOLDER,KEY>;
+protected:
+    using OpWrapper = BPTreeOpWrapper<T,NODE,HOLDER,KEY,VALUE>;
     OpWrapper m_ops;
     static constexpr bool t_allowEmptyLeaf = OpWrapper::allowEmptyLeaf();
 };
@@ -1598,7 +1668,8 @@ struct TreeNodeOps {
     using TNODE = TreeNode<Key,Value,Order,LeafOrder,parentsOps,prevOps>;
     typedef TNODE* NODE;
     using HOLDER = typename TNODE::Bun;
-    using KEY = Key;
+    using KEY    = Key;
+    using VALUE  = Value;
     using storage_allocator = typename std::allocator_traits<Allocator>::template rebind_alloc<TNODE>;
     CmpLess m_cmp;
     storage_allocator m_allocator;
@@ -1621,7 +1692,7 @@ struct TreeNodeOps {
         }
     }
 
-    inline HOLDER getNthHolder(NODE node, size_t nth) const {
+    inline HOLDER& getNthHolderRef(NODE node, size_t nth) const {
         return node->leaf().datas.at(nth);
     }
     inline KEY interiorGetNthKey(NODE node, size_t nth) const {
@@ -1695,7 +1766,7 @@ struct TreeNodeOps {
         return new (ptr) TNODE(true);
     }
     inline void releaseEmptyNode(NODE&& node) {
-        std::destroy_n(node, 1);
+        std::destroy(node);
         this->allocator.deallocate(node, 1);
     }
 
@@ -1717,13 +1788,14 @@ template<typename Key, typename Value, size_t Order, size_t LeafOrder, typename 
 using BPTreeAlgo = BPTreeAlgorithmImpl::BPTreeAlgorithm<
                          TreeNodeOps<Key,Value,Order,LeafOrder,CmpLess,Allocator,VallowEmptyLeaf,parentsOps,prevOps>,
                          TreeNode<Key,Value,Order,LeafOrder,parentsOps,prevOps>*,
-                         typename TreeNode<Key,Value,Order,LeafOrder,parentsOps,prevOps>::HOLDER,
-                         typename TreeNode<Key,Value,Order,LeafOrder,parentsOps,prevOps>::KEY,
+                         typename TreeNodeOps<Key,Value,Order,LeafOrder,CmpLess,Allocator,VallowEmptyLeaf,parentsOps,prevOps>::HOLDER,
+                         typename TreeNodeOps<Key,Value,Order,LeafOrder,CmpLess,Allocator,VallowEmptyLeaf,parentsOps,prevOps>::KEY,
+                         typename TreeNodeOps<Key,Value,Order,LeafOrder,CmpLess,Allocator,VallowEmptyLeaf,parentsOps,prevOps>::VALUE,
                          parentsOps, multikey>;
 
 template<typename Key, typename Value, size_t Order, size_t LeafOrder, typename CmpLess, 
          typename Allocator, bool VallowEmptyLeaf, bool parentsOps, bool prevOps, bool multikey>
-struct BPTREE: public BPTreeAlgo<Key,Value,Order,LeafOrder,CmpLess,Allocator,VallowEmptyLeaf,parentsOps,prevOps,multikey> {
+struct BPTREE: protected BPTreeAlgo<Key,Value,Order,LeafOrder,CmpLess,Allocator,VallowEmptyLeaf,parentsOps,prevOps,multikey> {
     typedef TreeNode<Key,Value,Order,LeafOrder,parentsOps,prevOps>* NODE;
     using TNODE   = std::remove_pointer_t<NODE>;
     using BASE = BPTreeAlgo<Key,Value,Order,LeafOrder,CmpLess,Allocator,VallowEmptyLeaf,parentsOps,prevOps,multikey>;
@@ -1753,32 +1825,42 @@ public:
         return this->findKey(m_root, key);
     }
 
-    ITERATOR lower_bound(const Key& key) {
+    inline ITERATOR lower_bound(const Key& key) {
         if (this->m_root == nullptr) return this->end();
 
         return BASE::lower_bound(this->m_root, key);
     }
 
-    ITERATOR upper_bound(const Key& key) {
+    inline ITERATOR upper_bound(const Key& key) {
         if (this->m_root == nullptr) return this->end();
 
         return BASE::upper_bound(this->m_root, key);
     }
 
-    ITERATOR begin() { return BASE::begin(this->m_root); }
-    ITERATOR end()   { return BASE::end(this->m_root); }
+    inline ITERATOR begin() { return BASE::begin(this->m_root); }
+    inline ITERATOR end()   { return BASE::end(this->m_root); }
 
-    void forward(ITERATOR& path) { BASE::forward(this->m_root, path); }
+    inline void forward(ITERATOR& path) { BASE::forward(this->m_root, path); }
 
-    void backward(ITERATOR& path) { BASE::backward(this->m_root, path); }
+    inline void backward(ITERATOR& path) { BASE::backward(this->m_root, path); }
 
-    Bun deleteIter(ITERATOR iter) {
+    inline Bun deleteIter(ITERATOR iter) {
         assert(this->m_root && this->exists(iter));
         const auto ans = this->deleteHolder(this->m_root, iter);
         m_size--;
         return ans;
     }
 
-    ~BPTREE() { if (m_root) delete m_root; }
+    using BASE::exists;
+    using BASE::getHolder;
+    using BASE::getHolderRef;
+    using BASE::setHolderValue;
+
+    ~BPTREE() {
+        if (m_root) {
+            this->m_ops.releaseEmptyNode(m_root);
+            m_root = nullptr;
+        }
+    }
 };
 }
