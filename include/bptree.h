@@ -545,6 +545,11 @@ public:
     };
 
 private:
+    inline RoHolderPath toRoHolderPath(const HolderPath& hp) {
+        auto node = this->exists(hp) ? this->GetNodeAncestor(hp.m_path, 0) : m_ops.getNullNode();
+        return RoHolderPath(node, hp.m_index);
+    }
+
     template<typename N,std::enable_if_t<std::is_same_v<N,NODE>,bool> = true>
     inline NodePath InitPath() const {
         return m_ops.getNullNode();
@@ -1567,9 +1572,14 @@ public:
         m_ops.setNthHolderValue(this->GetNodeAncestor(path.m_path, 0), path.m_index, value);
     }
 
-    HOLDER& getHolderRef(const HolderPath& path) {
+    inline HOLDER& getHolderRef(const HolderPath& path) {
         assert(this->exists(path));
         return m_ops.getNthHolderRef(this->GetNodeAncestor(path.m_path, 0), path.m_index);
+    }
+
+    inline KEY getHolderKey(const HolderPath& path) {
+        assert(this->exists(path));
+        return m_ops.getKey(m_ops.getNthHolder(this->GetNodeAncestor(path.m_path, 0), path.m_index));
     }
 
     inline bool exists(const HolderPath& path) {
@@ -1577,6 +1587,60 @@ public:
             return !m_ops.isNullNode(path.m_path);
         } else {
             return !path.m_path.empty();
+        }
+    }
+
+    inline bool exists(const RoHolderPath& path) {
+        return !m_ops.isNullNode(path.m_node);
+    }
+
+    inline int compareHolderPath(const HolderPath& p1, const HolderPath& p2) const {
+        return this->compareHolderPath(this->toRoHolderPath(p1), this->toRoHolderPath(p2));
+    }
+
+    inline int compareHolderPath(const RoHolderPath& p1, const RoHolderPath& p2) const {
+        if (!this->exists(p1)) {
+            if (this->exists(p2)) {
+                return 1;
+            } else {
+                return 0;
+            }
+        } else if (!this->exists(p2)) {
+            return -1;
+        }
+
+        if (m_ops.nodeCompareEqual(p1.m_node, p2.m_node)) {
+            if (p1.m_index == p2.m_index) {
+                return 0;
+            } else if (p1.m_index < p2.m_index) {
+                return -1;
+            } else {
+                return 1;
+            }
+        }
+
+        const auto& k1 = m_ops.leafGetNthKey(p1.m_node, p1.m_index);
+        const auto& k2 = m_ops.leafGetNthKey(p2.m_node, p2.m_index);
+        if (m_ops.keyCompareLess(k1, k2)) return -1;
+        if (m_ops.keyCompareLess(k2, k1)) return 1;
+
+        if constexpr (multikey) {
+            const auto n1 = p1.m_node;
+            const auto n2 = p2.m_node;
+            auto nn1=n1, nn2=n2;
+            for (;!m_ops.isNullNode(nn1) && !m_ops.isNullNode(nn2);
+                  nn1 = m_ops.leafGetNext(nn1), nn2=m_ops.leafGetNext(nn2))
+            {
+                if (m_ops.nodeCompareEqual(nn1, n2)) {
+                    return -1;
+                } else if (m_ops.nodeCompareEqual(nn2, n1)) {
+                    return 1;
+                }
+            }
+
+            return m_ops.isNullNode(nn1) ? 1 : -1;
+        } else {
+            assert(false);
         }
     }
 
@@ -1801,6 +1865,7 @@ struct BPTREE: protected BPTreeAlgo<Key,Value,Order,LeafOrder,CmpLess,Allocator,
     using BASE = BPTreeAlgo<Key,Value,Order,LeafOrder,CmpLess,Allocator,VallowEmptyLeaf,parentsOps,prevOps,multikey>;
     using ITERATOR = typename BASE::HolderPath;
     using Bun = typename TNODE::Bun;
+    static constexpr auto  ref_accessor = BASE::ref_accessor;
 
 
 private:
@@ -1853,8 +1918,10 @@ public:
 
     using BASE::exists;
     using BASE::getHolder;
+    using BASE::getHolderKey;
     using BASE::getHolderRef;
     using BASE::setHolderValue;
+    using BASE::compareHolderPath;
 
     ~BPTREE() {
         if (m_root) {
