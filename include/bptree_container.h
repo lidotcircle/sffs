@@ -26,9 +26,9 @@ struct default_config {
 };
 
 
-#define BContainer BPTreeBasicContainerImpl::BPTREE<_Key,_Value,ContainerConfig::interiorOrder,ContainerConfig::leafOrder,Compare,Alloc, \
-                                             ContainerConfig::allowEmptyLeaf,ContainerConfig::parent,ContainerConfig::prevLeaf, \
-                                             multi>
+#define BContainer BPTreeBasicContainerImpl::BPTREE<_Key,_Value,ContainerConfig::interiorOrder,ContainerConfig::leafOrder, \
+                                             Compare,Alloc, ContainerConfig::allowEmptyLeaf,ContainerConfig::parent, \
+                                             ContainerConfig::prevLeaf, multi>
 
 template<typename _Key, typename _Value, bool multi,
          typename Compare = default_compare_t<_Key>,

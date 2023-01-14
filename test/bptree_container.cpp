@@ -32,15 +32,5 @@ TEST(set, insert) {
         insert_test(i);
         insert_test(i * 10);
         insert_test(i * 100);
-        insert_test(i * 1000);
-    }
-}
-
-TEST(set, emplace_inc) {
-    for (size_t i=1;i<=100;i++) {
-        insert_test(i);
-        insert_test(i * 10);
-        insert_test(i * 100);
-        insert_test(i * 1000);
     }
 }

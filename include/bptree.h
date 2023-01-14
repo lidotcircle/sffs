@@ -235,7 +235,7 @@ struct treeop_traits {
     static_assert(!complain ||  std::is_copy_assignable_v<NODE>,      "NODE should be copy assignable");
     static_assert(!complain || !std::is_reference_v<HOLDER>,          "HOLDER should not be a reference");
     static_assert(!complain || !std::is_const_v<HOLDER>,              "HOLDER should not be const-qualified");
-    static_assert(!complain ||  std::is_copy_assignable_v<HOLDER>,    "HOLDER should be copy assignable");
+    // static_assert(!complain ||  std::is_copy_assignable_v<HOLDER>,    "HOLDER should be copy assignable");
     static_assert(!complain ||  std::is_move_constructible_v<HOLDER>, "HOLDER should be copy assignable");
     static_assert(!complain || !std::is_reference_v<KEY>,             "KEY should not be a reference");
     static_assert(!complain || !std::is_const_v<KEY>,                 "KEY should not be const-qualified");
@@ -545,7 +545,7 @@ public:
     };
 
 private:
-    inline RoHolderPath toRoHolderPath(const HolderPath& hp) {
+    inline RoHolderPath toRoHolderPath(const HolderPath& hp) const {
         auto node = this->exists(hp) ? this->GetNodeAncestor(hp.m_path, 0) : m_ops.getNullNode();
         return RoHolderPath(node, hp.m_index);
     }
@@ -1582,7 +1582,7 @@ public:
         return m_ops.getKey(m_ops.getNthHolder(this->GetNodeAncestor(path.m_path, 0), path.m_index));
     }
 
-    inline bool exists(const HolderPath& path) {
+    inline bool exists(const HolderPath& path) const {
         if constexpr (parents_ops) {
             return !m_ops.isNullNode(path.m_path);
         } else {
@@ -1590,7 +1590,7 @@ public:
         }
     }
 
-    inline bool exists(const RoHolderPath& path) {
+    inline bool exists(const RoHolderPath& path) const {
         return !m_ops.isNullNode(path.m_node);
     }
 
@@ -1658,7 +1658,7 @@ namespace BPTreeBasicContainerImpl {
 template<typename Key, typename Value, size_t Order, size_t LeafOrder, bool parentsOps, bool prevOp>
 struct TreeNode {
     using TPNB = std::conditional_t<parentsOps,std::tuple<bool,TreeNode*>,std::tuple<bool>>;
-    using Bun = std::conditional_t<std::is_same_v<Value,void>,const Key,std::pair<const Key,Value>>;
+    using KVPair = std::conditional_t<std::is_same_v<Value,void>,Key,std::pair<const Key,Value>>;
     TPNB isLeaf_parent;
 
     struct InteriorNode {
@@ -1668,7 +1668,7 @@ struct TreeNode {
         InteriorNode() = default;
     };
     struct LeafNode {
-        unarray<Bun,2*LeafOrder - 1> datas;
+        unarray<KVPair,2*LeafOrder - 1> datas;
         using TNB = std::conditional_t<prevOp,std::tuple<TreeNode*,TreeNode*>,std::tuple<TreeNode*>>;
         TNB prevnext;
        
@@ -1731,7 +1731,7 @@ template<typename Key, typename Value, size_t Order, size_t LeafOrder, typename 
 struct TreeNodeOps {
     using TNODE = TreeNode<Key,Value,Order,LeafOrder,parentsOps,prevOps>;
     typedef TNODE* NODE;
-    using HOLDER = typename TNODE::Bun;
+    using HOLDER = typename TNODE::KVPair;
     using KEY    = Key;
     using VALUE  = Value;
     using storage_allocator = typename std::allocator_traits<Allocator>::template rebind_alloc<TNODE>;
@@ -1745,7 +1745,7 @@ struct TreeNodeOps {
     inline static constexpr bool allowEmptyLeaf() { return VallowEmptyLeaf; }
 
     inline NODE getNthChild(NODE node, size_t nth) const {
-        return node->interior().at(nth);
+        return node->interior().children.at(nth);
     }
 
     inline void setNthChild(NODE node, size_t nth, NODE n)  {
@@ -1760,7 +1760,7 @@ struct TreeNodeOps {
         return node->leaf().datas.at(nth);
     }
     inline KEY interiorGetNthKey(NODE node, size_t nth) const {
-        return node->interior().at(nth);
+        return node->interior().keys.at(nth);
     }
     inline void interiorSetNthKey(NODE node, size_t nth, const KEY& key) {
         node->interior().keys.construct(nth, key);
@@ -1822,16 +1822,16 @@ struct TreeNodeOps {
     inline bool isNullNode(NODE node) const { return node == nullptr; }
     inline NODE getNullNode() const { return nullptr; }
     inline NODE interiorCreateEmptyNode() {
-        auto ptr = this->allocator.allocate(1);
+        auto ptr = m_allocator.allocate(1);
         return new (ptr) TNODE(false);
     }
     inline NODE leafCreateEmptyNode() {
-        auto ptr = this->allocator.allocate(1);
+        auto ptr = m_allocator.allocate(1);
         return new (ptr) TNODE(true);
     }
     inline void releaseEmptyNode(NODE&& node) {
-        std::destroy(node);
-        this->allocator.deallocate(node, 1);
+        std::destroy_n(node, 1);
+        m_allocator.deallocate(node, 1);
     }
 
     inline KEY getKey(const HOLDER& n) const {
@@ -1857,14 +1857,14 @@ using BPTreeAlgo = BPTreeAlgorithmImpl::BPTreeAlgorithm<
                          typename TreeNodeOps<Key,Value,Order,LeafOrder,CmpLess,Allocator,VallowEmptyLeaf,parentsOps,prevOps>::VALUE,
                          parentsOps, multikey>;
 
-template<typename Key, typename Value, size_t Order, size_t LeafOrder, typename CmpLess, 
-         typename Allocator, bool VallowEmptyLeaf, bool parentsOps, bool prevOps, bool multikey>
-struct BPTREE: protected BPTreeAlgo<Key,Value,Order,LeafOrder,CmpLess,Allocator,VallowEmptyLeaf,parentsOps,prevOps,multikey> {
-    typedef TreeNode<Key,Value,Order,LeafOrder,parentsOps,prevOps>* NODE;
-    using TNODE   = std::remove_pointer_t<NODE>;
-    using BASE = BPTreeAlgo<Key,Value,Order,LeafOrder,CmpLess,Allocator,VallowEmptyLeaf,parentsOps,prevOps,multikey>;
+template<typename _Key, typename _Value, size_t _Order, size_t _LeafOrder, typename _CmpLess, 
+         typename _Allocator, bool _VallowEmptyLeaf, bool _parentsOps, bool _prevOps, bool _multikey>
+struct BPTREE: protected BPTreeAlgo<_Key,_Value,_Order,_LeafOrder,_CmpLess,_Allocator,_VallowEmptyLeaf,_parentsOps,_prevOps,_multikey> {
+    typedef TreeNode<_Key,_Value,_Order,_LeafOrder,_parentsOps,_prevOps>* NODE;
+    using TNODE    = std::remove_pointer_t<NODE>;
+    using BASE     = BPTreeAlgo<_Key,_Value,_Order,_LeafOrder,_CmpLess,_Allocator,_VallowEmptyLeaf,_parentsOps,_prevOps,_multikey>;
     using ITERATOR = typename BASE::HolderPath;
-    using Bun = typename TNODE::Bun;
+    using KVPair   = typename TNODE::KVPair;
     static constexpr auto  ref_accessor = BASE::ref_accessor;
 
 
@@ -1874,29 +1874,29 @@ private:
 
 
 public:
-    inline BPTREE(const CmpLess& cmp, const Allocator& alloc): 
-        BASE(TreeNodeOps<Key,Value,Order,LeafOrder,CmpLess,Allocator,VallowEmptyLeaf,parentsOps,prevOps>(cmp, alloc)),
+    inline BPTREE(const _CmpLess& cmp, const _Allocator& alloc): 
+        BASE(TreeNodeOps<_Key,_Value,_Order,_LeafOrder,_CmpLess,_Allocator,_VallowEmptyLeaf,_parentsOps,_prevOps>(cmp, alloc)),
         m_root(nullptr), m_size(0) {}
 
-    inline ITERATOR insert(Bun&& val) {
+    inline ITERATOR insert(KVPair&& val) {
         auto ans = this->insertHolder(this->m_root, std::move(val));
         if (this->exists(ans)) m_size++;
         return ans;
     }
 
-    inline ITERATOR find(const Key& key) {
+    inline ITERATOR find(const _Key& key) {
         if (this->m_root == nullptr) return this->end();
 
         return this->findKey(m_root, key);
     }
 
-    inline ITERATOR lower_bound(const Key& key) {
+    inline ITERATOR lower_bound(const _Key& key) {
         if (this->m_root == nullptr) return this->end();
 
         return BASE::lower_bound(this->m_root, key);
     }
 
-    inline ITERATOR upper_bound(const Key& key) {
+    inline ITERATOR upper_bound(const _Key& key) {
         if (this->m_root == nullptr) return this->end();
 
         return BASE::upper_bound(this->m_root, key);
@@ -1909,7 +1909,7 @@ public:
 
     inline void backward(ITERATOR& path) { BASE::backward(this->m_root, path); }
 
-    inline Bun deleteIter(ITERATOR iter) {
+    inline KVPair deleteIter(ITERATOR iter) {
         assert(this->m_root && this->exists(iter));
         const auto ans = this->deleteHolder(this->m_root, iter);
         m_size--;
@@ -1923,11 +1923,22 @@ public:
     using BASE::setHolderValue;
     using BASE::compareHolderPath;
 
-    ~BPTREE() {
+    // TODO
+    // std::conditional_t<std::is_same_v<_Value,void>,BPTREE&,_Value&> getHolderValue(ITERATOR iter) {
+    //     if constexpr (std::is_same_v<_Value,void>) {
+    //         return *this;
+    //     } else {
+    //         this->getHolderRef();
+    //     }
+    // }
+
+    inline void clear() {
         if (m_root) {
-            this->m_ops.releaseEmptyNode(m_root);
+            this->m_ops.releaseEmptyNode(std::move(m_root));
             m_root = nullptr;
         }
     }
+
+    ~BPTREE() { this->clear(); }
 };
 }

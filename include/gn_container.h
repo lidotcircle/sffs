@@ -3,10 +3,14 @@
 #include <utility>
 #include <limits>
 #include <algorithm>
+#include <assert.h>
 
 
 template<typename Container, typename IterBase, typename Key, typename Value, typename KVPair>
 struct ContainerWrapper {
+private:
+    struct dummy_t {};
+
 public:
     static constexpr auto  ref_accessor = Container::ref_accessor;
 
@@ -22,20 +26,22 @@ public:
     inline IterBase k_begin() { return m_container.begin(); }
     inline IterBase k_end()   { return m_container.end(); }
 
-    inline void   k_forward   (IterBase& path)  { m_container.forward(path); }
-    inline void   k_backward  (IterBase& path) { m_container.backward(path); }
-    inline KVPair k_deleteIter(IterBase iter) {return m_container.deleteIter(iter); }
-    inline KVPair k_getHolder (IterBase iter) { return m_container.getHolder(iter); }
+    inline void    k_forward   (IterBase& path)  { m_container.forward(path); }
+    inline void    k_backward  (IterBase& path) { m_container.backward(path); }
+    inline KVPair  k_deleteIter(IterBase iter) {return m_container.deleteIter(iter); }
+    inline KVPair  k_getHolder (IterBase iter) { return m_container.getHolder(iter); }
     inline KVPair& k_getHolderRef (IterBase iter) { return m_container.getHolderRef(iter); }
-    inline void   k_setHolderValue (IterBase iter, Value val) { m_container.setHolderValue(iter, val); }
-    inline int    k_compareHolderPath(const IterBase& it1, const IterBase& it2) const { return m_container.compareHolderPath(it1, it2); }
+    inline int     k_compareHolderPath(const IterBase& it1, const IterBase& it2) const { return m_container.compareHolderPath(it1, it2); }
 
-    using valueref = decltype(std::declval<Container>().getHolderValue(std::declval<IterBase>()));
-    inline valueref k_getHolderValue(IterBase iter) { return m_container.getHolderValue(iter); }
-    inline Key k_getHolderKey(IterBase iter) { return m_container.getHolderKey(iter); }
+    // TODO
+    // using valueref = decltype(std::declval<Container>().getHolderValue(std::declval<IterBase>()));
+    // inline valueref k_getHolderValue(IterBase iter) { return m_container.getHolderValue(iter); }
+    inline Key      k_getHolderKey(IterBase iter) { return m_container.getHolderKey(iter); }
 
     template<typename T>
     inline void k_setHolderValue(IterBase iter, T val) { return m_container.setHolderValue(iter, val); }
+
+    inline void k_clear() { m_container.clear(); }
 
 private:
     Container m_container;
@@ -56,7 +62,7 @@ class GnContainerIterator {
         using ContainerWrapper_t = ContainerWrapper<Container,IterBase,Key,Value,KVPair>;
         using const_t = std::conditional<const_iterator,int,GnContainerIterator<reverse,true,Container,IterBase,Key,Value,KVPair,IterCategory>>;
 
-    private:
+    protected:
         ContainerWrapper_t& m_container;
         IterBase m_iter;
 
@@ -134,7 +140,7 @@ class GnContainerIterator {
             return m_container.k_getHolder(m_iter);
         }
 
-        void set(const Value& val) const {
+        void set(const std::conditional_t<std::is_same_v<Value,void>,GnContainerIterator,Value>& val) const {
             return m_container.k_setHolderValue(m_iter, val);
         }
 };
@@ -183,7 +189,7 @@ private:
     using ContainerWrapper_t = ContainerWrapper<Container,IterBase,Key,Value,KVPair>;
     ContainerWrapper_t m_container;
     static constexpr auto ref_accessor = ContainerWrapper_t::ref_accessor;
-    inline GnContainer& nonconst() const { return *const_cast<GnContainer*>(this); }
+    inline auto& nonconst() const { return const_cast<GnContainer*>(this)->m_container; }
 
 public:
     using iterator               = GnContainerIteratorEx<ref_accessor, false,false,Container,IterBase,Key,Value,KVPair,IterCategory>;
@@ -222,7 +228,7 @@ public:
 
     template<typename _K>
     const_iterator lower_bound(const _K& key) const {
-        auto lb = nonconst().m_container.k_lower_bound(key);;
+        auto lb = nonconst().k_lower_bound(key);;
         return const_iterator(lb, nonconst());
     }
 
@@ -234,7 +240,7 @@ public:
 
     template<typename _K>
     const_iterator upper_bound(const _K& key) const {
-        auto ub = nonconst().m_container.k_upper_bound(key);
+        auto ub = nonconst().k_upper_bound(key);
         return const_iterator(ub, nonconst());
     }
 
@@ -246,7 +252,7 @@ public:
 
     template<typename _K>
     const_iterator find(const _K& key) const {
-        auto node = nonconst().m_container.k_find(key);
+        auto node = nonconst().k_find(key);
         return const_iterator(node, nonconst());
     }
 
@@ -279,7 +285,7 @@ public:
     std::pair<iterator,bool> insert(ValType&& val)
     {
         auto iter = m_container.k_insert(std::move(val));
-        return make_pair(iter, m_container.k_exists(iter));
+        return std::make_pair(iterator(iter, nonconst()), m_container.k_exists(iter));
     }
 
     template<typename ValType, typename std::enable_if<std::is_constructible<KVPair,ValType>::value,bool>::type = true>
@@ -359,7 +365,5 @@ public:
         return ans;
     }
 
-    void clear() {
-        // TODO
-    }
+    void clear() { m_container.k_clear(); }
 };
