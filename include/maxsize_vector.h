@@ -54,12 +54,12 @@ private:
 
         std::ptrdiff_t operator-(const const_iterator_impl& oth) { std::ptrdiff_t idx = m_idx; idx -= oth.m_idx; return idx; }
 
-        bool operator< (const const_iterator_impl& oth) { assert(&this->m_vec == &oth.m_vec); return this->m_idx <  oth.m_idx; }
-        bool operator<=(const const_iterator_impl& oth) { assert(&this->m_vec == &oth.m_vec); return this->m_idx <= oth.m_idx; }
-        bool operator> (const const_iterator_impl& oth) { assert(&this->m_vec == &oth.m_vec); return this->m_idx >  oth.m_idx; }
-        bool operator>=(const const_iterator_impl& oth) { assert(&this->m_vec == &oth.m_vec); return this->m_idx >= oth.m_idx; }
-        bool operator==(const const_iterator_impl& oth) { assert(&this->m_vec == &oth.m_vec); return this->m_idx == oth.m_idx; }
-        bool operator!=(const const_iterator_impl& oth) { return !this->operator==(oth); }
+        bool operator< (const const_iterator_impl& oth) const { assert(&this->m_vec == &oth.m_vec); return this->m_idx <  oth.m_idx; }
+        bool operator<=(const const_iterator_impl& oth) const { assert(&this->m_vec == &oth.m_vec); return this->m_idx <= oth.m_idx; }
+        bool operator> (const const_iterator_impl& oth) const { assert(&this->m_vec == &oth.m_vec); return this->m_idx >  oth.m_idx; }
+        bool operator>=(const const_iterator_impl& oth) const { assert(&this->m_vec == &oth.m_vec); return this->m_idx >= oth.m_idx; }
+        bool operator==(const const_iterator_impl& oth) const { assert(&this->m_vec == &oth.m_vec); return this->m_idx == oth.m_idx; }
+        bool operator!=(const const_iterator_impl& oth) const { return !this->operator==(oth); }
     };
 
     template<bool reverse>
@@ -107,6 +107,15 @@ public:
         for (auto v: vec)
             this->push_back(v);
     }
+
+    bool operator==(const maxsize_vector& oth) const {
+        if (this->size() != oth.size()) return false;
+        for (size_t i=0;i<this->size();i++) {
+            if (this->at(i) != oth.at(i)) return false;
+        }
+        return true;
+    }
+    bool operator!=(const maxsize_vector& oth) const { return !this->operator==(oth); }
 
     iterator       begin()        { return iterator(*this, 0); }
     const_iterator begin()  const { return const_iterator(*this, 0); }

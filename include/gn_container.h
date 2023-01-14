@@ -41,6 +41,7 @@ public:
     template<typename T>
     inline void k_setHolderValue(IterBase iter, T val) { return m_container.setHolderValue(iter, val); }
 
+    inline size_t k_size() const { return m_container.size(); }
     inline void k_clear() { m_container.clear(); }
 
 private:
@@ -73,7 +74,7 @@ class GnContainerIterator {
             if constexpr (const_iterator) {
                 return 0;
             } else {
-                return const_t(m_iter, *const_cast<ContainerWrapper_t*>(this));
+                return const_t(m_iter, const_cast<GnContainerIterator*>(this)->m_container);
             }
         }
 
@@ -83,7 +84,11 @@ class GnContainerIterator {
 
         GnContainerIterator& operator++() {
             if constexpr (reverse) {
-                m_container.k_backward(m_iter);
+                if (m_iter == m_container.k_begin()) {
+                    m_iter = m_container.k_end();
+                } else {
+                    m_container.k_backward(m_iter);
+                }
             } else {
                 assert(m_container.k_exists(m_iter));
                 m_container.k_forward(m_iter);
@@ -99,9 +104,13 @@ class GnContainerIterator {
 
         GnContainerIterator& operator--() {
             if constexpr (reverse) {
-                m_container.k_backward(m_iter);
+                if (m_container.k_exists(m_iter)) {
+                    m_container.k_forward(m_iter);
+                } else {
+                    m_iter = m_container.k_begin();
+                }
             } else {
-                m_container.k_forward(m_iter);
+                m_container.k_backward(m_iter);
             }
             return *this;
         }
@@ -148,7 +157,7 @@ class GnContainerIterator {
 template<bool reverse, bool const_iterator, typename Container, typename IterBase, typename Key, typename Value, typename KVPair, typename IterCategory>
 class GnContainerIteratorMem: public GnContainerIterator<reverse,const_iterator,Container,IterBase,Key,Value,KVPair,IterCategory> {
     private:
-        using const_t = std::conditional<const_iterator,int,GnContainerIterator<reverse,true,Container,IterBase,Key,Value,KVPair,IterCategory>>;
+        using const_t = std::conditional_t<const_iterator,int,GnContainerIteratorMem<reverse,true,Container,IterBase,Key,Value,KVPair,IterCategory>>;
 
     public:
         using base_t = GnContainerIterator<reverse,const_iterator,Container,IterBase,Key,Value,KVPair,IterCategory>;
@@ -168,7 +177,7 @@ class GnContainerIteratorMem: public GnContainerIterator<reverse,const_iterator,
             if constexpr (const_iterator) {
                 return 0;
             } else {
-                return const_t(this->m_iter, *const_cast<ContainerWrapper_t*>(this));
+                return const_t(this->m_iter, const_cast<GnContainerIteratorMem*>(this)->m_container);
             }
         }
 
@@ -199,26 +208,41 @@ public:
 
     explicit GnContainer(Container&& container): m_container(std::move(container)) {}
 
-    GnContainer& operator=(const GnContainer& oth) = default;
-    GnContainer& operator=(GnContainer&& oth) = default;
+    bool operator==(const GnContainer& oth) const {
+        if (this->size() != oth.size()) return false;
+        for (auto b1 = this->begin(), b2 = oth.begin();b1!=this->end();b1++,b2++) {
+            if (b1.get() != b2.get()) return false;
+        }
+        return true;
+    }
+
+    bool operator!=(const GnContainer& oth) const { return !this->operator==(oth); }
 
     inline iterator begin() { return iterator(m_container.k_begin(), nonconst()); }
     inline iterator end() {   return iterator(m_container.k_end(),   nonconst()); }
 
-    inline const_iterator begin() const { return const_iterator(m_container.k_begin(), nonconst()); }
-    inline const_iterator end() const   { return const_iterator(m_container.k_end(),   nonconst()); }
+    inline const_iterator begin() const { return const_iterator(nonconst().k_begin(), nonconst()); }
+    inline const_iterator end() const   { return const_iterator(nonconst().k_end(),   nonconst()); }
 
-    inline const_iterator cbegin() const { return const_iterator(m_container.k_begin(), nonconst()); }
-    inline const_iterator cend() const   { return const_iterator(m_container.k_end(),   nonconst()); }
+    inline const_iterator cbegin() const { return const_iterator(nonconst().k_begin(), nonconst()); }
+    inline const_iterator cend() const   { return const_iterator(nonconst().k_end(),   nonconst()); }
 
-    inline reverse_iterator rbegin() { return reverse_iterator(this->rbtree, this->rbtree->rbegin(), this->rbtree->version()); }
-    inline reverse_iterator rend() { return reverse_iterator(this->rbtree, nullptr, this->rbtree->version()); }
+    inline reverse_iterator rbegin() {
+        auto u = m_container.k_end();
+        if (this->empty()) {
+            return reverse_iterator(nonconst(), u);
+        } else {
+            m_container.k_backward(u);
+            return reverse_iterator(nonconst(), u);
+        }
+    }
+    inline reverse_iterator rend() { return reverse_iterator(m_container.k_end(), nonconst()); }
 
-    inline reverse_const_iterator rbegin() const { return reverse_const_iterator(this->rbtree, this->rbtree->rbegin(), this->rbtree->version()); }
-    inline reverse_const_iterator rend() const { return reverse_const_iterator(this->rbtree, nullptr, this->rbtree->version()); }
+    inline reverse_const_iterator rbegin() const { return reverse_const_iterator(const_cast<GnContainer*>(this)->rbegin()); }
+    inline reverse_const_iterator rend() const { return reverse_const_iterator(const_cast<GnContainer*>(this)->rend()); }
 
-    inline reverse_const_iterator crbegin() const { return reverse_const_iterator(this->rbtree, this->rbtree->rbegin(), this->rbtree->version()); }
-    inline reverse_const_iterator crend() const { return reverse_const_iterator(this->rbtree, nullptr, this->rbtree->version()); }
+    inline reverse_const_iterator crbegin() const { return reverse_const_iterator(const_cast<GnContainer*>(this)->rbegin()); }
+    inline reverse_const_iterator crend() const { return reverse_const_iterator(const_cast<GnContainer*>(this)->rend()); }
 
     template<typename _K>
     iterator lower_bound(const _K& key) {
@@ -277,7 +301,7 @@ public:
         return this->find(key) != this->end();
     }
 
-    inline size_t size() const { return 0; } // TODO
+    inline size_t size() const { return m_container.k_size(); }
     inline bool   empty() const { return this->size() == 0; }
     inline size_t max_size() const noexcept { return std::numeric_limits<size_t>::max(); }
 
@@ -330,9 +354,9 @@ public:
     }
 
     iterator erase(const_iterator pos) {
-        const auto key = this->getHolderKey(pos.iter());
+        const auto key = m_container.k_getHolderKey(pos.iter());
         size_t nth = 0;
-        auto s = this->lower_bound(key);
+        auto s = const_iterator(this->lower_bound(key));
         for (;s!=pos;s++,nth++);
         m_container.k_deleteIter(pos.iter());
         auto s2 = this->lower_bound(key);
