@@ -1902,14 +1902,14 @@ struct TreeNodeOps {
 
     inline _Node getParent(_Node node) const  {
         if constexpr (parentsOps) {
-            return std::get<1>(node->isLeaf_parent);
+            return node->m_parent;
         } else {
             return nullptr;
         }
     }
     inline void setParent(_Node node, _Node n)  {
         if constexpr (parentsOps) {
-            std::get<1>(node->isLeaf_parent) = n;
+            node->m_parent = n;
         }
     }
 
