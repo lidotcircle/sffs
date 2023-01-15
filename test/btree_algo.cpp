@@ -105,7 +105,7 @@ struct TreeNodeOps {
 };
 
 template<size_t Order, bool parent_ops>
-using BASE_T = BTreeAlgorithmImpl::BTreeAlgorithm<TreeNodeOps<Order>,TreeNode<Order>*,int,int,parent_ops>;
+using BASE_T = BTreeAlgorithmImpl::BTreeAlgorithm<TreeNodeOps<Order>,TreeNode<Order>*,int,int,void,parent_ops>;
 
 template<size_t Order, bool parent_ops>
 struct BTREE: public BASE_T<Order,parent_ops> {

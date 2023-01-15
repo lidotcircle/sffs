@@ -1,5 +1,6 @@
 #include <benchmark/benchmark.h>
 #include "bptree_container.h"
+#include "btree_container.h"
 #include <set>
 #include <iostream>
 #include <random>
@@ -44,6 +45,7 @@ void BM_advance_random(benchmark::State& state) {
 }
 BM_func(advance_random, std::set<size_t>);
 BM_func(advance_random, bptset<size_t>);
+BM_func(advance_random, btset<size_t>);
 
 
 template<typename S>
@@ -72,6 +74,7 @@ void BM_distance_random(benchmark::State& state) {
 }
 BM_func(distance_random, std::set<size_t>);
 BM_func(distance_random, bptset<size_t>);
+BM_func(distance_random, btset<size_t>);
 
 
 template<typename S>
@@ -98,6 +101,7 @@ void BM_advance_distance_random(benchmark::State& state) {
 }
 BM_func(advance_distance_random, std::set<size_t>);
 BM_func(advance_distance_random, bptset<size_t>);
+BM_func(advance_distance_random, btset<size_t>);
 
 
 template<typename S>
@@ -114,6 +118,7 @@ void BM_copy_incremental(benchmark::State& state) {
 }
 BM_func(copy_incremental, std::set<size_t>);
 BM_func(copy_incremental, bptset<size_t>);
+BM_func(copy_incremental, btset<size_t>);
 
 
 template<typename S>
@@ -133,6 +138,7 @@ void BM_copy_random(benchmark::State& state) {
 }
 BM_func(copy_random, std::set<size_t>);
 BM_func(copy_random, bptset<size_t>);
+BM_func(copy_random, btset<size_t>);
 
 
 template<typename S>
@@ -163,6 +169,7 @@ void BM_erase_random(benchmark::State& state) {
 }
 BM_func(erase_random, std::set<size_t>);
 BM_func(erase_random, bptset<size_t>);
+BM_func(erase_random, btset<size_t>);
 
 
 template<typename S>
@@ -177,6 +184,7 @@ void BM_insert_incremental(benchmark::State& state) {
 }
 BM_func(insert_incremental, std::set<size_t>);
 BM_func(insert_incremental, bptset<size_t>);
+BM_func(insert_incremental, btset<size_t>);
 
 
 template<typename S>
@@ -194,6 +202,7 @@ void BM_insert_hint_incremental(benchmark::State& state) {
 }
 BM_func(insert_hint_incremental, std::set<size_t>);
 BM_func(insert_hint_incremental, bptset<size_t>);
+BM_func(insert_hint_incremental, btset<size_t>);
 
 
 template<typename S>
@@ -208,6 +217,7 @@ void BM_insert_decremental(benchmark::State& state) {
 }
 BM_func(insert_decremental, std::set<size_t>);
 BM_func(insert_decremental, bptset<size_t>);
+BM_func(insert_decremental, btset<size_t>);
 
 
 template<typename S>
@@ -225,6 +235,7 @@ void BM_insert_hint_decremental(benchmark::State& state) {
 }
 BM_func(insert_hint_decremental, std::set<size_t>);
 BM_func(insert_hint_decremental, bptset<size_t>);
+BM_func(insert_hint_decremental, btset<size_t>);
 
 
 template<typename S>
@@ -244,6 +255,7 @@ void BM_insert_random(benchmark::State& state) {
 }
 BM_func(insert_random, std::set<size_t>);
 BM_func(insert_random, bptset<size_t>);
+BM_func(insert_random, btset<size_t>);
 
 
 template<typename S>
@@ -264,6 +276,7 @@ void BM_insert_hint_random(benchmark::State& state) {
 }
 BM_func(insert_hint_random, std::set<size_t>);
 BM_func(insert_hint_random, bptset<size_t>);
+BM_func(insert_hint_random, btset<size_t>);
 
 
 BENCHMARK_MAIN();
