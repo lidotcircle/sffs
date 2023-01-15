@@ -3,10 +3,12 @@
 #include <cassert>
 #include <cstddef>
 #include <iterator>
+#include <vector>
+#include "./ldc_utils.h"
 
 
 namespace ldc {
-template<typename T, size_t N>
+template<typename T, size_t N, bool appendvector=false>
 class maxsize_vector {
 private:
     template<bool reverse>
@@ -86,21 +88,87 @@ public:
 
     inline size_t size() const { return this->m_size; }
 
-    inline T&       back() { return m_array[m_size - 1].as(); }
-    inline const T& back() const { return m_array[m_size - 1].as(); }
+    inline T&       back() {
+        if constexpr (appendvector) {
+            if (m_size <= N) {
+                return m_array[m_size - 1].as();
+            } else {
+                return m_appvec.back();
+            }
+        } else {
+            return m_array[m_size - 1].as();
+        }
+    }
+    inline const T& back() const { return const_cast<maxsize_vector*>(this)->back(); }
 
-    inline void clear() { while (!this->empty()) this->pop_back(); }
+    inline void clear() {
+        if constexpr (appendvector) {
+            if (m_size > N) {
+                this->m_appvec.clear();
+                m_size = N;
+            }
+        }
+
+        while (!this->empty()) this->pop_back();
+    }
     template<typename K>
-    inline void push_back(K&& val) { assert(m_size < N); m_array[m_size++].construct_with(std::forward<K>(val));  }
+    inline void push_back(K&& val) {
+        if constexpr (appendvector) {
+            if (m_size < N) {
+                m_array[m_size++].construct_with(std::forward<K>(val));
+            } else {
+                m_appvec.push_back(std::forward<K>(val));
+                m_size++;
+            }
+        } else {
+            assert(m_size < N);
+            m_array[m_size++].construct_with(std::forward<K>(val));
+        }
+    }
     template<typename ... Args>
-    inline void emplace_back(Args&& ... args) { assert(m_size < N); m_array[m_size++].construct_with(std::forward<Args>(args)...);  }
-    inline void pop_back()       { assert(m_size > 0); m_array[--m_size].destroy();  }
+    inline void emplace_back(Args&& ... args) {
+        if constexpr (appendvector) {
+            if (m_size < N) {
+                m_array[m_size++].construct_with(std::forward<Args>(args)...);
+            } else {
+                m_appvec.emplace_back(std::forward<Args>(args)...);
+                m_size++;
+            }
+        } else {
+            assert(m_size < N);
+            m_array[m_size++].construct_with(std::forward<Args>(args)...);
+        }
+    }
+    inline void pop_back() {
+        assert(m_size > 0);
+        m_size--;
+        if constexpr (appendvector) {
+            if (m_size < N) {
+                m_array[m_size].destroy();
+            } else {
+                m_appvec.pop_back();
+            }
+        } else {
+            m_array[m_size].destroy();
+        }
+    }
 
-    inline T&       operator[](size_t idx) { assert(idx < m_size); return m_array[idx].as(); }
-    inline const T& operator[](size_t idx) const { assert(idx < m_size); return m_array[idx].as(); }
+    inline T&       operator[](size_t idx) { return this->at(idx); }
+    inline const T& operator[](size_t idx) const { return this->at(idx); }
 
-    inline T&       at(size_t idx) { assert(idx < m_size); return m_array[idx].as(); }
-    inline const T& at(size_t idx) const { assert(idx < m_size); return m_array[idx].as(); }
+    inline T&       at(size_t idx) {
+        assert(idx < m_size);
+        if constexpr (appendvector) {
+            if (idx < N) {
+                return m_array[idx].as();
+            } else {
+                return m_appvec[idx - N];
+            }
+        } else {
+            return m_array[idx].as();
+        }
+    }
+    inline const T& at(size_t idx) const { return const_cast<maxsize_vector*>(this)->at(idx); }
 
     inline bool empty() const { return m_size == 0; }
 
@@ -109,7 +177,7 @@ public:
             this->push_back(v);
     }
 
-    maxsize_vector(maxsize_vector&& oth): m_array(oth.m_array), m_size(oth.m_size)
+    maxsize_vector(maxsize_vector&& oth): m_array(oth.m_array), m_size(oth.m_size), m_appvec(std::move(oth.m_appvec))
     {
         oth.m_size = 0;
     }
@@ -122,6 +190,7 @@ public:
     maxsize_vector& operator=(maxsize_vector&& oth) {
         this->clear();
         this->m_size  = oth.m_size;
+        this->m_appvec = std::move(this->m_appvec);
         for (size_t i=0;i<N;i++) { this->m_array[i] = oth.m_array[i]; }
         oth.m_size = 0;
         return *this;
@@ -175,5 +244,6 @@ private:
 
     size_t m_size;
     DT m_array[N];
+    std::conditional_t<appendvector,std::vector<T>,dummy_struct> m_appvec;
 };
 };
