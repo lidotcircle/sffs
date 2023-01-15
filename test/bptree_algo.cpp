@@ -6,6 +6,7 @@
 #include <optional>
 #include <variant>
 #include "bptree.h"
+using namespace ldc;
 
 
 template<size_t Order, size_t Order2>

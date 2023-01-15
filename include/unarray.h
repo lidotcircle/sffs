@@ -4,6 +4,7 @@
 #include <bitset>
 
 
+namespace ldc {
 template<typename T, size_t N, bool ASSERT_INVALID=false>
 class unarray {
 public:
@@ -65,4 +66,5 @@ private:
     size_t m_size;
     DT m_array[N];
     std::conditional_t<ASSERT_INVALID,std::bitset<N>,ET> m_ctlbits;
+};
 };

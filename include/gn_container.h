@@ -6,50 +6,44 @@
 #include <assert.h>
 
 
-template<typename Container, typename IterBase, typename Key, typename Value, typename KVPair>
+namespace ldc {
+template<typename _Container, typename _IterBase, typename _Key, typename _Value, typename KVPair>
 struct ContainerWrapper {
-private:
-    struct dummy_t {};
-
 public:
-    static constexpr auto  ref_accessor = Container::ref_accessor;
+    static constexpr auto  ref_accessor = _Container::ref_accessor;
 
-    inline explicit ContainerWrapper(Container&& container): m_container(std::move(container)) {}
+    inline explicit ContainerWrapper(_Container&& container): m_container(std::move(container)) {}
 
-    inline IterBase k_insert(KVPair&& val) { return m_container.insert(std::move(val)); }
+    inline _IterBase k_insert(KVPair&& val) { return m_container.insert(std::move(val)); }
 
-    inline IterBase k_find(const Key& key) { return m_container.find(key); }
-    inline IterBase k_lower_bound(const Key& key) { return m_container.lower_bound(key); }
-    inline IterBase k_upper_bound(const Key& key) { return m_container.upper_bound(key); }
-    inline bool     k_exists(const IterBase& iter) const { return m_container.exists(iter); }
+    inline _IterBase k_find(const _Key& key) { return m_container.find(key); }
+    inline _IterBase k_lower_bound(const _Key& key) { return m_container.lower_bound(key); }
+    inline _IterBase k_upper_bound(const _Key& key) { return m_container.upper_bound(key); }
+    inline bool      k_exists(const _IterBase& iter) const { return m_container.exists(iter); }
 
-    inline IterBase k_begin() { return m_container.begin(); }
-    inline IterBase k_end()   { return m_container.end(); }
+    inline _IterBase k_begin() { return m_container.begin(); }
+    inline _IterBase k_end()   { return m_container.end(); }
 
-    inline void    k_forward   (IterBase& path)  { m_container.forward(path); }
-    inline void    k_backward  (IterBase& path) { m_container.backward(path); }
-    inline KVPair  k_deleteIter(IterBase iter) {return m_container.deleteIter(iter); }
-    inline KVPair  k_getHolder (IterBase iter) { return m_container.getHolder(iter); }
-    inline KVPair& k_getHolderRef (IterBase iter) { return m_container.getHolderRef(iter); }
-    inline int     k_compareHolderPath(const IterBase& it1, const IterBase& it2) const { return m_container.compareHolderPath(it1, it2); }
-
-    // TODO
-    // using valueref = decltype(std::declval<Container>().getHolderValue(std::declval<IterBase>()));
-    // inline valueref k_getHolderValue(IterBase iter) { return m_container.getHolderValue(iter); }
-    inline Key      k_getHolderKey(IterBase iter) { return m_container.getHolderKey(iter); }
+    inline void    k_forward   (_IterBase& path)  { m_container.forward(path); }
+    inline void    k_backward  (_IterBase& path) { m_container.backward(path); }
+    inline KVPair  k_deleteIter(_IterBase iter) {return m_container.deleteIter(iter); }
+    inline KVPair  k_getHolder (_IterBase iter) const { return const_cast<_Container&>(m_container).getHolder(iter); }
+    inline KVPair& k_getHolderRef (_IterBase iter) { return m_container.getHolderRef(iter); }
+    inline int     k_compareHolderPath(const _IterBase& it1, const _IterBase& it2) const { return m_container.compareHolderPath(it1, it2); }
+    inline _Key    k_getHolderKey(_IterBase iter) { return m_container.getHolderKey(iter); }
 
     template<typename T>
-    inline void k_setHolderValue(IterBase iter, T val) { return m_container.setHolderValue(iter, val); }
+    inline void k_setHolderValue(_IterBase iter, T val) { return m_container.setHolderValue(iter, val); }
 
     inline size_t k_size() const { return m_container.size(); }
-    inline void k_clear() { m_container.clear(); }
+    inline void   k_clear() { m_container.clear(); }
 
 private:
-    Container m_container;
+    _Container m_container;
 };
 
 
-template<bool reverse, bool const_iterator, typename Container, typename IterBase, typename Key, typename Value, typename KVPair, typename IterCategory>
+template<bool reverse, bool const_iterator, typename _Container, typename _IterBase, typename _Key, typename _Value, typename KVPair, typename IterCategory>
 class GnContainerIterator {
     public:
         using iterator_category = IterCategory;
@@ -60,17 +54,17 @@ class GnContainerIterator {
         using reference         = typename std::conditional<const_iterator,const value_type&,value_type&>::type;
         using const_reference   = const value_type&;
 
-        using ContainerWrapper_t = ContainerWrapper<Container,IterBase,Key,Value,KVPair>;
-        using const_t = std::conditional<const_iterator,int,GnContainerIterator<reverse,true,Container,IterBase,Key,Value,KVPair,IterCategory>>;
+        using ContainerWrapper_t = ContainerWrapper<_Container,_IterBase,_Key,_Value,KVPair>;
+        using const_t = std::conditional<const_iterator,int,GnContainerIterator<reverse,true,_Container,_IterBase,_Key,_Value,KVPair,IterCategory>>;
 
     protected:
         ContainerWrapper_t* m_container;
-        IterBase m_iter;
+        _IterBase m_iter;
         ContainerWrapper_t&       container()       { return *m_container; }
         const ContainerWrapper_t& container() const { return *m_container; }
 
     public:
-        GnContainerIterator(IterBase iter, ContainerWrapper_t& cnt): m_container(&cnt), m_iter(iter) {}
+        GnContainerIterator(_IterBase iter, ContainerWrapper_t& cnt): m_container(&cnt), m_iter(iter) {}
 
         explicit operator const_t() const {
             if constexpr (const_iterator) {
@@ -80,7 +74,7 @@ class GnContainerIterator {
             }
         }
 
-        const IterBase& iter() const { return this->m_iter; }
+        const _IterBase& iter() const { return this->m_iter; }
 
         explicit operator bool() const { return container().k_exists(m_iter); }
 
@@ -151,18 +145,18 @@ class GnContainerIterator {
             return container().k_getHolder(m_iter);
         }
 
-        void set(const std::conditional_t<std::is_same_v<Value,void>,GnContainerIterator,Value>& val) const {
+        void set(const std::conditional_t<std::is_same_v<_Value,void>,GnContainerIterator,_Value>& val) const {
             return container().k_setHolderValue(m_iter, val);
         }
 };
 
-template<bool reverse, bool const_iterator, typename Container, typename IterBase, typename Key, typename Value, typename KVPair, typename IterCategory>
-class GnContainerIteratorMem: public GnContainerIterator<reverse,const_iterator,Container,IterBase,Key,Value,KVPair,IterCategory> {
+template<bool reverse, bool const_iterator, typename _Container, typename _IterBase, typename _Key, typename _Value, typename KVPair, typename IterCategory>
+class GnContainerIteratorMem: public GnContainerIterator<reverse,const_iterator,_Container,_IterBase,_Key,_Value,KVPair,IterCategory> {
     private:
-        using const_t = std::conditional_t<const_iterator,int,GnContainerIteratorMem<reverse,true,Container,IterBase,Key,Value,KVPair,IterCategory>>;
+        using const_t = std::conditional_t<const_iterator,int,GnContainerIteratorMem<reverse,true,_Container,_IterBase,_Key,_Value,KVPair,IterCategory>>;
 
     public:
-        using base_t = GnContainerIterator<reverse,const_iterator,Container,IterBase,Key,Value,KVPair,IterCategory>;
+        using base_t = GnContainerIterator<reverse,const_iterator,_Container,_IterBase,_Key,_Value,KVPair,IterCategory>;
         using ContainerWrapper_t = typename base_t::ContainerWrapper_t;
 
         using iterator_category = typename base_t::iterator_category;
@@ -173,7 +167,7 @@ class GnContainerIteratorMem: public GnContainerIterator<reverse,const_iterator,
         using reference         = typename base_t::reference;
         using const_reference   = typename base_t::const_reference;
 
-        inline GnContainerIteratorMem(IterBase iter, ContainerWrapper_t& cnt): base_t(iter, cnt) {}
+        inline GnContainerIteratorMem(_IterBase iter, ContainerWrapper_t& cnt): base_t(iter, cnt) {}
 
         explicit operator const_t() const {
             if constexpr (const_iterator) {
@@ -189,26 +183,26 @@ class GnContainerIteratorMem: public GnContainerIterator<reverse,const_iterator,
         const_reference operator*() const { return this->container().k_getHolderRef(this->m_iter); }
 };
 
-template<bool ref_accessor, bool reverse, bool const_iterator, typename Container, typename IterBase, typename Key, typename Value, typename KVPair, typename IterCategory>
+template<bool ref_accessor, bool reverse, bool const_iterator, typename _Container, typename _IterBase, typename _Key, typename _Value, typename KVPair, typename IterCategory>
 using GnContainerIteratorEx = std::conditional_t<ref_accessor,
-      GnContainerIteratorMem<reverse,const_iterator,Container,IterBase,Key,Value,KVPair,IterCategory>,
-      GnContainerIterator<reverse,const_iterator,Container,IterBase,Key,Value,KVPair,IterCategory>>;
+      GnContainerIteratorMem<reverse,const_iterator,_Container,_IterBase,_Key,_Value,KVPair,IterCategory>,
+      GnContainerIterator<reverse,const_iterator,_Container,_IterBase,_Key,_Value,KVPair,IterCategory>>;
 
-template<typename Container, typename IterBase, typename Key, typename Value, typename KVPair, typename IterCategory>
+template<typename _Container, typename _IterBase, typename _Key, typename _Value, typename KVPair, typename IterCategory>
 class GnContainer {
 private:
-    using ContainerWrapper_t = ContainerWrapper<Container,IterBase,Key,Value,KVPair>;
+    using ContainerWrapper_t = ContainerWrapper<_Container,_IterBase,_Key,_Value,KVPair>;
     ContainerWrapper_t m_container;
     static constexpr auto ref_accessor = ContainerWrapper_t::ref_accessor;
     inline auto& nonconst() const { return const_cast<GnContainer*>(this)->m_container; }
 
 public:
-    using iterator               = GnContainerIteratorEx<ref_accessor, false,false,Container,IterBase,Key,Value,KVPair,IterCategory>;
-    using const_iterator         = GnContainerIteratorEx<ref_accessor, false,true ,Container,IterBase,Key,Value,KVPair,IterCategory>;
-    using reverse_iterator       = GnContainerIteratorEx<ref_accessor, true ,false,Container,IterBase,Key,Value,KVPair,IterCategory>;
-    using reverse_const_iterator = GnContainerIteratorEx<ref_accessor, true ,true ,Container,IterBase,Key,Value,KVPair,IterCategory>;
+    using iterator               = GnContainerIteratorEx<ref_accessor, false,false,_Container,_IterBase,_Key,_Value,KVPair,IterCategory>;
+    using const_iterator         = GnContainerIteratorEx<ref_accessor, false,true ,_Container,_IterBase,_Key,_Value,KVPair,IterCategory>;
+    using reverse_iterator       = GnContainerIteratorEx<ref_accessor, true ,false,_Container,_IterBase,_Key,_Value,KVPair,IterCategory>;
+    using reverse_const_iterator = GnContainerIteratorEx<ref_accessor, true ,true ,_Container,_IterBase,_Key,_Value,KVPair,IterCategory>;
 
-    explicit GnContainer(Container&& container): m_container(std::move(container)) {}
+    explicit GnContainer(_Container&& container): m_container(std::move(container)) {}
 
     bool operator==(const GnContainer& oth) const {
         if (this->size() != oth.size()) return false;
@@ -383,7 +377,7 @@ public:
         return ans;
     }
 
-    size_t erase(const Key& key) {
+    size_t erase(const _Key& key) {
         auto first = this->lower_bound(key);
         auto last = this->upper_bound(key);
         auto ans = std::distance(first, last);
@@ -392,4 +386,5 @@ public:
     }
 
     void clear() { m_container.k_clear(); }
+};
 };

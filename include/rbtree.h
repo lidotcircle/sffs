@@ -8,7 +8,7 @@
 #include <type_traits>
 
 
-namespace RBTreeAlgorithmImpl {
+namespace ldc::RBTreeAlgorithmImpl {
 template <typename T, typename NODE, typename KEY, bool complain=false>
 struct treeop_traits {
     static NODE& node;

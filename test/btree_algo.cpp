@@ -5,6 +5,7 @@
 #include <random>
 #include <optional>
 #include "btree.h"
+using namespace ldc;
 
 
 template<size_t Order=128>

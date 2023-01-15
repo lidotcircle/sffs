@@ -6,6 +6,7 @@
 #include <iterator>
 
 
+namespace ldc {
 namespace bptree_container_impl {
 
 template<typename _Key>
@@ -26,14 +27,15 @@ struct default_config {
 };
 
 
-#define BContainer BPTreeBasicContainerImpl::BPTREE<_Key,_Value,ContainerConfig::interiorOrder,ContainerConfig::leafOrder, \
-                                             Compare,Alloc, ContainerConfig::allowEmptyLeaf,ContainerConfig::parent, \
-                                             ContainerConfig::prevLeaf, multi>
+#define BContainer BPTreeBasicContainerImpl::BPTreeInMemory< \
+                                             _Key,_Value,_ContainerConfig::interiorOrder,_ContainerConfig::leafOrder, \
+                                             _Compare, _Alloc, _ContainerConfig::allowEmptyLeaf,_ContainerConfig::parent, \
+                                             _ContainerConfig::prevLeaf, multi>
 
 template<typename _Key, typename _Value, bool multi,
-         typename Compare = default_compare_t<_Key>,
-         typename Alloc = default_allocator_t<_Key,_Value>,
-         typename ContainerConfig = default_config>
+         typename _Compare = default_compare_t<_Key>,
+         typename _Alloc = default_allocator_t<_Key,_Value>,
+         typename _ContainerConfig = default_config>
 class bptree_generic_container: public GnContainer<BContainer,typename BContainer::ITERATOR,_Key,_Value,kvpair_t<_Key,_Value>,std::forward_iterator_tag> {
 public:
     using base_t = GnContainer<BContainer,typename BContainer::ITERATOR,_Key,_Value,kvpair_t<_Key,_Value>,std::forward_iterator_tag>;
@@ -44,20 +46,20 @@ public:
     using reverse_iterator       = typename base_t::reverse_const_iterator;
     using reverse_const_iterator = typename base_t::reverse_const_iterator;
 
-    bptree_generic_container(): base_t(BContainer(Compare(), Alloc())) {}
+    bptree_generic_container(): base_t(BContainer(_Compare(), _Alloc())) {}
 
-    explicit bptree_generic_container(const Compare& cmp, const Alloc& alloc = Alloc()): base_t(BContainer(cmp, alloc)) { }
-    explicit bptree_generic_container(const Alloc& alloc): base_t(BContainer(Compare(), alloc)) { }
+    explicit bptree_generic_container(const _Compare& cmp, const _Alloc& _alloc = _Alloc()): base_t(BContainer(cmp, _alloc)) { }
+    explicit bptree_generic_container(const _Alloc& _alloc): base_t(BContainer(_Compare(), _alloc)) { }
 };
 
 
 template<typename _Key, bool multi,
-         typename Compare = default_compare_t<_Key>,
-         typename Alloc = default_allocator_t<_Key,void>,
-         typename ContainerConfig = default_config>
-class bptree_generic_set: public bptree_generic_container<_Key,void,multi,Compare,Alloc> {
+         typename _Compare = default_compare_t<_Key>,
+         typename _Alloc = default_allocator_t<_Key,void>,
+         typename _ContainerConfig = default_config>
+class bptree_generic_set: public bptree_generic_container<_Key,void,multi,_Compare,_Alloc> {
 private:
-    using base_t = bptree_generic_container<_Key,void,multi,Compare,Alloc>;
+    using base_t = bptree_generic_container<_Key,void,multi,_Compare,_Alloc>;
 
 public:
     using iterator               = typename base_t::iterator;
@@ -72,12 +74,12 @@ public:
 };
 
 template<typename _Key, typename _Value, bool multi,
-         typename Compare = default_compare_t<_Key>,
-         typename Alloc = default_allocator_t<_Key,_Value>,
-         typename ContainerConfig = default_config>
-class bptree_generic_map: public bptree_generic_container<_Key,_Value,multi,Compare,Alloc> {
+         typename _Compare = default_compare_t<_Key>,
+         typename _Alloc = default_allocator_t<_Key,_Value>,
+         typename _ContainerConfig = default_config>
+class bptree_generic_map: public bptree_generic_container<_Key,_Value,multi,_Compare,_Alloc> {
 private:
-    using base_t = bptree_generic_container<_Key,_Value,multi,Compare,Alloc>;
+    using base_t = bptree_generic_container<_Key,_Value,multi,_Compare,_Alloc>;
 
 public:
     using iterator               = typename base_t::iterator;
@@ -94,27 +96,27 @@ public:
 
 
 template<typename _Key, typename _Value,
-         typename Compare         = bptree_container_impl::default_compare_t<_Key>,
-         typename Alloc           = bptree_container_impl::default_allocator_t<_Key,_Value>,
-         typename ContainerConfig = bptree_container_impl::default_config>
-using bptmap = bptree_container_impl::bptree_generic_map<_Key,_Value,false,Compare,Alloc,ContainerConfig>;
+         typename _Compare         = bptree_container_impl::default_compare_t<_Key>,
+         typename _Alloc           = bptree_container_impl::default_allocator_t<_Key,_Value>,
+         typename _ContainerConfig = bptree_container_impl::default_config>
+using bptmap = bptree_container_impl::bptree_generic_map<_Key,_Value,false,_Compare,_Alloc,_ContainerConfig>;
 
 template<typename _Key, typename _Value,
-         typename Compare         = bptree_container_impl::default_compare_t<_Key>,
-         typename Alloc           = bptree_container_impl::default_allocator_t<_Key,_Value>,
-         typename ContainerConfig = bptree_container_impl::default_config>
-using bptmultimap = bptree_container_impl::bptree_generic_map<_Key,_Value,true,Compare,Alloc,ContainerConfig>;
+         typename _Compare         = bptree_container_impl::default_compare_t<_Key>,
+         typename _Alloc           = bptree_container_impl::default_allocator_t<_Key,_Value>,
+         typename _ContainerConfig = bptree_container_impl::default_config>
+using bptmultimap = bptree_container_impl::bptree_generic_map<_Key,_Value,true,_Compare,_Alloc,_ContainerConfig>;
 
 
 template<typename _Key,
-         typename Compare         = bptree_container_impl::default_compare_t<_Key>,
-         typename Alloc           = bptree_container_impl::default_allocator_t<_Key,void>,
-         typename ContainerConfig = bptree_container_impl::default_config>
-using bptset = bptree_container_impl::bptree_generic_set<_Key,false,Compare,Alloc,ContainerConfig>;
+         typename _Compare         = bptree_container_impl::default_compare_t<_Key>,
+         typename _Alloc           = bptree_container_impl::default_allocator_t<_Key,void>,
+         typename _ContainerConfig = bptree_container_impl::default_config>
+using bptset = bptree_container_impl::bptree_generic_set<_Key,false,_Compare,_Alloc,_ContainerConfig>;
 
 template<typename _Key,
-         typename Compare         = bptree_container_impl::default_compare_t<_Key>,
-         typename Alloc           = bptree_container_impl::default_allocator_t<_Key,void>,
-         typename ContainerConfig = bptree_container_impl::default_config>
-using bptmultiset = bptree_container_impl::bptree_generic_set<_Key,true,Compare,Alloc,ContainerConfig>;
-
+         typename _Compare         = bptree_container_impl::default_compare_t<_Key>,
+         typename _Alloc           = bptree_container_impl::default_allocator_t<_Key,void>,
+         typename _ContainerConfig = bptree_container_impl::default_config>
+using bptmultiset = bptree_container_impl::bptree_generic_set<_Key,true,_Compare,_Alloc,_ContainerConfig>;
+};

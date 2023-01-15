@@ -10,19 +10,12 @@
 #include <type_traits>
 
 
-namespace BPTreeAlgorithmImpl {
-template <typename T, typename NODE, typename HOLDER, typename KEY, typename VALUE, bool complain=false>
+namespace ldc::BPTreeAlgorithmImpl {
+template <typename _T, typename _Node, typename _Holder, typename _Key, typename _Value, bool complain=false>
 struct treeop_traits {
-    static NODE& node;
-    static const NODE& const_node;
-    static const KEY& const_key;
-    static HOLDER& holder;
-    static const HOLDER& const_holder;
-    const size_t index;
-
     template<typename U>
     static uint8_t  test_isLeaf(...);
-    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(static_cast<const U*>(nullptr)->isLeaf(node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(std::declval<const U&>().isLeaf(std::declval<_Node&>()))>,bool> = true>
     static uint16_t test_isLeaf(int);
 
     template<typename U>
@@ -32,220 +25,220 @@ struct treeop_traits {
 
     template<typename U>
     static uint8_t  test_getNthChild(...);
-    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(static_cast<const U*>(nullptr)->getNthChild(node,index))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<_Node,decltype(std::declval<const U&>().getNthChild(std::declval<_Node&>(),std::declval<size_t>()))>,bool> = true>
     static uint16_t test_getNthChild(int);
 
     template<typename U>
     static uint8_t  test_setNthChild(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(static_cast<U*>(nullptr)->setNthChild(node, index, node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().setNthChild(std::declval<_Node&>(), std::declval<size_t>(), std::declval<_Node&>()))>,bool> = true>
     static uint16_t test_setNthChild(int);
 
     template<typename U>
     static uint8_t  test_clearNthChild(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(static_cast<U*>(nullptr)->clearNthChild(node, index))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().clearNthChild(std::declval<_Node&>(), std::declval<size_t>()))>,bool> = true>
     static uint16_t test_clearNthChild(int);
 
     template<typename U>
     static uint8_t  test_getParent(...);
-    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(static_cast<const U*>(nullptr)->getParent(node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<_Node,decltype(std::declval<const U&>().getParent(std::declval<_Node&>()))>,bool> = true>
     static uint16_t test_getParent(int);
 
     template<typename U>
     static uint8_t  test_setParent(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(static_cast<U*>(nullptr)->setParent(node, node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().setParent(std::declval<_Node&>(), std::declval<_Node&>()))>,bool> = true>
     static uint16_t test_setParent(int);
 
     template<typename U>
     static uint8_t  test_leafGetNext(...);
-    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(static_cast<const U*>(nullptr)->leafGetNext(node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<_Node,decltype(std::declval<const U&>().leafGetNext(std::declval<_Node&>()))>,bool> = true>
     static uint16_t test_leafGetNext(int);
 
     template<typename U>
     static uint8_t  test_leafSetNext(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(static_cast<U*>(nullptr)->leafSetNext(node, node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().leafSetNext(std::declval<_Node&>(), std::declval<_Node&>()))>,bool> = true>
     static uint16_t test_leafSetNext(int);
 
     template<typename U>
     static uint8_t  test_leafGetPrev(...);
-    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(static_cast<const U*>(nullptr)->leafGetPrev(node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<_Node,decltype(std::declval<const U&>().leafGetPrev(std::declval<_Node&>()))>,bool> = true>
     static uint16_t test_leafGetPrev(int);
 
     template<typename U>
     static uint8_t  test_leafSetPrev(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(static_cast<U*>(nullptr)->leafSetPrev(node, node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().leafSetPrev(std::declval<_Node&>(), std::declval<_Node&>()))>,bool> = true>
     static uint16_t test_leafSetPrev(int);
 
     template<typename U>
     static uint8_t  test_getNthHolder(...);
-    template<typename U,std::enable_if_t<std::is_same_v<HOLDER,decltype(static_cast<const U*>(nullptr)->getNthHolder(node,index))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<_Holder,decltype(std::declval<const U&>().getNthHolder(std::declval<_Node&>(),std::declval<size_t>()))>,bool> = true>
     static uint16_t test_getNthHolder(int);
 
     template<typename U>
     static uint8_t  test_getNthHolderRef(...);
-    template<typename U,std::enable_if_t<std::is_same_v<HOLDER&,decltype(static_cast<U*>(nullptr)->getNthHolderRef(node,index))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<_Holder&,decltype(std::declval<U&>().getNthHolderRef(std::declval<_Node&>(),std::declval<size_t>()))>,bool> = true>
     static uint16_t test_getNthHolderRef(int);
 
     template<typename U>
     static uint8_t  test_setNthHolderValue(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(static_cast<U*>(nullptr)->setNthHolderValue(node,index,std::declval<VALUE>()))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().setNthHolderValue(std::declval<_Node&>(),std::declval<size_t>(),std::declval<_Value>()))>,bool> = true>
     static uint16_t test_setNthHolderValue(int);
 
     template<typename U>
     static uint8_t  test_setHolderValue(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(static_cast<U*>(nullptr)->setHolderValue(std::declval<HOLDER&>(),std::declval<VALUE>()))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().setHolderValue(std::declval<_Holder&>(),std::declval<_Value>()))>,bool> = true>
     static uint16_t test_setHolderValue(int);
 
     template<typename U>
     static uint8_t  test_leafGetNthKey(...);
-    template<typename U,std::enable_if_t<std::is_same_v<KEY,decltype(static_cast<const U*>(nullptr)->leafGetNthKey(node,index))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<_Key,decltype(std::declval<const U&>().leafGetNthKey(std::declval<_Node&>(),std::declval<size_t>()))>,bool> = true>
     static uint16_t test_leafGetNthKey(int);
 
     template<typename U>
     static uint8_t  test_interiorGetNthKey(...);
-    template<typename U,std::enable_if_t<std::is_same_v<KEY,decltype(static_cast<const U*>(nullptr)->interiorGetNthKey(node,index))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<_Key,decltype(std::declval<const U&>().interiorGetNthKey(std::declval<_Node&>(),std::declval<size_t>()))>,bool> = true>
     static uint16_t test_interiorGetNthKey(int);
 
     template<typename U>
     static uint8_t  test_interiorSetNthKey(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(static_cast<U*>(nullptr)->interiorSetNthKey(node,index,const_key))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().interiorSetNthKey(std::declval<_Node&>(),std::declval<size_t>(),std::declval<const _Key&>()))>,bool> = true>
     static uint16_t test_interiorSetNthKey(int);
 
     template<typename U>
     static uint8_t  test_interiorClearNthKey(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(static_cast<U*>(nullptr)->interiorClearNthKey(node,index))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().interiorClearNthKey(std::declval<_Node&>(),std::declval<size_t>()))>,bool> = true>
     static uint16_t test_interiorClearNthKey(int);
 
     template<typename U>
     static uint8_t  test_extractNthHolder(...);
-    template<typename U,std::enable_if_t<std::is_same_v<HOLDER,decltype(static_cast<U*>(nullptr)->extractNthHolder(node,index))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<_Holder,decltype(std::declval<U&>().extractNthHolder(std::declval<_Node&>(),std::declval<size_t>()))>,bool> = true>
     static uint16_t test_extractNthHolder(int);
 
     template<typename U>
     static uint8_t  test_setNthHolder(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(static_cast<U*>(nullptr)->setNthHolder(node, index, std::move(holder)))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().setNthHolder(std::declval<_Node&>(), std::declval<size_t>(), std::move(std::declval<_Holder&>())))>,bool> = true>
     static uint16_t test_setNthHolder(int);
 
     template<typename U>
     static uint8_t  test_leafGetOrder(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(static_cast<const U*>(nullptr)->leafGetOrder())>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(std::declval<const U&>().leafGetOrder())>,bool> = true>
     static uint16_t test_leafGetOrder(int);
 
     template<typename U>
     static uint8_t  test_interiorGetOrder(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(static_cast<const U*>(nullptr)->interiorGetOrder())>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(std::declval<const U&>().interiorGetOrder())>,bool> = true>
     static uint16_t test_interiorGetOrder(int);
 
     template<typename U>
     static uint8_t  test_getNumberOfChildren(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(static_cast<const U*>(nullptr)->getNumberOfChildren(node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(std::declval<const U&>().getNumberOfChildren(std::declval<_Node&>()))>,bool> = true>
     static uint16_t test_getNumberOfChildren(int);
 
     template<typename U>
     static uint8_t  test_leafGetNumberOfKeys(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(static_cast<const U*>(nullptr)->leafGetNumberOfKeys(node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(std::declval<const U&>().leafGetNumberOfKeys(std::declval<_Node&>()))>,bool> = true>
     static uint16_t test_leafGetNumberOfKeys(int);
 
     template<typename U>
     static uint8_t  test_interiorGetNumberOfKeys(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(static_cast<const U*>(nullptr)->interiorGetNumberOfKeys(node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(std::declval<const U&>().interiorGetNumberOfKeys(std::declval<_Node&>()))>,bool> = true>
     static uint16_t test_interiorGetNumberOfKeys(int);
 
     template<typename U>
     static uint8_t  test_isNullNode(...);
-    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(static_cast<const U*>(nullptr)->isNullNode(node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(std::declval<const U&>().isNullNode(std::declval<_Node&>()))>,bool> = true>
     static uint16_t test_isNullNode(int);
 
     template<typename U>
     static uint8_t  test_getNullNode(...);
-    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(static_cast<const U*>(nullptr)->getNullNode())>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<_Node,decltype(std::declval<const U&>().getNullNode())>,bool> = true>
     static uint16_t test_getNullNode(int);
 
     template<typename U>
     static uint8_t  test_leafCreateEmptyNode(...);
-    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(static_cast<U*>(nullptr)->leafCreateEmptyNode())>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<_Node,decltype(std::declval<U&>().leafCreateEmptyNode())>,bool> = true>
     static uint16_t test_leafCreateEmptyNode(int);
 
     template<typename U>
     static uint8_t  test_interiorCreateEmptyNode(...);
-    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(static_cast<U*>(nullptr)->interiorCreateEmptyNode())>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<_Node,decltype(std::declval<U&>().interiorCreateEmptyNode())>,bool> = true>
     static uint16_t test_interiorCreateEmptyNode(int);
 
     template<typename U>
     static uint8_t  test_releaseEmptyNode(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(static_cast<U*>(nullptr)->releaseEmptyNode(std::move(node)))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().releaseEmptyNode(std::move(std::declval<_Node&>())))>,bool> = true>
     static uint16_t test_releaseEmptyNode(int);
 
     template<typename U>
     static uint8_t  test_getKey(...);
-    template<typename U,std::enable_if_t<std::is_same_v<KEY,decltype(static_cast<const U*>(nullptr)->getKey(const_holder))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<_Key,decltype(std::declval<const U&>().getKey(std::declval<const _Holder&>()))>,bool> = true>
     static uint16_t test_getKey(int);
 
     template<typename U>
     static uint8_t  test_keyCompareLess(...);
-    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(static_cast<const U*>(nullptr)->keyCompareLess(const_key,const_key))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(std::declval<const U&>().keyCompareLess(std::declval<const _Key&>(),std::declval<const _Key&>()))>,bool> = true>
     static uint16_t test_keyCompareLess(int);
 
     template<typename U>
     static uint8_t  test_keyCompareEqual(...);
-    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(static_cast<const U*>(nullptr)->keyCompareEqual(const_key,const_key))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(std::declval<const U&>().keyCompareEqual(std::declval<const _Key&>(),std::declval<const _Key&>()))>,bool> = true>
     static uint16_t test_keyCompareEqual(int);
 
     template<typename U>
     static uint8_t  test_nodeCompareEqual(...);
-    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(static_cast<const U*>(nullptr)->nodeCompareEqual(node,node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(std::declval<const U&>().nodeCompareEqual(std::declval<_Node&>(),std::declval<_Node&>()))>,bool> = true>
     static uint16_t test_nodeCompareEqual(int);
 
-    static constexpr bool has_isLeaf                  = sizeof(test_isLeaf<T>(1))                  == sizeof(uint16_t);
-    static constexpr bool has_allowEmptyLeaf          = sizeof(test_allowEmptyLeaf<T>(1))          == sizeof(uint16_t);
-    static constexpr bool has_getNthChild             = sizeof(test_getNthChild<T>(1))             == sizeof(uint16_t);
-    static constexpr bool has_setNthChild             = sizeof(test_setNthChild<T>(1))             == sizeof(uint16_t);
-    static constexpr bool has_clearNthChild           = sizeof(test_clearNthChild<T>(1))           == sizeof(uint16_t);
-    static constexpr bool has_getParent               = sizeof(test_getParent<T>(1))               == sizeof(uint16_t); // optional
-    static constexpr bool has_setParent               = sizeof(test_setParent<T>(1))               == sizeof(uint16_t); // optional
-    static constexpr bool has_leafGetNext             = sizeof(test_leafGetNext<T>(1))             == sizeof(uint16_t);
-    static constexpr bool has_leafSetNext             = sizeof(test_leafSetNext<T>(1))             == sizeof(uint16_t);
-    static constexpr bool has_leafGetPrev             = sizeof(test_leafGetPrev<T>(1))             == sizeof(uint16_t);
-    static constexpr bool has_leafSetPrev             = sizeof(test_leafSetPrev<T>(1))             == sizeof(uint16_t);
-    static constexpr bool has_getNthHolder            = sizeof(test_getNthHolder<T>(1))            == sizeof(uint16_t);
-    static constexpr bool has_getNthHolderRef         = sizeof(test_getNthHolderRef<T>(1))         == sizeof(uint16_t);
-    static constexpr bool has_setNthHolderValue       = sizeof(test_setNthHolderValue<T>(1))       == sizeof(uint16_t);
-    static constexpr bool has_setHolderValue          = sizeof(test_setHolderValue<T>(1))          == sizeof(uint16_t);
-    static constexpr bool has_leafGetNthKey           = sizeof(test_leafGetNthKey<T>(1))           == sizeof(uint16_t);
-    static constexpr bool has_interiorGetNthKey       = sizeof(test_interiorGetNthKey<T>(1))       == sizeof(uint16_t);
-    static constexpr bool has_interiorSetNthKey       = sizeof(test_interiorSetNthKey<T>(1))       == sizeof(uint16_t);
-    static constexpr bool has_interiorClearNthKey     = sizeof(test_interiorClearNthKey<T>(1))     == sizeof(uint16_t);
-    static constexpr bool has_extractNthHolder        = sizeof(test_extractNthHolder<T>(1))        == sizeof(uint16_t);
-    static constexpr bool has_setNthHolder            = sizeof(test_setNthHolder<T>(1))            == sizeof(uint16_t);
-    static constexpr bool has_leafGetOrder            = sizeof(test_leafGetOrder<T>(1))            == sizeof(uint16_t);
-    static constexpr bool has_getNumberOfChildren     = sizeof(test_getNumberOfChildren<T>(1))     == sizeof(uint16_t);
-    static constexpr bool has_interiorGetOrder        = sizeof(test_interiorGetOrder<T>(1))        == sizeof(uint16_t);
-    static constexpr bool has_leafGetNumberOfKeys     = sizeof(test_leafGetNumberOfKeys<T>(1))     == sizeof(uint16_t);
-    static constexpr bool has_interiorGetNumberOfKeys = sizeof(test_interiorGetNumberOfKeys<T>(1)) == sizeof(uint16_t);
-    static constexpr bool has_isNullNode              = sizeof(test_isNullNode<T>(1))              == sizeof(uint16_t);
-    static constexpr bool has_getNullNode             = sizeof(test_getNullNode<T>(1))             == sizeof(uint16_t);
-    static constexpr bool has_leafCreateEmptyNode     = sizeof(test_leafCreateEmptyNode<T>(1))     == sizeof(uint16_t);
-    static constexpr bool has_interiorCreateEmptyNode = sizeof(test_interiorCreateEmptyNode<T>(1)) == sizeof(uint16_t);
-    static constexpr bool has_releaseEmptyNode        = sizeof(test_releaseEmptyNode<T>(1))        == sizeof(uint16_t);
-    static constexpr bool has_getKey                  = sizeof(test_getKey<T>(1))                  == sizeof(uint16_t);
-    static constexpr bool has_keyCompareLess          = sizeof(test_keyCompareLess<T>(1))          == sizeof(uint16_t);
-    static constexpr bool has_keyCompareEqual         = sizeof(test_keyCompareEqual<T>(1))         == sizeof(uint16_t);
-    static constexpr bool has_nodeCompareEqual        = sizeof(test_nodeCompareEqual<T>(1))        == sizeof(uint16_t);
+    static constexpr bool has_isLeaf                  = sizeof(test_isLeaf<_T>(1))                  == sizeof(uint16_t);
+    static constexpr bool has_allowEmptyLeaf          = sizeof(test_allowEmptyLeaf<_T>(1))          == sizeof(uint16_t);
+    static constexpr bool has_getNthChild             = sizeof(test_getNthChild<_T>(1))             == sizeof(uint16_t);
+    static constexpr bool has_setNthChild             = sizeof(test_setNthChild<_T>(1))             == sizeof(uint16_t);
+    static constexpr bool has_clearNthChild           = sizeof(test_clearNthChild<_T>(1))           == sizeof(uint16_t);
+    static constexpr bool has_getParent               = sizeof(test_getParent<_T>(1))               == sizeof(uint16_t); // optional
+    static constexpr bool has_setParent               = sizeof(test_setParent<_T>(1))               == sizeof(uint16_t); // optional
+    static constexpr bool has_leafGetNext             = sizeof(test_leafGetNext<_T>(1))             == sizeof(uint16_t);
+    static constexpr bool has_leafSetNext             = sizeof(test_leafSetNext<_T>(1))             == sizeof(uint16_t);
+    static constexpr bool has_leafGetPrev             = sizeof(test_leafGetPrev<_T>(1))             == sizeof(uint16_t);
+    static constexpr bool has_leafSetPrev             = sizeof(test_leafSetPrev<_T>(1))             == sizeof(uint16_t);
+    static constexpr bool has_getNthHolder            = sizeof(test_getNthHolder<_T>(1))            == sizeof(uint16_t);
+    static constexpr bool has_getNthHolderRef         = sizeof(test_getNthHolderRef<_T>(1))         == sizeof(uint16_t);
+    static constexpr bool has_setNthHolderValue       = sizeof(test_setNthHolderValue<_T>(1))       == sizeof(uint16_t);
+    static constexpr bool has_setHolderValue          = sizeof(test_setHolderValue<_T>(1))          == sizeof(uint16_t);
+    static constexpr bool has_leafGetNthKey           = sizeof(test_leafGetNthKey<_T>(1))           == sizeof(uint16_t);
+    static constexpr bool has_interiorGetNthKey       = sizeof(test_interiorGetNthKey<_T>(1))       == sizeof(uint16_t);
+    static constexpr bool has_interiorSetNthKey       = sizeof(test_interiorSetNthKey<_T>(1))       == sizeof(uint16_t);
+    static constexpr bool has_interiorClearNthKey     = sizeof(test_interiorClearNthKey<_T>(1))     == sizeof(uint16_t);
+    static constexpr bool has_extractNthHolder        = sizeof(test_extractNthHolder<_T>(1))        == sizeof(uint16_t);
+    static constexpr bool has_setNthHolder            = sizeof(test_setNthHolder<_T>(1))            == sizeof(uint16_t);
+    static constexpr bool has_leafGetOrder            = sizeof(test_leafGetOrder<_T>(1))            == sizeof(uint16_t);
+    static constexpr bool has_getNumberOfChildren     = sizeof(test_getNumberOfChildren<_T>(1))     == sizeof(uint16_t);
+    static constexpr bool has_interiorGetOrder        = sizeof(test_interiorGetOrder<_T>(1))        == sizeof(uint16_t);
+    static constexpr bool has_leafGetNumberOfKeys     = sizeof(test_leafGetNumberOfKeys<_T>(1))     == sizeof(uint16_t);
+    static constexpr bool has_interiorGetNumberOfKeys = sizeof(test_interiorGetNumberOfKeys<_T>(1)) == sizeof(uint16_t);
+    static constexpr bool has_isNullNode              = sizeof(test_isNullNode<_T>(1))              == sizeof(uint16_t);
+    static constexpr bool has_getNullNode             = sizeof(test_getNullNode<_T>(1))             == sizeof(uint16_t);
+    static constexpr bool has_leafCreateEmptyNode     = sizeof(test_leafCreateEmptyNode<_T>(1))     == sizeof(uint16_t);
+    static constexpr bool has_interiorCreateEmptyNode = sizeof(test_interiorCreateEmptyNode<_T>(1)) == sizeof(uint16_t);
+    static constexpr bool has_releaseEmptyNode        = sizeof(test_releaseEmptyNode<_T>(1))        == sizeof(uint16_t);
+    static constexpr bool has_getKey                  = sizeof(test_getKey<_T>(1))                  == sizeof(uint16_t);
+    static constexpr bool has_keyCompareLess          = sizeof(test_keyCompareLess<_T>(1))          == sizeof(uint16_t);
+    static constexpr bool has_keyCompareEqual         = sizeof(test_keyCompareEqual<_T>(1))         == sizeof(uint16_t);
+    static constexpr bool has_nodeCompareEqual        = sizeof(test_nodeCompareEqual<_T>(1))        == sizeof(uint16_t);
 
-    static_assert(!complain || !std::is_reference_v<NODE>,            "NODE should not be a reference");
-    static_assert(!complain || !std::is_const_v<NODE>,                "NODE should not be const-qualified");
-    static_assert(!complain ||  std::is_copy_assignable_v<NODE>,      "NODE should be copy assignable");
-    static_assert(!complain || !std::is_reference_v<HOLDER>,          "HOLDER should not be a reference");
-    static_assert(!complain || !std::is_const_v<HOLDER>,              "HOLDER should not be const-qualified");
-    static_assert(!complain ||  std::is_move_constructible_v<HOLDER>, "HOLDER should be copy assignable");
-    static_assert(!complain || !std::is_reference_v<KEY>,             "KEY should not be a reference");
-    static_assert(!complain || !std::is_const_v<KEY>,                 "KEY should not be const-qualified");
-    static_assert(!complain ||  std::is_copy_assignable_v<KEY>,       "KEY should be copy assignable");
+    static_assert(!complain || !std::is_reference_v<_Node>,            "NODE should not be a reference");
+    static_assert(!complain || !std::is_const_v<_Node>,                "NODE should not be const-qualified");
+    static_assert(!complain ||  std::is_copy_assignable_v<_Node>,      "NODE should be copy assignable");
+    static_assert(!complain || !std::is_reference_v<_Holder>,          "HOLDER should not be a reference");
+    static_assert(!complain || !std::is_const_v<_Holder>,              "HOLDER should not be const-qualified");
+    static_assert(!complain ||  std::is_move_constructible_v<_Holder>, "HOLDER should be copy assignable");
+    static_assert(!complain || !std::is_reference_v<_Key>,             "KEY should not be a reference");
+    static_assert(!complain || !std::is_const_v<_Key>,                 "KEY should not be const-qualified");
+    static_assert(!complain ||  std::is_copy_assignable_v<_Key>,       "KEY should be copy assignable");
     static_assert(!complain ||  has_isLeaf,                           "should implement 'bool isLeaf(NODE) const;'");
     static_assert(!complain ||  has_getNthChild,                      "should implement 'NODE getNthChild(NODE, size_t) const;'");
     static_assert(!complain ||  has_setNthChild,                      "should implement 'void setNthChild(NODE, size_t, NODE);'");
     static_assert(!complain ||  has_getNthHolder || has_getNthHolderRef,
                                                                       "should implement 'HOLDER getNthHolder(NODE, size_t) const;'");
-    static_assert(!complain ||  std::is_same_v<VALUE,void> || (has_setNthHolderValue || (has_getNthHolderRef && has_setHolderValue)), 
+    static_assert(!complain ||  std::is_same_v<_Value,void> || (has_setNthHolderValue || (has_getNthHolderRef && has_setHolderValue)), 
                                                                       "should provide value accessor for non-void value");
     static_assert(!complain ||  has_interiorGetNthKey,                "should implement 'KEY interiorGetNthKey(NODE, size_t) const;'");
     static_assert(!complain ||  has_interiorSetNthKey,                "should implement 'void interiorSetNthKey(NODE, size_t, const KEY&);'");
@@ -268,11 +261,11 @@ struct treeop_traits {
     static_assert(!complain ||  has_keyCompareLess,                   "should implement 'bool keyCompareLess(const KEY&, const KEY&) const;'");
     static_assert(!complain ||  has_nodeCompareEqual,                 "should implement 'bool nodeCompareEqual(NODE, NODE) const;'");
 
-    static constexpr bool value = !std::is_reference_v<NODE> && !std::is_const_v<NODE> && std::is_copy_assignable_v<NODE> &&
-                                  !std::is_reference_v<HOLDER>  && !std::is_const_v<HOLDER> &&
-                                   std::is_move_constructible_v<HOLDER> &&
-                                  !std::is_reference_v<KEY>  && !std::is_const_v<KEY> && std::is_copy_assignable_v<KEY> &&
-                                  (std::is_same_v<VALUE,void> || (has_setNthHolderValue || (has_getNthHolderRef && has_setHolderValue))) &&
+    static constexpr bool value = !std::is_reference_v<_Node> && !std::is_const_v<_Node> && std::is_copy_assignable_v<_Node> &&
+                                  !std::is_reference_v<_Holder>  && !std::is_const_v<_Holder> &&
+                                   std::is_move_constructible_v<_Holder> &&
+                                  !std::is_reference_v<_Key>  && !std::is_const_v<_Key> && std::is_copy_assignable_v<_Key> &&
+                                  (std::is_same_v<_Value,void> || (has_setNthHolderValue || (has_getNthHolderRef && has_setHolderValue))) &&
                                   has_getNthChild && has_setNthChild  &&
                                   (has_getNthHolder || has_getNthHolderRef) && has_extractNthHolder && has_setNthHolder  &&
                                   has_interiorGetNthKey && has_interiorSetNthKey && has_interiorClearNthKey &&
@@ -285,27 +278,27 @@ struct treeop_traits {
                                   has_nodeCompareEqual;
 };
 
-template<typename T, typename NODE, typename HOLDER, typename KEY, typename VALUE,
-         std::enable_if_t<treeop_traits<T,NODE,HOLDER,KEY,VALUE>::value,bool> = true>
+template<typename _T, typename _Node, typename _Holder, typename _Key, typename _Value,
+         std::enable_if_t<treeop_traits<_T,_Node,_Holder,_Key,_Value>::value,bool> = true>
 struct BPTreeOpWrapper {
-    using traits = treeop_traits<T,NODE,HOLDER,KEY,VALUE>;
+    using traits = treeop_traits<_T,_Node,_Holder,_Key,_Value>;
 
-    inline explicit BPTreeOpWrapper(T treeop): m_ops (treeop) {}
+    inline explicit BPTreeOpWrapper(_T treeop): m_ops (treeop) {}
 
     inline static constexpr bool allowEmptyLeaf() {
         if constexpr (traits::has_allowEmptyLeaf) {
-            return T::allowEmptyLeaf();
+            return _T::allowEmptyLeaf();
         } else {
             return false;
         }
     }
 
-    inline bool isLeaf(NODE node) const { return m_ops.isLeaf(node); }
+    inline bool isLeaf(_Node node) const { return m_ops.isLeaf(node); }
 
-    inline NODE   getNthChild(NODE node, size_t nth) const { return m_ops.getNthChild(node, nth); }
-    inline void   setNthChild(NODE node, size_t nth, NODE n)  { m_ops.setNthChild(node, nth, n); }
+    inline _Node   getNthChild(_Node node, size_t nth) const { return m_ops.getNthChild(node, nth); }
+    inline void   setNthChild(_Node node, size_t nth, _Node n)  { m_ops.setNthChild(node, nth, n); }
 
-    inline HOLDER getNthHolder(NODE node, size_t nth) const {
+    inline _Holder getNthHolder(_Node node, size_t nth) const {
         if constexpr (traits::has_getNthHolder) {
             return m_ops.getNthHolder(node, nth);
         } else {
@@ -313,16 +306,16 @@ struct BPTreeOpWrapper {
         }
     }
 
-    inline HOLDER& getNthHolderRef(NODE node, size_t nth) {
+    inline _Holder& getNthHolderRef(_Node node, size_t nth) {
         if constexpr (traits::has_getNthHolderRef) {
             return m_ops.getNthHolderRef(node, nth);
         } else {
-            return std::declval<HOLDER&>();
+            return std::declval<_Holder&>();
         }
     }
 
-    using HolderValue = std::conditional_t<std::is_same_v<VALUE,void>,BPTreeOpWrapper,VALUE>;
-    inline void setHolderValue(HOLDER& holder, HolderValue val) {
+    using HolderValue = std::conditional_t<std::is_same_v<_Value,void>,BPTreeOpWrapper,_Value>;
+    inline void setHolderValue(_Holder& holder, HolderValue val) {
         if constexpr (traits::has_setHolderValue) {
             m_ops.setHolderValue(holder, val);
         } else {
@@ -330,73 +323,73 @@ struct BPTreeOpWrapper {
         }
     }
 
-    inline void setNthHolderValue(NODE node, size_t nth, HolderValue val) {
+    inline void setNthHolderValue(_Node node, size_t nth, HolderValue val) {
         if constexpr (traits::has_setNthHolderValue) {
             return m_ops.setNthHolderValue(node, nth, val);
         } else if constexpr (traits::has_getNthHolderRef && traits::has_setHolderValue) {
             m_ops.setHolderValue(m_ops.getNthHolderRef(node, nth), val);
-        } else if constexpr (std::is_same_v<VALUE,void>) {
+        } else if constexpr (std::is_same_v<_Value,void>) {
         } else {
-            static_assert(std::is_same_v<VALUE,void> ||traits::has_setNthHolderValue || (traits::has_getNthHolderRef && traits::has_setHolderValue),
+            static_assert(std::is_same_v<_Value,void> ||traits::has_setNthHolderValue || (traits::has_getNthHolderRef && traits::has_setHolderValue),
                           "failed to implement setNthHolderValue");
         }
     }
 
-    inline KEY    leafGetNthKey(NODE node, size_t nth) const {
+    inline _Key    leafGetNthKey(_Node node, size_t nth) const {
         if constexpr (traits::has_leafGetNthKey) {
             return m_ops.leafGetNthKey(node, nth);
         } else {
             return this->getKey(this->getNthHolder(node, nth));
         }
     }
-    inline KEY interiorGetNthKey(NODE node, size_t nth) const { return m_ops.interiorGetNthKey(node, nth); }
-    inline void interiorSetNthKey(NODE node, size_t nth, const KEY& key) { m_ops.interiorSetNthKey(node, nth, key); }
-    inline void interiorClearNthKey(NODE node, size_t nth) { return m_ops.interiorClearNthKey(node, nth); }
-    inline KEY interiorExtractNthKey(NODE node, size_t nth) { 
+    inline _Key interiorGetNthKey(_Node node, size_t nth) const { return m_ops.interiorGetNthKey(node, nth); }
+    inline void interiorSetNthKey(_Node node, size_t nth, const _Key& key) { m_ops.interiorSetNthKey(node, nth, key); }
+    inline void interiorClearNthKey(_Node node, size_t nth) { return m_ops.interiorClearNthKey(node, nth); }
+    inline _Key interiorExtractNthKey(_Node node, size_t nth) { 
         auto ans = this->interiorGetNthKey(node, nth);
         this->interiorClearNthKey(node, nth);
         return ans;
     }
 
-    inline NODE getFirstChild(NODE node) const { return this->getNthChild(node, 0); }
-    inline NODE getLastChild (NODE node) const { return this->getNthChild(node, m_ops.getNumberOfChildren(node)-1); }
+    inline _Node getFirstChild(_Node node) const { return this->getNthChild(node, 0); }
+    inline _Node getLastChild (_Node node) const { return this->getNthChild(node, m_ops.getNumberOfChildren(node)-1); }
 
-    inline HOLDER getFirstHolder(NODE node) const { return this->getNthHolder(node, 0); }
-    inline HOLDER getLastHolder (NODE node) const { return this->getNthHolder(node, m_ops.leafGetNumberOfKeys(node)-1); }
+    inline _Holder getFirstHolder(_Node node) const { return this->getNthHolder(node, 0); }
+    inline _Holder getLastHolder (_Node node) const { return this->getNthHolder(node, m_ops.leafGetNumberOfKeys(node)-1); }
 
-    inline KEY leafGetFirstKey(NODE node) const { return this->leafGetNthKey(node, 0); }
-    inline KEY leafGetLastKey (NODE node) const { return this->leafGetNthKey(node, m_ops.leafGetNumberOfKeys(node)-1); }
+    inline _Key leafGetFirstKey(_Node node) const { return this->leafGetNthKey(node, 0); }
+    inline _Key leafGetLastKey (_Node node) const { return this->leafGetNthKey(node, m_ops.leafGetNumberOfKeys(node)-1); }
 
-    inline KEY interiorGetFirstKey(NODE node) const { return this->interiorGetNthKey(node, 0); }
-    inline KEY interiorGetLastKey (NODE node) const { return this->interiorGetNthKey(node, m_ops.interiorGetNumberOfKeys(node)-1); }
+    inline _Key interiorGetFirstKey(_Node node) const { return this->interiorGetNthKey(node, 0); }
+    inline _Key interiorGetLastKey (_Node node) const { return this->interiorGetNthKey(node, m_ops.interiorGetNumberOfKeys(node)-1); }
 
-    inline HOLDER extractNthHolder(NODE node, size_t nth) { return m_ops.extractNthHolder(node, nth); }
+    inline _Holder extractNthHolder(_Node node, size_t nth) { return m_ops.extractNthHolder(node, nth); }
 
-    inline void clearNthChild (NODE node, size_t nth)  {
+    inline void clearNthChild (_Node node, size_t nth)  {
         if constexpr (traits::has_clearNthChild) {
             m_ops.clearNthChild(node, nth);
         } else {
             m_ops.setNthChild(node, nth, m_ops.getNullNode());
         }
     }
-    inline void setNthHolder(NODE node, size_t nth, HOLDER&& holder) { m_ops.setNthHolder(node, nth, std::move(holder)); }
+    inline void setNthHolder(_Node node, size_t nth, _Holder&& holder) { m_ops.setNthHolder(node, nth, std::move(holder)); }
 
-    inline NODE getParent(NODE node) const  {
+    inline _Node getParent(_Node node) const  {
         if constexpr (traits::has_getParent) {
             return m_ops.getParent(node);
         }
         return node;
     }
-    inline void setParent(NODE node, NODE n)  {
+    inline void setParent(_Node node, _Node n)  {
         if constexpr (traits::has_setParent) {
             return m_ops.setParent(node, n);
         }
     }
 
-    inline NODE leafGetNext(NODE node) const  { return m_ops.leafGetNext(node); }
-    inline void leafSetNext(NODE node, NODE n)  { m_ops.leafSetNext(node, n); }
+    inline _Node leafGetNext(_Node node) const  { return m_ops.leafGetNext(node); }
+    inline void leafSetNext(_Node node, _Node n)  { m_ops.leafSetNext(node, n); }
 
-    inline NODE leafGetPrev(NODE node) const  {
+    inline _Node leafGetPrev(_Node node) const  {
         if constexpr (traits::has_leafGetPrev) {
             return m_ops.leafGetPrev(node);
         } else {
@@ -404,35 +397,35 @@ struct BPTreeOpWrapper {
             return this->getNullNode();
         }
     }
-    inline void leafSetPrev(NODE node, NODE n)  {
+    inline void leafSetPrev(_Node node, _Node n)  {
         if constexpr (traits::has_leafSetPrev) {
             m_ops.leafSetPrev(node, n);
         }
     }
 
     inline size_t leafGetOrder() const { return m_ops.leafGetOrder(); }
-    inline size_t getNumberOfChildren(NODE node) const { return m_ops.getNumberOfChildren(node); }
-    inline size_t leafGetNumberOfKeys(NODE node) const { return m_ops.leafGetNumberOfKeys(node); }
+    inline size_t getNumberOfChildren(_Node node) const { return m_ops.getNumberOfChildren(node); }
+    inline size_t leafGetNumberOfKeys(_Node node) const { return m_ops.leafGetNumberOfKeys(node); }
 
     inline size_t interiorGetOrder() const { return m_ops.interiorGetOrder(); }
-    inline size_t interiorGetNumberOfKeys(NODE node) const { return m_ops.interiorGetNumberOfKeys(node); }
+    inline size_t interiorGetNumberOfKeys(_Node node) const { return m_ops.interiorGetNumberOfKeys(node); }
 
-    inline bool leafIsFull(NODE node) const { return this->leafGetNumberOfKeys(node) == 2 * this->leafGetOrder() - 1; }
-    inline bool interiorIsFull(NODE node) const { return this->interiorGetNumberOfKeys(node) == 2 * this->interiorGetOrder() - 1; }
+    inline bool leafIsFull(_Node node) const { return this->leafGetNumberOfKeys(node) == 2 * this->leafGetOrder() - 1; }
+    inline bool interiorIsFull(_Node node) const { return this->interiorGetNumberOfKeys(node) == 2 * this->interiorGetOrder() - 1; }
 
-    inline bool isNullNode(NODE node) const { return m_ops.isNullNode(node); }
-    inline NODE getNullNode() const { return m_ops.getNullNode(); }
-    inline NODE leafCreateEmptyNode() { return m_ops.leafCreateEmptyNode(); }
-    inline NODE interiorCreateEmptyNode() { return m_ops.interiorCreateEmptyNode(); }
-    inline bool interiorIsEmptyNode(NODE node) const { return !m_ops.isNullNode(node) && m_ops.getNumberOfChildren(node) == 0 && m_ops.interiorGetNumberOfKeys(node) == 0; }
-    inline bool leafIsEmptyNode(NODE node) const { return !m_ops.isNullNode(node) && m_ops.leafGetNumberOfKeys(node) == 0; }
-    inline void releaseEmptyNode(NODE&& node) { return m_ops.releaseEmptyNode(std::move(node)); }
+    inline bool isNullNode(_Node node) const { return m_ops.isNullNode(node); }
+    inline _Node getNullNode() const { return m_ops.getNullNode(); }
+    inline _Node leafCreateEmptyNode() { return m_ops.leafCreateEmptyNode(); }
+    inline _Node interiorCreateEmptyNode() { return m_ops.interiorCreateEmptyNode(); }
+    inline bool interiorIsEmptyNode(_Node node) const { return !m_ops.isNullNode(node) && m_ops.getNumberOfChildren(node) == 0 && m_ops.interiorGetNumberOfKeys(node) == 0; }
+    inline bool leafIsEmptyNode(_Node node) const { return !m_ops.isNullNode(node) && m_ops.leafGetNumberOfKeys(node) == 0; }
+    inline void releaseEmptyNode(_Node&& node) { return m_ops.releaseEmptyNode(std::move(node)); }
 
-    inline KEY getKey(const HOLDER& n) const { return m_ops.getKey(n); }
+    inline _Key getKey(const _Holder& n) const { return m_ops.getKey(n); }
 
-    inline bool keyCompareLess(const KEY& lhs, const KEY& rhs) const { return m_ops.keyCompareLess(lhs, rhs); }
+    inline bool keyCompareLess(const _Key& lhs, const _Key& rhs) const { return m_ops.keyCompareLess(lhs, rhs); }
 
-    inline bool keyCompareEqual(const KEY& lhs, const KEY& rhs) const {
+    inline bool keyCompareEqual(const _Key& lhs, const _Key& rhs) const {
         if constexpr (traits::has_keyCompareEqual) {
             return m_ops.keyCompareEqual(lhs, rhs);
         } else {
@@ -440,7 +433,7 @@ struct BPTreeOpWrapper {
         }
     }
 
-    inline bool nodeCompareEqual(NODE lhs, NODE rhs) const {
+    inline bool nodeCompareEqual(_Node lhs, _Node rhs) const {
         if constexpr (traits::has_nodeCompareEqual) {
             return m_ops.nodeCompareEqual(lhs, rhs);
         } else {
@@ -448,7 +441,7 @@ struct BPTreeOpWrapper {
         }
     }
 
-    inline size_t interior_lower_bound(NODE node, const KEY& key) {
+    inline size_t interior_lower_bound(_Node node, const _Key& key) {
         size_t lower = 0;
         size_t upper = this->interiorGetNumberOfKeys(node);
 
@@ -464,7 +457,7 @@ struct BPTreeOpWrapper {
         return upper;
     }
 
-    inline size_t interior_upper_bound(NODE node, const KEY& key) {
+    inline size_t interior_upper_bound(_Node node, const _Key& key) {
         size_t lower = 0;
         size_t upper = this->interiorGetNumberOfKeys(node);
 
@@ -480,7 +473,7 @@ struct BPTreeOpWrapper {
         return upper;
     }
 
-    inline size_t leaf_lower_bound(NODE node, const KEY& key) {
+    inline size_t leaf_lower_bound(_Node node, const _Key& key) {
         size_t lower = 0;
         size_t upper = this->leafGetNumberOfKeys(node);
 
@@ -496,7 +489,7 @@ struct BPTreeOpWrapper {
         return upper;
     }
 
-    inline size_t leaf_upper_bound(NODE node, const KEY& key) {
+    inline size_t leaf_upper_bound(_Node node, const _Key& key) {
         size_t lower = 0;
         size_t upper = this->leafGetNumberOfKeys(node);
 
@@ -512,24 +505,24 @@ struct BPTreeOpWrapper {
         return upper;
     }
 
-    inline T& ops() { return m_ops; }
-    inline const T& ops() const { return m_ops; }
+    inline _T& ops() { return m_ops; }
+    inline const _T& ops() const { return m_ops; }
 
 private:
-    T m_ops;
+    _T m_ops;
 };
 
-template<typename T, typename NODE, typename HOLDER, typename KEY, typename VALUE, bool enableParent=true,
+template<typename _T, typename _Node, typename _Holder, typename _Key, typename _Value, bool enableParent=true,
          bool multikey=false, size_t static_vector_size = 32,
-         std::enable_if_t<treeop_traits<T,NODE,HOLDER,KEY,VALUE,true>::value,bool> = true>
+         std::enable_if_t<treeop_traits<_T,_Node,_Holder,_Key,_Value,true>::value,bool> = true>
 class BPTreeAlgorithm {
 public:
-    using traits = treeop_traits<T,NODE,HOLDER,KEY,VALUE>;
+    using traits = treeop_traits<_T,_Node,_Holder,_Key,_Value>;
     static constexpr bool parents_ops  = traits::has_getParent && traits::has_getParent && enableParent;
     static constexpr bool ref_accessor = traits::has_getNthHolderRef;
 
-    using NodePath = std::conditional_t<parents_ops, NODE,
-                         std::conditional_t<static_cast<bool>(static_vector_size > 0), maxsize_vector<std::pair<NODE,size_t>,static_vector_size>,std::vector<std::pair<NODE,size_t>>>>;
+    using NodePath = std::conditional_t<parents_ops, _Node,
+                         std::conditional_t<static_cast<bool>(static_vector_size > 0), maxsize_vector<std::pair<_Node,size_t>,static_vector_size>,std::vector<std::pair<_Node,size_t>>>>;
 
     class HolderPath {
         friend BPTreeAlgorithm;
@@ -541,10 +534,10 @@ public:
 
     class RoHolderPath {
         friend BPTreeAlgorithm;
-        NODE   m_node;
+        _Node   m_node;
         size_t m_index;
 
-        RoHolderPath(NODE leaf, size_t idx): m_node(leaf), m_index(idx) { }
+        RoHolderPath(_Node leaf, size_t idx): m_node(leaf), m_index(idx) { }
     };
 
 private:
@@ -553,38 +546,38 @@ private:
         return RoHolderPath(node, hp.m_index);
     }
 
-    template<typename N,std::enable_if_t<std::is_same_v<N,NODE>,bool> = true>
+    template<typename N,std::enable_if_t<std::is_same_v<N,_Node>,bool> = true>
     inline NodePath InitPath() const {
         return m_ops.getNullNode();
     }
 
-    template<typename N,std::enable_if_t<!std::is_same_v<N,NODE>,bool> = true>
+    template<typename N,std::enable_if_t<!std::is_same_v<N,_Node>,bool> = true>
     inline NodePath InitPath() const {
         return NodePath();
     }
 
-    template<typename N,std::enable_if_t<std::is_same_v<N,NODE>,bool> = true>
-    inline void NodePathPush(NodePath& path, NODE n, size_t nth) const {
+    template<typename N,std::enable_if_t<std::is_same_v<N,_Node>,bool> = true>
+    inline void NodePathPush(NodePath& path, _Node n, size_t nth) const {
         path = n;
     }
 
-    template<typename N,std::enable_if_t<!std::is_same_v<N,NODE>,bool> = true>
-    inline void NodePathPush(NodePath& path, NODE n, size_t nth) const {
+    template<typename N,std::enable_if_t<!std::is_same_v<N,_Node>,bool> = true>
+    inline void NodePathPush(NodePath& path, _Node n, size_t nth) const {
         path.push_back(std::make_pair(n, nth));
     }
 
-    template<typename N,std::enable_if_t<std::is_same_v<N,NODE>,bool> = true>
+    template<typename N,std::enable_if_t<std::is_same_v<N,_Node>,bool> = true>
     inline void NodePathPop(NodePath& path) const {
         path = m_ops.getParent(path);;
     }
 
-    template<typename N,std::enable_if_t<!std::is_same_v<N,NODE>,bool> = true>
+    template<typename N,std::enable_if_t<!std::is_same_v<N,_Node>,bool> = true>
     inline void NodePathPop(NodePath& path) const {
         path.pop_back();
     }
 
-    template<typename N,std::enable_if_t<std::is_same_v<N,NODE>,bool> = true>
-    inline NODE GetNodeAncestor(N node, size_t n) const {
+    template<typename N,std::enable_if_t<std::is_same_v<N,_Node>,bool> = true>
+    inline _Node GetNodeAncestor(N node, size_t n) const {
         for (size_t i=0;i<n;i++) {
             assert(!m_ops.isNullNode(node));
             node = m_ops.getParent(node);
@@ -592,13 +585,13 @@ private:
         return node;
     }
 
-    template<typename N,std::enable_if_t<std::is_same_v<N,NODE>,bool> = true>
-    inline NODE GetRoot(N node) const {
+    template<typename N,std::enable_if_t<std::is_same_v<N,_Node>,bool> = true>
+    inline _Node GetRoot(N node) const {
         for (;!m_ops.isNullNode(m_ops.getParent(node));node = m_ops.getParent(node));
         return node;
     }
 
-    template<typename N,std::enable_if_t<std::is_same_v<N,NODE>,bool> = true>
+    template<typename N,std::enable_if_t<std::is_same_v<N,_Node>,bool> = true>
     inline size_t GetPathDepth(N node) const {
         size_t i = 0;
         for (;!m_ops.isNullNode(node);i++) {
@@ -607,7 +600,7 @@ private:
         return i;
     }
 
-    template<typename N,std::enable_if_t<std::is_same_v<N,NODE>,bool> = true>
+    template<typename N,std::enable_if_t<std::is_same_v<N,_Node>,bool> = true>
     inline size_t GetNodeIndex(N node, size_t n) const {
         auto p = this->GetNodeAncestor(node, n+1);
         if (m_ops.isNullNode(p)) return 0;
@@ -622,32 +615,32 @@ private:
         return 0;
     }
 
-    template<typename N,std::enable_if_t<!std::is_same_v<N,NODE>,bool> = true>
-    inline NODE GetNodeAncestor(N np, size_t n) const {
+    template<typename N,std::enable_if_t<!std::is_same_v<N,_Node>,bool> = true>
+    inline _Node GetNodeAncestor(N np, size_t n) const {
         if (n == np.size()) return m_ops.getNullNode();
         assert(n < np.size());
         return np[np.size() - n - 1].first;
     }
 
-    template<typename N,std::enable_if_t<!std::is_same_v<N,NODE>,bool> = true>
-    inline NODE GetRoot(N np) const {
+    template<typename N,std::enable_if_t<!std::is_same_v<N,_Node>,bool> = true>
+    inline _Node GetRoot(N np) const {
         if (np.empty()) return m_ops.getNullNode();
 
         return np[0].first;
     }
 
-    template<typename N,std::enable_if_t<!std::is_same_v<N,NODE>,bool> = true>
+    template<typename N,std::enable_if_t<!std::is_same_v<N,_Node>,bool> = true>
     inline size_t GetPathDepth(N np) const {
         return np.size();
     }
 
-    template<typename N,std::enable_if_t<!std::is_same_v<N,NODE>,bool> = true>
+    template<typename N,std::enable_if_t<!std::is_same_v<N,_Node>,bool> = true>
     inline size_t GetNodeIndex(N np, size_t n) const {
         assert(n < np.size());
         return np[np.size() - n - 1].second;
     }
 
-    inline void nodeShiftRight(NODE node, size_t index) {
+    inline void nodeShiftRight(_Node node, size_t index) {
         assert(!m_ops.isLeaf(node));
         assert(!m_ops.interiorIsFull(node));
         const auto hs = m_ops.interiorGetNumberOfKeys(node);
@@ -664,7 +657,7 @@ private:
         }
     }
 
-    inline void interiorKeyShiftRight(NODE node, size_t index) {
+    inline void interiorKeyShiftRight(_Node node, size_t index) {
         assert(!m_ops.isLeaf(node));
         assert(!m_ops.interiorIsFull(node));
         const auto hs = m_ops.interiorGetNumberOfKeys(node);
@@ -676,12 +669,12 @@ private:
         }
     }
 
-    inline void interiorShiftRight(NODE node, size_t index) {
+    inline void interiorShiftRight(_Node node, size_t index) {
         this->nodeShiftRight(node, index);
         this->interiorKeyShiftRight(node, index);
     }
 
-    inline void leafShiftRight(NODE node, size_t index) {
+    inline void leafShiftRight(_Node node, size_t index) {
         assert(m_ops.isLeaf(node));
         assert(!m_ops.leafIsFull(node));
         const auto hs = m_ops.leafGetNumberOfKeys(node);
@@ -693,7 +686,7 @@ private:
         }
     }
 
-    inline void nodeShiftLeft(NODE node, size_t index) {
+    inline void nodeShiftLeft(_Node node, size_t index) {
         assert(!m_ops.isLeaf(node));
         const auto hs = m_ops.interiorGetNumberOfKeys(node);
         assert(hs < m_ops.interiorGetOrder() * 2 - 1);
@@ -709,7 +702,7 @@ private:
         }
     }
 
-    inline void interiorKeyShiftLeft(NODE node, size_t index) {
+    inline void interiorKeyShiftLeft(_Node node, size_t index) {
         assert(!m_ops.isLeaf(node));
         assert(m_ops.interiorGetNumberOfKeys(node) > 0);
         const auto hs = m_ops.interiorGetNumberOfKeys(node);
@@ -721,12 +714,12 @@ private:
         }
     }
 
-    inline void interiorShiftLeft(NODE node, size_t index) {
+    inline void interiorShiftLeft(_Node node, size_t index) {
         this->nodeShiftLeft(node, index);
         this->interiorKeyShiftLeft(node, index);
     }
 
-    inline void leafShiftLeft(NODE node, size_t index) {
+    inline void leafShiftLeft(_Node node, size_t index) {
         assert(m_ops.isLeaf(node));
         assert(m_ops.leafGetNumberOfKeys(node) > 0);
         const auto hs = m_ops.leafGetNumberOfKeys(node);
@@ -738,7 +731,7 @@ private:
         }
     }
 
-    inline std::pair<KEY,NODE> interiorSplitFullNode(NODE& root, NODE parent, size_t nodeIdx, NODE node) {
+    inline std::pair<_Key,_Node> interiorSplitFullNode(_Node& root, _Node parent, size_t nodeIdx, _Node node) {
         assert(!m_ops.isLeaf(node));
         assert(m_ops.isNullNode(parent) || !m_ops.interiorIsFull(parent));
         assert(m_ops.interiorIsFull(node));
@@ -786,7 +779,7 @@ private:
         return std::make_pair(middle_key, parent);
     }
 
-    inline std::pair<KEY,NODE> leafSplitFullNode(NODE& root, NODE parent, size_t nodeIdx, NODE node) {
+    inline std::pair<_Key,_Node> leafSplitFullNode(_Node& root, _Node parent, size_t nodeIdx, _Node node) {
         assert(m_ops.isLeaf(node));
         assert(m_ops.isNullNode(parent) || !m_ops.interiorIsFull(parent));
         assert(m_ops.leafIsFull(node));
@@ -834,7 +827,7 @@ private:
         return std::make_pair(middle_key, newNode);
     }
 
-    inline void interiorMergeTwoNodes(NODE parent, size_t firstIdx) {
+    inline void interiorMergeTwoNodes(_Node parent, size_t firstIdx) {
         assert(!m_ops.isLeaf(parent));
         assert(m_ops.getNumberOfChildren(parent) > firstIdx + 1);
         auto n1 = m_ops.getNthChild(parent, firstIdx);
@@ -937,7 +930,7 @@ private:
         }
     }
 
-    inline NODE getFirstLeaf(NODE root) {
+    inline _Node getFirstLeaf(_Node root) {
         if (m_ops.isNullNode(root) || m_ops.isLeaf(root)) return root;
 
         for (;!m_ops.isLeaf(root);root=m_ops.getFirstChild(root));
@@ -945,7 +938,7 @@ private:
         return root;
     }
 
-    inline NODE getLastLeaf(NODE root) {
+    inline _Node getLastLeaf(_Node root) {
         if (m_ops.isNullNode(root) || m_ops.isLeaf(root)) return root;
 
         for (;!m_ops.isLeaf(root);root=m_ops.getLastChild(root));
@@ -953,7 +946,7 @@ private:
         return root;
     }
 
-    inline NodePath getLastLeafPath(NODE root) {
+    inline NodePath getLastLeafPath(_Node root) {
         auto ans = this->InitPath<NodePath>();
         if (m_ops.isNullNode(root)) return ans;
 
@@ -977,10 +970,10 @@ private:
         return ans;
     }
 
-    inline NODE nextLeafNode(NODE node) { return m_ops.leafGetNext(node); }
+    inline _Node nextLeafNode(_Node node) { return m_ops.leafGetNext(node); }
 
-    inline NODE prevLeafNode(NODE root, NODE node) {
-        NODE prev = m_ops.getNullNode();
+    inline _Node prevLeafNode(_Node root, _Node node) {
+        _Node prev = m_ops.getNullNode();
         if constexpr (traits::has_leafGetPrev && traits::has_leafSetPrev) {
             prev = m_ops.isNullNode(node) ? this->getLastLeaf(root) : m_ops.leafGetPrev(node);
         } else {
@@ -1073,13 +1066,13 @@ private:
     }
 
 public:
-    inline explicit BPTreeAlgorithm(T ops): m_ops(ops) {}
+    inline explicit BPTreeAlgorithm(_T ops): m_ops(ops) {}
 
-    inline void check_consistency(NODE root) const {
+    inline void check_consistency(_Node root) const {
         if (m_ops.isNullNode(root)) return;
-        std::queue<std::pair<NODE,size_t>> queue;
+        std::queue<std::pair<_Node,size_t>> queue;
         queue.push(std::make_pair(root, 1));
-        std::vector<NODE> leaf_list;
+        std::vector<_Node> leaf_list;
         size_t depth = 0;
         for (;!queue.empty();queue.pop()) {
             auto front = queue.front();
@@ -1167,7 +1160,7 @@ public:
         assert(m_ops.isNullNode(m_ops.leafGetNext(leaf_list.back())));
     }
 
-    inline HolderPath insertHolder(NODE& root, HOLDER&& holder) {
+    inline HolderPath insertHolder(_Node& root, _Holder&& holder) {
         HolderPath ans = { this->InitPath<NodePath>(), 0 };
         if (m_ops.isNullNode(root)) {
             root = m_ops.leafCreateEmptyNode();
@@ -1222,7 +1215,7 @@ public:
 
         const auto insertPos = m_ops.leaf_upper_bound(current, key);
         if constexpr (!multikey) {
-            std::optional<KEY> prevKey = std::nullopt;
+            std::optional<_Key> prevKey = std::nullopt;
             if (insertPos > 0) {
                 prevKey = m_ops.leafGetNthKey(current, insertPos-1);
             } else {
@@ -1249,7 +1242,7 @@ public:
         return ans;
     }
 
-    inline HOLDER deleteHolder(NODE& root, HolderPath path) {
+    inline _Holder deleteHolder(_Node& root, HolderPath path) {
         assert(!m_ops.isNullNode(root));
         const auto t = m_ops.interiorGetOrder();
         auto node = this->GetNodeAncestor(path.m_path, 0);
@@ -1385,7 +1378,7 @@ public:
         return ans;
     }
 
-    inline HolderPath findKey(NODE root, const KEY& key) {
+    inline HolderPath findKey(_Node root, const _Key& key) {
         const auto invalid_idx = m_ops.leafGetOrder() * 2;
         HolderPath path { this->InitPath<NodePath>(), invalid_idx };
         if (m_ops.isNullNode(root))
@@ -1436,7 +1429,7 @@ public:
         return path;
     }
 
-    inline HolderPath lower_bound(NODE root, const KEY& key) {
+    inline HolderPath lower_bound(_Node root, const _Key& key) {
         const auto invalid_idx = m_ops.leafGetOrder() * 2;
         HolderPath path { this->InitPath<NodePath>(), invalid_idx };
         if (m_ops.isNullNode(root))
@@ -1473,7 +1466,7 @@ public:
         return path;
     }
 
-    inline HolderPath upper_bound(NODE root, const KEY& key) {
+    inline HolderPath upper_bound(_Node root, const _Key& key) {
         const auto invalid_idx = m_ops.leafGetOrder() * 2;
         HolderPath path { this->InitPath<NodePath>(), invalid_idx };
         if (m_ops.isNullNode(root))
@@ -1510,7 +1503,7 @@ public:
         return path;
     }
 
-    inline HolderPath begin(NODE root) {
+    inline HolderPath begin(_Node root) {
         auto ans = HolderPath(this->InitPath<NodePath>(), 0);
         if (m_ops.isNullNode(root)) return ans;
 
@@ -1534,11 +1527,11 @@ public:
         return ans;
     }
 
-    inline HolderPath end(NODE) {
+    inline HolderPath end(_Node) {
         return HolderPath(this->InitPath<NodePath>(), 0);
     }
 
-    inline void forward(NODE root, HolderPath& path) {
+    inline void forward(_Node root, HolderPath& path) {
         const auto leaf = this->GetNodeAncestor(path.m_path, 0);
         assert(m_ops.isLeaf(leaf));
         if (path.m_index + 1 < m_ops.leafGetNumberOfKeys(leaf)) {
@@ -1551,7 +1544,7 @@ public:
         if constexpr (t_allowEmptyLeaf) this->emptyLeafNodeForward(path);
     }
 
-    inline void backward(NODE root, HolderPath& path) {
+    inline void backward(_Node root, HolderPath& path) {
         if (this->exists(path) && path.m_index > 0) {
             path.m_index--;
             return;
@@ -1571,22 +1564,22 @@ public:
         }
     }
 
-    inline HOLDER getHolder(const HolderPath& path) {
+    inline _Holder getHolder(const HolderPath& path) {
         assert(this->exists(path));
         return m_ops.getNthHolder(this->GetNodeAncestor(path.m_path, 0), path.m_index);
     }
 
-    inline void setHolderValue(const HolderPath& path, typename BPTreeOpWrapper<T,NODE,HOLDER,KEY,VALUE>::HolderValue value) {
+    inline void setHolderValue(const HolderPath& path, typename BPTreeOpWrapper<_T,_Node,_Holder,_Key,_Value>::HolderValue value) {
         assert(this->exists(path));
         m_ops.setNthHolderValue(this->GetNodeAncestor(path.m_path, 0), path.m_index, value);
     }
 
-    inline HOLDER& getHolderRef(const HolderPath& path) {
+    inline _Holder& getHolderRef(const HolderPath& path) {
         assert(this->exists(path));
         return m_ops.getNthHolderRef(this->GetNodeAncestor(path.m_path, 0), path.m_index);
     }
 
-    inline KEY getHolderKey(const HolderPath& path) {
+    inline _Key getHolderKey(const HolderPath& path) {
         assert(this->exists(path));
         return m_ops.getKey(m_ops.getNthHolder(this->GetNodeAncestor(path.m_path, 0), path.m_index));
     }
@@ -1654,7 +1647,7 @@ public:
         }
     }
 
-    inline void releaseNode(NODE node) {
+    inline void releaseNode(_Node node) {
         if (!m_ops.isLeaf(node)) {
             const auto n = m_ops.getNumberOfChildren(node);
             for (size_t i=0;i<n;i++) {
@@ -1665,10 +1658,10 @@ public:
         m_ops.releaseEmptyNode(std::move(node));
     }
 
-    template<typename U, std::enable_if_t<std::is_same_v<HOLDER,decltype(std::declval<U>()())>,bool> = true>
-    inline NODE initWithAscSequence(size_t size, U iterFunc) {
+    template<typename U, std::enable_if_t<std::is_same_v<_Holder,decltype(std::declval<U>()())>,bool> = true>
+    inline _Node initWithAscSequence(size_t size, U iterFunc) {
         assert(size > 0);
-        HOLDER first = iterFunc();
+        _Holder first = iterFunc();
         const auto k1 = m_ops.getKey(first);
 
         const auto ti = m_ops.interiorGetOrder();
@@ -1683,7 +1676,7 @@ public:
         }
         auto prev = m_ops.getNullNode();
         size_t leafN = 0;
-        const std::function<NODE(size_t)> initNode = [&](size_t d) {
+        const std::function<_Node(size_t)> initNode = [&](size_t d) {
             if (d == depth) {
                 auto nd = m_ops.leafCreateEmptyNode();
                 if (!m_ops.isNullNode(prev)) {
@@ -1778,7 +1771,7 @@ public:
     }
 
 protected:
-    using OpWrapper = BPTreeOpWrapper<T,NODE,HOLDER,KEY,VALUE>;
+    using OpWrapper = BPTreeOpWrapper<_T,_Node,_Holder,_Key,_Value>;
     OpWrapper m_ops;
     static constexpr bool t_allowEmptyLeaf = OpWrapper::allowEmptyLeaf();
 };
@@ -1786,17 +1779,18 @@ protected:
 
 
 #include "./unarray.h"
+#include "./ldc_utils.h"
 #include <variant>
-namespace BPTreeBasicContainerImpl {
-template<typename Key, typename Value, size_t Order, size_t LeafOrder, bool parentsOps, bool prevOp>
+namespace ldc::BPTreeBasicContainerImpl {
+template<typename _Key, typename _Value, size_t Order, size_t LeafOrder, bool parentsOps, bool prevOp>
 struct TreeNode {
-    using TPNB = std::conditional_t<parentsOps,std::tuple<bool,TreeNode*>,std::tuple<bool>>;
-    using KVPair = std::conditional_t<std::is_same_v<Value,void>,Key,std::pair<const Key,Value>>;
-    TPNB isLeaf_parent;
+    using KVPair = std::conditional_t<std::is_same_v<_Value,void>,_Key,std::pair<const _Key,_Value>>;
+    std::conditional_t<parentsOps,TreeNode*,dummy_struct> m_parent;
+    bool m_isLeaf;
 
     struct InteriorNode {
         unarray<TreeNode*,2*Order> children;
-        unarray<const Key,2*Order - 1> keys;
+        unarray<const _Key,2*Order - 1> keys;
 
         InteriorNode() = default;
     };
@@ -1816,17 +1810,15 @@ struct TreeNode {
     std::variant<InteriorNode,LeafNode> m_nodeimpl;
 
     inline explicit TreeNode(bool isLeaf):
+        m_isLeaf(isLeaf),
         m_nodeimpl(isLeaf ? decltype(m_nodeimpl)(LeafNode()) : decltype(m_nodeimpl)(InteriorNode()))
     {
         if constexpr (parentsOps) {
-            isLeaf_parent = { isLeaf, nullptr };
-        } else {
-            isLeaf_parent = { isLeaf };
+            m_parent = nullptr;
         }
-
     }
 
-    inline bool isLeaf() const { return std::get<0>(isLeaf_parent); }
+    inline bool isLeaf() const { return m_isLeaf; }
 
     InteriorNode& interior() {
         assert(!this->isLeaf());
@@ -1851,29 +1843,27 @@ struct TreeNode {
     ~TreeNode() = default;
 };
 
-template<typename Key, typename Value, size_t Order, size_t LeafOrder, typename CmpLess, typename Allocator,
+template<typename _Key, typename _Value, size_t Order, size_t LeafOrder, typename _CmpLess, typename _Allocator,
          bool VallowEmptyLeaf, bool parentsOps, bool prevOps>
 struct TreeNodeOps {
-    using TNODE = TreeNode<Key,Value,Order,LeafOrder,parentsOps,prevOps>;
-    typedef TNODE* NODE;
-    using HOLDER = typename TNODE::KVPair;
-    using KEY    = Key;
-    using VALUE  = Value;
-    using storage_allocator = typename std::allocator_traits<Allocator>::template rebind_alloc<TNODE>;
-    CmpLess m_cmp;
-    storage_allocator m_allocator;
+    using TNODE  = TreeNode<_Key,_Value,Order,LeafOrder,parentsOps,prevOps>;
+    using KVPair = typename TNODE::KVPair;
+    using _Node  = TNODE*;
+    using _storage_allocator = typename std::allocator_traits<_Allocator>::template rebind_alloc<TNODE>;
+    _CmpLess           m_cmp;
+    _storage_allocator m_allocator;
 
-    TreeNodeOps(const CmpLess& cmp, const Allocator& allocator): m_cmp(cmp), m_allocator(allocator) {}
+    TreeNodeOps(const _CmpLess& cmp, const _Allocator& allocator): m_cmp(cmp), m_allocator(allocator) {}
 
-    inline bool isLeaf(NODE node) const { return node->isLeaf(); }
+    inline bool isLeaf(_Node node) const { return node->isLeaf(); }
 
     inline static constexpr bool allowEmptyLeaf() { return VallowEmptyLeaf; }
 
-    inline NODE getNthChild(NODE node, size_t nth) const {
+    inline _Node getNthChild(_Node node, size_t nth) const {
         return node->interior().children.at(nth);
     }
 
-    inline void setNthChild(NODE node, size_t nth, NODE n)  {
+    inline void setNthChild(_Node node, size_t nth, _Node n)  {
         if (n == nullptr) {
             node->interior().children.destroy(nth);
         } else {
@@ -1881,62 +1871,62 @@ struct TreeNodeOps {
         }
     }
 
-    inline HOLDER& getNthHolderRef(NODE node, size_t nth) const {
+    inline KVPair& getNthHolderRef(_Node node, size_t nth) const {
         return node->leaf().datas.at(nth);
     }
-    inline void setHolderValue(HOLDER& h, std::conditional_t<std::is_same_v<Value,void>,int,Value> val) const {
-        if constexpr (!std::is_same_v<Value,void>) {
+    inline void setHolderValue(KVPair& h, std::conditional_t<std::is_same_v<_Value,void>,int,_Value> val) const {
+        if constexpr (!std::is_same_v<_Value,void>) {
             h.second = val;
         }
     }
 
-    inline KEY interiorGetNthKey(NODE node, size_t nth) const {
+    inline _Key interiorGetNthKey(_Node node, size_t nth) const {
         return node->interior().keys.at(nth);
     }
-    inline void interiorSetNthKey(NODE node, size_t nth, const KEY& key) {
+    inline void interiorSetNthKey(_Node node, size_t nth, const _Key& key) {
         node->interior().keys.construct(nth, key);
     }
-    inline void interiorClearNthKey(NODE node, size_t nth) {
+    inline void interiorClearNthKey(_Node node, size_t nth) {
         node->interior().keys.destroy(nth);
     }
 
-    inline HOLDER extractNthHolder(NODE node, size_t nth) {
+    inline KVPair extractNthHolder(_Node node, size_t nth) {
         auto n = std::move(node->leaf().datas.at(nth));
         node->leaf().datas.destroy(nth);
         return n;
     }
 
-    inline void setNthHolder(NODE node, size_t nth, HOLDER&& holder) {
+    inline void setNthHolder(_Node node, size_t nth, KVPair&& holder) {
         node->leaf().datas.construct(nth, std::move(holder));
     }
 
-    inline NODE getParent(NODE node) const  {
+    inline _Node getParent(_Node node) const  {
         if constexpr (parentsOps) {
             return std::get<1>(node->isLeaf_parent);
         } else {
             return nullptr;
         }
     }
-    inline void setParent(NODE node, NODE n)  {
+    inline void setParent(_Node node, _Node n)  {
         if constexpr (parentsOps) {
             std::get<1>(node->isLeaf_parent) = n;
         }
     }
 
-    inline NODE leafGetNext(NODE node) const  {
+    inline _Node leafGetNext(_Node node) const  {
         return std::get<0>(node->leaf().prevnext);
     }
-    inline void leafSetNext(NODE node, NODE n)  {
+    inline void leafSetNext(_Node node, _Node n)  {
         std::get<0>(node->leaf().prevnext) = n;
     }
-    inline NODE leafGetPrev(NODE node) const  {
+    inline _Node leafGetPrev(_Node node) const  {
         if constexpr (prevOps) {
             return std::get<1>(node->leaf().prevnext);
         } else {
             return nullptr;
         }
     }
-    inline void leafSetPrev(NODE node, NODE n)  {
+    inline void leafSetPrev(_Node node, _Node n)  {
         if constexpr (prevOps) {
             std::get<1>(node->leaf().prevnext) = n;
         }
@@ -1944,78 +1934,76 @@ struct TreeNodeOps {
 
     inline size_t leafGetOrder() const { return LeafOrder; }
 
-    inline size_t getNumberOfChildren(NODE node) const { return node->interior().children.size(); }
-    inline size_t leafGetNumberOfKeys(NODE node) const { return node->leaf().datas.size(); }
+    inline size_t getNumberOfChildren(_Node node) const { return node->interior().children.size(); }
+    inline size_t leafGetNumberOfKeys(_Node node) const { return node->leaf().datas.size(); }
 
     inline size_t interiorGetOrder() const { return Order; }
-    inline size_t interiorGetNumberOfKeys(NODE node) const { return node->interior().keys.size(); }
+    inline size_t interiorGetNumberOfKeys(_Node node) const { return node->interior().keys.size(); }
 
-    inline bool isNullNode(NODE node) const { return node == nullptr; }
-    inline NODE getNullNode() const { return nullptr; }
-    inline NODE interiorCreateEmptyNode() {
+    inline bool isNullNode(_Node node) const { return node == nullptr; }
+    inline _Node getNullNode() const { return nullptr; }
+    inline _Node interiorCreateEmptyNode() {
         auto ptr = m_allocator.allocate(1);
         return new (ptr) TNODE(false);
     }
-    inline NODE leafCreateEmptyNode() {
+    inline _Node leafCreateEmptyNode() {
         auto ptr = m_allocator.allocate(1);
         return new (ptr) TNODE(true);
     }
-    inline void releaseEmptyNode(NODE&& node) {
+    inline void releaseEmptyNode(_Node&& node) {
         std::destroy_n(node, 1);
         m_allocator.deallocate(node, 1);
     }
 
-    inline KEY getKey(const HOLDER& n) const {
-        if constexpr (std::is_same_v<Value,void>) {
+    inline _Key getKey(const KVPair& n) const {
+        if constexpr (std::is_same_v<_Value,void>) {
             return n;
         } else {
             return n.first;
         }
     }
 
-    inline bool keyCompareLess(const KEY& lhs, const KEY& rhs) const { return m_cmp(lhs, rhs); }
+    inline bool keyCompareLess(const _Key& lhs, const _Key& rhs) const { return m_cmp(lhs, rhs); }
 
-    inline bool nodeCompareEqual(NODE lhs, NODE rhs) const { return lhs == rhs; }
+    inline bool nodeCompareEqual(_Node lhs, _Node rhs) const { return lhs == rhs; }
 };
 
-template<typename Key, typename Value, size_t Order, size_t LeafOrder, typename CmpLess, 
-         typename Allocator, bool VallowEmptyLeaf, bool parentsOps, bool prevOps, bool multikey>
+template<typename _Key, typename _Value, size_t Order, size_t LeafOrder, typename _CmpLess, 
+         typename _Allocator, bool VallowEmptyLeaf, bool parentsOps, bool prevOps, bool multikey>
 using BPTreeAlgo = BPTreeAlgorithmImpl::BPTreeAlgorithm<
-                         TreeNodeOps<Key,Value,Order,LeafOrder,CmpLess,Allocator,VallowEmptyLeaf,parentsOps,prevOps>,
-                         TreeNode<Key,Value,Order,LeafOrder,parentsOps,prevOps>*,
-                         typename TreeNodeOps<Key,Value,Order,LeafOrder,CmpLess,Allocator,VallowEmptyLeaf,parentsOps,prevOps>::HOLDER,
-                         typename TreeNodeOps<Key,Value,Order,LeafOrder,CmpLess,Allocator,VallowEmptyLeaf,parentsOps,prevOps>::KEY,
-                         typename TreeNodeOps<Key,Value,Order,LeafOrder,CmpLess,Allocator,VallowEmptyLeaf,parentsOps,prevOps>::VALUE,
-                         parentsOps, multikey>;
+                         TreeNodeOps<_Key,_Value,Order,LeafOrder,_CmpLess,_Allocator,VallowEmptyLeaf,parentsOps,prevOps>,
+                         TreeNode<_Key,_Value,Order,LeafOrder,parentsOps,prevOps>*,
+                         typename TreeNodeOps<_Key,_Value,Order,LeafOrder,_CmpLess,_Allocator,VallowEmptyLeaf,parentsOps,prevOps>::KVPair,
+                         _Key, _Value, parentsOps, multikey>;
 
 template<typename _Key, typename _Value, size_t _Order, size_t _LeafOrder, typename _CmpLess, 
          typename _Allocator, bool _VallowEmptyLeaf, bool _parentsOps, bool _prevOps, bool _multikey>
-struct BPTREE: protected BPTreeAlgo<_Key,_Value,_Order,_LeafOrder,_CmpLess,_Allocator,_VallowEmptyLeaf,_parentsOps,_prevOps,_multikey> {
-    typedef TreeNode<_Key,_Value,_Order,_LeafOrder,_parentsOps,_prevOps>* NODE;
-    using TNODE    = std::remove_pointer_t<NODE>;
-    using BASE     = BPTreeAlgo<_Key,_Value,_Order,_LeafOrder,_CmpLess,_Allocator,_VallowEmptyLeaf,_parentsOps,_prevOps,_multikey>;
-    using ITERATOR = typename BASE::HolderPath;
-    using KVPair   = typename TNODE::KVPair;
+struct BPTreeInMemory: protected BPTreeAlgo<_Key,_Value,_Order,_LeafOrder,_CmpLess,_Allocator,_VallowEmptyLeaf,_parentsOps,_prevOps,_multikey> {
+    using BASE      = BPTreeAlgo<_Key,_Value,_Order,_LeafOrder,_CmpLess,_Allocator,_VallowEmptyLeaf,_parentsOps,_prevOps,_multikey>;
+    using treeops_t = TreeNodeOps<_Key,_Value,_Order,_LeafOrder,_CmpLess,_Allocator,_VallowEmptyLeaf,_parentsOps,_prevOps>;
+    using TNODE     = typename treeops_t::TNODE;
+    using _Node     = typename treeops_t::_Node;
+    using KVPair    = typename treeops_t::KVPair;
+    using ITERATOR  = typename BASE::HolderPath;
     static constexpr auto  ref_accessor = BASE::ref_accessor;
 
 
 private:
-    NODE m_root;
+    _Node  m_root;
     size_t m_size;
-    using treeops_t = TreeNodeOps<_Key,_Value,_Order,_LeafOrder,_CmpLess,_Allocator,_VallowEmptyLeaf,_parentsOps,_prevOps>;
 
 
 public:
-    inline BPTREE(const _CmpLess& cmp, const _Allocator& alloc): 
+    inline BPTreeInMemory(const _CmpLess& cmp, const _Allocator& alloc): 
         BASE(treeops_t(cmp, alloc)),
         m_root(nullptr), m_size(0) {}
 
-    inline BPTREE(const BPTREE& _oth):
+    inline BPTreeInMemory(const BPTreeInMemory& _oth):
         BASE(treeops_t(_oth.m_ops.ops().m_cmp, _oth.m_ops.ops().m_allocator)),
         m_root(nullptr), m_size(0)
     {
         if (_oth.size() > 0) {
-            auto& oth = const_cast<BPTREE&>(_oth);
+            auto& oth = const_cast<BPTreeInMemory&>(_oth);
             auto b = oth.begin();
             const auto fn = [&]() {
                 const auto ans = oth.getHolder(b);
@@ -2072,15 +2060,6 @@ public:
     using BASE::setHolderValue;
     using BASE::compareHolderPath;
 
-    // TODO
-    // std::conditional_t<std::is_same_v<_Value,void>,BPTREE&,_Value&> getHolderValue(ITERATOR iter) {
-    //     if constexpr (std::is_same_v<_Value,void>) {
-    //         return *this;
-    //     } else {
-    //         this->getHolderRef();
-    //     }
-    // }
-
     inline size_t size() const { return m_size; }
 
     inline void clear() {
@@ -2090,6 +2069,6 @@ public:
         }
     }
 
-    ~BPTREE() { this->clear(); }
+    ~BPTreeInMemory() { this->clear(); }
 };
 }

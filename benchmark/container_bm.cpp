@@ -4,6 +4,7 @@
 #include <iostream>
 #include <random>
 #include <stdexcept>
+using namespace ldc;
 
 
 #define MIN_AB(a, b) ((a) > (b) ? (b) : (a))

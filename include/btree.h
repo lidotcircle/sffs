@@ -9,7 +9,7 @@
 #include <type_traits>
 
 
-namespace BTreeAlgorithmImpl {
+namespace ldc::BTreeAlgorithmImpl {
 template <typename T, typename NODE, typename HOLDER, typename KEY, bool complain=false>
 struct treeop_traits {
     static NODE& node;
@@ -121,7 +121,7 @@ struct treeop_traits {
 
     static constexpr bool has_getNthChild         = sizeof(test_getNthChild<T>(1))         == sizeof(uint16_t);
     static constexpr bool has_setNthChild         = sizeof(test_setNthChild<T>(1))         == sizeof(uint16_t);
-    static constexpr bool has_clearNthChild       = sizeof(test_clearNthChild<T>(1))         == sizeof(uint16_t);
+    static constexpr bool has_clearNthChild       = sizeof(test_clearNthChild<T>(1))       == sizeof(uint16_t);
     static constexpr bool has_getParent           = sizeof(test_getParent<T>(1))           == sizeof(uint16_t); // optional
     static constexpr bool has_setParent           = sizeof(test_setParent<T>(1))           == sizeof(uint16_t); // optional
     static constexpr bool has_getNthHolder        = sizeof(test_getNthHolder<T>(1))        == sizeof(uint16_t);

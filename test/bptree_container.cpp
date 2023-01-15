@@ -5,6 +5,7 @@
 #include <set>
 #include <algorithm>
 using namespace std;
+using namespace ldc;
 
 
 std::default_random_engine generator;

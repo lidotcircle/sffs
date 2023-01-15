@@ -4,6 +4,7 @@
 #include <set>
 #include <random>
 #include "rbtree.h"
+using namespace ldc;
 
 
 struct TreeNode {

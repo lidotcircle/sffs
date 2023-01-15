@@ -5,6 +5,7 @@
 #include <iterator>
 
 
+namespace ldc {
 template<typename T, size_t N>
 class maxsize_vector {
 private:
@@ -174,4 +175,5 @@ private:
 
     size_t m_size;
     DT m_array[N];
+};
 };

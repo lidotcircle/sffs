@@ -6,6 +6,7 @@
 #include <optional>
 #include <vector>
 #include "maxsize_vector.h"
+using namespace ldc;
 
 
 std::default_random_engine generator;
