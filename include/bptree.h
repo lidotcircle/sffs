@@ -1137,6 +1137,9 @@ public:
                     assert(!m_ops.isNullNode(n2));
 
                     if (!m_ops.isLeaf(n1) || m_ops.leafGetNumberOfKeys(n1) > 0) {
+                        if (!m_ops.isLeaf(n1)) {
+                            assert(m_ops.interiorGetNumberOfKeys(n2) > 0);
+                        }
                         const auto& k1 = m_ops.isLeaf(n1) ? m_ops.leafGetLastKey(n1) : m_ops.interiorGetLastKey(n1);
                         if (m_ops.isLeaf(n1)) {
                             assert(!m_ops.keyCompareLess(h1, k1));
@@ -1146,6 +1149,9 @@ public:
                     }
 
                     if (!m_ops.isLeaf(n2) || m_ops.leafGetNumberOfKeys(n2) > 0) {
+                        if (!m_ops.isLeaf(n2)) {
+                            assert(m_ops.interiorGetNumberOfKeys(n2) > 0);
+                        }
                         const auto& k2 = m_ops.isLeaf(n2) ? m_ops.leafGetFirstKey(n2) : m_ops.interiorGetFirstKey(n2);
                         if constexpr (t_allowEmptyLeaf) {
                             assert(!m_ops.keyCompareLess(k2, h1));
@@ -1644,6 +1650,7 @@ public:
             return m_ops.isNullNode(nn1) ? 1 : -1;
         } else {
             assert(false);
+            return 0;
         }
     }
 
@@ -1676,7 +1683,7 @@ public:
         }
         auto prev = m_ops.getNullNode();
         size_t leafN = 0;
-        const std::function<NODE(size_t,size_t)> initNode = [&](size_t d, size_t pos) {
+        const std::function<NODE(size_t)> initNode = [&](size_t d) {
             if (d == depth) {
                 auto nd = m_ops.leafCreateEmptyNode();
                 if (!m_ops.isNullNode(prev)) {
@@ -1692,7 +1699,7 @@ public:
 
             auto nd = m_ops.interiorCreateEmptyNode();
             for (size_t i=0;i<2*ti&&leafN<leafCount;i++) {
-                auto cn = initNode(d+1,i);
+                auto cn = initNode(d+1);
                 m_ops.setNthChild(nd, i, cn);
                 if (i>0) m_ops.interiorSetNthKey(nd, i-1, k1);
                 if constexpr (parents_ops) {
@@ -1702,7 +1709,43 @@ public:
             return nd;
         };
 
-        const auto root = initNode(1, 0);
+        const auto root = initNode(1);
+
+        for (auto node=root;!m_ops.isLeaf(node);node=m_ops.getLastChild(node)) {
+            assert(m_ops.getNumberOfChildren(node) > 1);
+
+            auto last = m_ops.getLastChild(node);
+            if (!m_ops.isLeaf(last) && m_ops.getNumberOfChildren(last) < ti) {
+                const auto r = m_ops.getNumberOfChildren(last);
+                const auto s = m_ops.getNumberOfChildren(node);
+                auto ll = m_ops.getNthChild(node, s - 2);
+                assert(m_ops.getNumberOfChildren(ll) == 2 * ti);
+
+                for (size_t i=r;i>0;i--) {
+                    const auto exnode = m_ops.getNthChild(last, i-1);
+                    m_ops.clearNthChild(last, i-1);
+                    m_ops.setNthChild(last, i-1+ti-r, exnode);
+
+                    if (i<r) {
+                        const auto exkey = m_ops.interiorExtractNthKey(last, i-1);
+                        m_ops.interiorSetNthKey(last, i-1+ti-r, exkey);
+                    }
+                }
+
+                for (size_t i=0;i<ti-r;i++) {
+                    const auto exnode = m_ops.getNthChild(ll, 2 *ti-1-i);
+                    m_ops.clearNthChild(ll, 2*ti-1-i);
+                    const auto exkey  = m_ops.interiorExtractNthKey(ll, 2*ti-2-i);
+                    m_ops.setNthChild(last,ti-r-1-i, exnode);
+                    m_ops.interiorSetNthKey(last,ti-r-1-i, exkey);
+
+                    if constexpr (parents_ops) {
+                        m_ops.setParent(exnode, last);
+                    }
+                }
+            }
+        }
+
         NodePath pn = this->InitPath<NodePath>();
         {
             auto cn = root;
@@ -1717,6 +1760,9 @@ public:
             auto ln = this->GetNodeAncestor(pn, 0);
 
             for (size_t j=0;j<tl*2-1&&m<size;j++,m++) {
+                if (size - m == tl && j + tl > 2*tl-1)
+                    break;
+
                 if (i==0 && j==0) {
                     m_ops.setNthHolder(ln, j, std::move(first));
                 } else {

@@ -103,10 +103,12 @@ struct TreeNodeOps {
 
     inline HOLDER& getNthHolderRef(NODE node, size_t nth) const {
         assert(nth < node->leaf().datas.size());
+        assert(node->leaf().datas[nth].has_value());
         return node->leaf().datas[nth].value();
     }
     inline KEY interiorGetNthKey(NODE node, size_t nth) const {
         assert(nth < node->interior().keys.size());
+        assert(node->interior().keys[nth].has_value());
         return node->interior().keys[nth].value();
     }
     inline void interiorSetNthKey(NODE node, size_t nth, const KEY& key) {
@@ -124,6 +126,7 @@ struct TreeNodeOps {
     inline HOLDER extractNthHolder(NODE node, size_t nth) {
         assert(nth < node->leaf().datas.size());
         assert(node->leaf().numOfHolders > 0);
+        assert(node->leaf().datas[nth].has_value());
         auto n = node->leaf().datas[nth].value();
         node->leaf().datas[nth] = std::nullopt;
         node->leaf().numOfHolders--;
@@ -252,6 +255,12 @@ struct BPTREE: public BASE_T<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf> {
         BASE::check_consistency(this->root);
     }
 
+    template<typename U>
+    void initASC(size_t n, U func) {
+        assert(root == nullptr);
+        root = BASE::initWithAscSequence(n, func);
+    }
+
     ~BPTREE() { if (root) delete root; }
 };
 
@@ -272,6 +281,26 @@ static void test_BPTREE_insert(size_t n) {
             tree.check_consistency();
         vals.insert(val);
     }
+}
+
+template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2, bool VallowEmptyLeaf>
+static void test_BPTREE_ascinit(size_t n) {
+    std::uniform_int_distribution<int> distribution(n/2,n*3/2);
+    size_t t = distribution(generator);
+    t++;
+    BPTREE<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf> tree;
+    int val = 0;
+    const auto func = [&]() { return val++; };
+    tree.initASC(t, func);
+    tree.check_consistency();
+
+    auto p1 = tree.begin();
+    for (size_t j=0;j<t;j++,tree.forward(p1)) {
+        ASSERT_TRUE(tree.exists(p1));
+        auto vs = tree.getHolder(p1);
+        ASSERT_EQ(j, vs);
+    }
+    ASSERT_FALSE(tree.exists(p1));
 }
 
 template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2, bool VallowEmptyLeaf>
@@ -560,6 +589,15 @@ static void test_BPTREE_mixture(size_t n) {
     SETUP_TEST_FUNC_N(func, 64, parent_ops,false,2*64, allowEmptyLeaf); \
     SETUP_TEST_FUNC_N(func, 128, parent_ops,false,2*128, allowEmptyLeaf);
 
+
+TEST(BPTREE_without_parent_ops, copy) {
+    SETUP_TEST_FUNC(test_BPTREE_ascinit, false, true);
+    SETUP_TEST_FUNC(test_BPTREE_ascinit, false, false);
+}
+TEST(BPTREE_with_parent_ops, copy) {
+    SETUP_TEST_FUNC(test_BPTREE_ascinit, true, true);
+    SETUP_TEST_FUNC(test_BPTREE_ascinit, true, false);
+}
 
 TEST(BPTREE_without_parent_ops, insert) {
     SETUP_TEST_FUNC(test_BPTREE_insert, false, true);

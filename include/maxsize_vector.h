@@ -108,6 +108,30 @@ public:
             this->push_back(v);
     }
 
+    maxsize_vector(maxsize_vector&& oth): m_array(oth.m_array), m_size(oth.m_size)
+    {
+        oth.m_size = 0;
+    }
+
+    maxsize_vector(const maxsize_vector& oth): m_size(0)
+    {
+        for (auto& v: oth) this->emplace_back(v);
+    }
+
+    maxsize_vector& operator=(maxsize_vector&& oth) {
+        this->clear();
+        this->m_size  = oth.m_size;
+        for (size_t i=0;i<N;i++) { this->m_array[i] = oth.m_array[i]; }
+        oth.m_size = 0;
+        return *this;
+    }
+
+    maxsize_vector& operator=(const maxsize_vector& oth) {
+        this->clear();
+        for (auto& v: oth) this->emplace_back(v);
+        return *this;
+    }
+
     bool operator==(const maxsize_vector& oth) const {
         if (this->size() != oth.size()) return false;
         for (size_t i=0;i<this->size();i++) {
@@ -147,6 +171,7 @@ private:
     private:
         alignas(T) std::byte m_buf[sizeof(T)];
     };
+
     size_t m_size;
     DT m_array[N];
 };
