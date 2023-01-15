@@ -178,7 +178,7 @@ BM_func(insert_incremental, std::set<size_t>);
 BM_func(insert_incremental, bptset<size_t>);
 
 
-/* template<typename S>
+template<typename S>
 void BM_insert_hint_incremental(benchmark::State& state) {
     auto n_vals = state.range(0);
 
@@ -192,7 +192,7 @@ void BM_insert_hint_incremental(benchmark::State& state) {
     }
 }
 BM_func(insert_hint_incremental, std::set<size_t>);
-BM_func(insert_hint_incremental, bptset<size_t>); */
+BM_func(insert_hint_incremental, bptset<size_t>);
 
 
 template<typename S>
@@ -209,21 +209,21 @@ BM_func(insert_decremental, std::set<size_t>);
 BM_func(insert_decremental, bptset<size_t>);
 
 
-// template<typename S>
-// void BM_insert_hint_decremental(benchmark::State& state) {
-//     auto n_vals = state.range(0);
-//
-//     for (auto _: state) {
-//         S vals;
-//         auto hint = vals.end();
-//
-//         for (size_t i=0;i<n_vals;i++) {
-//             hint = vals.insert(hint, n_vals - i);
-//         }
-//     }
-// }
-// BM_func(insert_hint_decremental, std::set<size_t>);
-// BM_func(insert_hint_decremental, bptset<size_t>);
+template<typename S>
+void BM_insert_hint_decremental(benchmark::State& state) {
+    auto n_vals = state.range(0);
+
+    for (auto _: state) {
+        S vals;
+        auto hint = vals.end();
+
+        for (size_t i=0;i<n_vals;i++) {
+            hint = vals.insert(hint, n_vals - i);
+        }
+    }
+}
+BM_func(insert_hint_decremental, std::set<size_t>);
+BM_func(insert_hint_decremental, bptset<size_t>);
 
 
 template<typename S>
@@ -245,24 +245,24 @@ BM_func(insert_random, std::set<size_t>);
 BM_func(insert_random, bptset<size_t>);
 
 
-// template<typename S>
-// void BM_insert_hint_random(benchmark::State& state) {
-//     auto n_vals = state.range(0);
-//     std::default_random_engine generator(state.range(0));
-//     std::uniform_int_distribution<size_t> distribution(0,n_vals*3);
-//
-//     for (auto _: state) {
-//         S vals;
-//         auto hint = vals.end();
-//
-//         for (size_t i=0;i<n_vals;i++) {
-//             auto v = distribution(generator);
-//             hint = vals.insert(hint, v);
-//         }
-//     }
-// }
-// BM_func(insert_hint_random, std::set<size_t>);
-// BM_func(insert_hint_random, bptset<size_t>);
+template<typename S>
+void BM_insert_hint_random(benchmark::State& state) {
+    auto n_vals = state.range(0);
+    std::default_random_engine generator(state.range(0));
+    std::uniform_int_distribution<size_t> distribution(0,n_vals*3);
+
+    for (auto _: state) {
+        S vals;
+        auto hint = vals.end();
+
+        for (size_t i=0;i<n_vals;i++) {
+            auto v = distribution(generator);
+            hint = vals.insert(hint, v);
+        }
+    }
+}
+BM_func(insert_hint_random, std::set<size_t>);
+BM_func(insert_hint_random, bptset<size_t>);
 
 
 BENCHMARK_MAIN();

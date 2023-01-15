@@ -64,34 +64,36 @@ class GnContainerIterator {
         using const_t = std::conditional<const_iterator,int,GnContainerIterator<reverse,true,Container,IterBase,Key,Value,KVPair,IterCategory>>;
 
     protected:
-        ContainerWrapper_t& m_container;
+        ContainerWrapper_t* m_container;
         IterBase m_iter;
+        ContainerWrapper_t&       container()       { return *m_container; }
+        const ContainerWrapper_t& container() const { return *m_container; }
 
     public:
-        GnContainerIterator(IterBase iter, ContainerWrapper_t& cnt): m_container(cnt), m_iter(iter) {}
+        GnContainerIterator(IterBase iter, ContainerWrapper_t& cnt): m_container(&cnt), m_iter(iter) {}
 
         explicit operator const_t() const {
             if constexpr (const_iterator) {
                 return 0;
             } else {
-                return const_t(m_iter, const_cast<GnContainerIterator*>(this)->m_container);
+                return const_t(m_iter, *this->m_container);
             }
         }
 
         const IterBase& iter() const { return this->m_iter; }
 
-        explicit operator bool() const { return m_container.k_exists(m_iter); }
+        explicit operator bool() const { return container().k_exists(m_iter); }
 
         GnContainerIterator& operator++() {
             if constexpr (reverse) {
-                if (m_iter == m_container.k_begin()) {
-                    m_iter = m_container.k_end();
+                if (m_iter == container().k_begin()) {
+                    m_iter = container().k_end();
                 } else {
-                    m_container.k_backward(m_iter);
+                    container().k_backward(m_iter);
                 }
             } else {
-                assert(m_container.k_exists(m_iter));
-                m_container.k_forward(m_iter);
+                assert(container().k_exists(m_iter));
+                container().k_forward(m_iter);
             }
             return *this;
         }
@@ -104,13 +106,13 @@ class GnContainerIterator {
 
         GnContainerIterator& operator--() {
             if constexpr (reverse) {
-                if (m_container.k_exists(m_iter)) {
-                    m_container.k_forward(m_iter);
+                if (container().k_exists(m_iter)) {
+                    container().k_forward(m_iter);
                 } else {
-                    m_iter = m_container.k_begin();
+                    m_iter = container().k_begin();
                 }
             } else {
-                m_container.k_backward(m_iter);
+                container().k_backward(m_iter);
             }
             return *this;
         }
@@ -122,7 +124,7 @@ class GnContainerIterator {
         }
 
         bool operator==(const GnContainerIterator& oth) const {
-            return m_container.k_compareHolderPath(m_iter, oth.m_iter) == 0;
+            return container().k_compareHolderPath(m_iter, oth.m_iter) == 0;
         }
 
         bool operator!=(const GnContainerIterator& oth) const {
@@ -130,11 +132,11 @@ class GnContainerIterator {
         }
 
         bool operator<(const GnContainerIterator& oth) const {
-            return m_container.k_compareHolderPath(m_iter, oth.m_iter) < 0;
+            return container().k_compareHolderPath(m_iter, oth.m_iter) < 0;
         }
 
         bool operator>(const GnContainerIterator& oth) const {
-            return m_container.k_compareHolderPath(m_iter, oth.m_iter) > 0;
+            return container().k_compareHolderPath(m_iter, oth.m_iter) > 0;
         }
 
         inline bool operator<=(const GnContainerIterator& oth) const {
@@ -146,11 +148,11 @@ class GnContainerIterator {
         }
 
         value_type get() const {
-            return m_container.k_getHolder(m_iter);
+            return container().k_getHolder(m_iter);
         }
 
         void set(const std::conditional_t<std::is_same_v<Value,void>,GnContainerIterator,Value>& val) const {
-            return m_container.k_setHolderValue(m_iter, val);
+            return container().k_setHolderValue(m_iter, val);
         }
 };
 
@@ -177,14 +179,14 @@ class GnContainerIteratorMem: public GnContainerIterator<reverse,const_iterator,
             if constexpr (const_iterator) {
                 return 0;
             } else {
-                return const_t(this->m_iter, const_cast<GnContainerIteratorMem*>(this)->m_container);
+                return const_t(this->m_iter, *this->m_container);
             }
         }
 
-        pointer         operator->() { return &this->m_container.k_getHolderRef(this->m_iter); }
-        const_pointer   operator->() const { return &this->m_container.k_getHolderRef(this->m_iter); }
-        reference       operator*() { return this->m_container.k_getHolderRef(this->m_iter); }
-        const_reference operator*() const { return this->m_container.k_getHolderRef(this->m_iter); }
+        pointer         operator->() { return &this->container().k_getHolderRef(this->m_iter); }
+        const_pointer   operator->() const { return &this->container().k_getHolderRef(this->m_iter); }
+        reference       operator*() { return this->container().k_getHolderRef(this->m_iter); }
+        const_reference operator*() const { return this->container().k_getHolderRef(this->m_iter); }
 };
 
 template<bool ref_accessor, bool reverse, bool const_iterator, typename Container, typename IterBase, typename Key, typename Value, typename KVPair, typename IterCategory>
@@ -315,13 +317,13 @@ public:
     template<typename ValType, typename std::enable_if<std::is_constructible<KVPair,ValType>::value,bool>::type = true>
     inline iterator insert(iterator hint, ValType&& val)
     {
-        return this->insert(std::forward<ValType>(val));
+        return this->insert(std::forward<ValType>(val)).first;
     }
 
     template<typename ValType, typename std::enable_if<std::is_constructible<KVPair,ValType>::value,bool>::type = true>
     inline iterator insert(const_iterator hint, ValType&& val)
     {
-        return this->insert(std::forward<ValType>(val));
+        return this->insert(std::forward<ValType>(val)).first;
     }
 
     template<
