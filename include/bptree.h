@@ -1,5 +1,6 @@
 #pragma once
 #include "./maxsize_vector.h"
+#include "./ldc_utils.h"
 #include <cassert>
 #include <cstdint>
 #include <cstddef>
@@ -13,218 +14,52 @@
 namespace ldc::BPTreeAlgorithmImpl {
 template <typename _T, typename _Node, typename _Holder, typename _Key, typename _Value, bool complain=false>
 struct treeop_traits {
-    template<typename U>
-    static uint8_t  test_isLeaf(...);
-    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(std::declval<const U&>().isLeaf(std::declval<_Node&>()))>,bool> = true>
-    static uint16_t test_isLeaf(int);
+    LDC_STATIC_FUNCTION_CALLABLE_DEFINE_STATIC_CONSTEXPR_AUTONAME(_T, allowEmptyLeaf, bool, _Node);
 
-    template<typename U>
-    static uint8_t  test_allowEmptyLeaf(...);
-    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(U::allowEmptyLeaf())>,bool> = true>
-    static uint16_t test_allowEmptyLeaf(int);
+#define TREEOP_FUNC_TEST_OPTIONAL(...) LDC_MEMBER_FUNCTION_CALLABLE_DEFINE_STATIC_CONSTEXPR_AUTONAME(__VA_ARGS__)
+#define TREEOP_FUNC_TEST_REQUIRED(A, B, F, R, ...) \
+    LDC_MEMBER_FUNCTION_CALLABLE_DEFINE_STATIC_CONSTEXPR_AUTONAME(A, B, F, R, __VA_ARGS__); \
+    static_assert(!complain || has_##F, "should implement '" #R " " #F "(" #__VA_ARGS__ ") " #B "';")
 
-    template<typename U>
-    static uint8_t  test_getNthChild(...);
-    template<typename U,std::enable_if_t<std::is_same_v<_Node,decltype(std::declval<const U&>().getNthChild(std::declval<_Node&>(),std::declval<size_t>()))>,bool> = true>
-    static uint16_t test_getNthChild(int);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, isLeaf,                  bool,     _Node);
+    TREEOP_FUNC_TEST_OPTIONAL(_T, const&, getParent,               _Node,    _Node);
+    TREEOP_FUNC_TEST_OPTIONAL(_T, ,       setParent,               void,     _Node, _Node);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getNthChild,             _Node,    _Node, size_t);
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       setNthChild,             void,     _Node, size_t, _Node);
+    TREEOP_FUNC_TEST_OPTIONAL(_T, ,       clearNthChild,           void,     _Node, size_t);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, interiorGetOrder,        size_t);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, interiorGetNthKey,       _Key,     _Node, size_t);
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       interiorSetNthKey,       void,     _Node, size_t, const _Key&);
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       interiorClearNthKey,     void,     _Node, size_t);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, interiorGetNumberOfKeys, size_t,   _Node);
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       interiorCreateEmptyNode, _Node);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getNumberOfChildren,     size_t,   _Node);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, leafGetOrder,            size_t);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, leafGetNumberOfKeys,     size_t,   _Node);
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       leafCreateEmptyNode,     _Node);
+    TREEOP_FUNC_TEST_OPTIONAL(_T, const&, leafGetNthKey,           _Key,     _Node, size_t);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, leafGetNext,             _Node,    _Node);
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       leafSetNext,             void,     _Node, _Node);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, leafGetPrev,             _Node,    _Node);
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       leafSetPrev,             void,     _Node, _Node);
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       extractNthHolder,        _Holder,  _Node, size_t);
+    TREEOP_FUNC_TEST_OPTIONAL(_T, const&, getNthHolder,            _Holder,  _Node, size_t);
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       setNthHolder,            void,     _Node, size_t, _Holder&&);
+    TREEOP_FUNC_TEST_OPTIONAL(_T, ,       getNthHolderRef,         _Holder&, _Node, size_t);
+    TREEOP_FUNC_TEST_OPTIONAL(_T, ,       setNthHolderValue,       void,     _Node, size_t, _Value);
+    TREEOP_FUNC_TEST_OPTIONAL(_T, ,       setHolderValue,          void,     _Holder&, _Value);
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       releaseEmptyNode,        void,     _Node);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, isNullNode,              bool,     _Node);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getNullNode,             _Node);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getKey,                  _Key,     _Holder);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, keyCompareLess,          bool,     const _Key&, const _Key&);
+    TREEOP_FUNC_TEST_OPTIONAL(_T, const&, keyCompareEqual,         bool,     const _Key&, const _Key&);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, nodeCompareEqual,        bool,     const _Node&, const _Node&);
 
-    template<typename U>
-    static uint8_t  test_setNthChild(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().setNthChild(std::declval<_Node&>(), std::declval<size_t>(), std::declval<_Node&>()))>,bool> = true>
-    static uint16_t test_setNthChild(int);
+#undef TREEOP_FUNC_TEST_REQUIRED
+#undef TREEOP_FUNC_TEST_OPTIONAL
 
-    template<typename U>
-    static uint8_t  test_clearNthChild(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().clearNthChild(std::declval<_Node&>(), std::declval<size_t>()))>,bool> = true>
-    static uint16_t test_clearNthChild(int);
-
-    template<typename U>
-    static uint8_t  test_getParent(...);
-    template<typename U,std::enable_if_t<std::is_same_v<_Node,decltype(std::declval<const U&>().getParent(std::declval<_Node&>()))>,bool> = true>
-    static uint16_t test_getParent(int);
-
-    template<typename U>
-    static uint8_t  test_setParent(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().setParent(std::declval<_Node&>(), std::declval<_Node&>()))>,bool> = true>
-    static uint16_t test_setParent(int);
-
-    template<typename U>
-    static uint8_t  test_leafGetNext(...);
-    template<typename U,std::enable_if_t<std::is_same_v<_Node,decltype(std::declval<const U&>().leafGetNext(std::declval<_Node&>()))>,bool> = true>
-    static uint16_t test_leafGetNext(int);
-
-    template<typename U>
-    static uint8_t  test_leafSetNext(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().leafSetNext(std::declval<_Node&>(), std::declval<_Node&>()))>,bool> = true>
-    static uint16_t test_leafSetNext(int);
-
-    template<typename U>
-    static uint8_t  test_leafGetPrev(...);
-    template<typename U,std::enable_if_t<std::is_same_v<_Node,decltype(std::declval<const U&>().leafGetPrev(std::declval<_Node&>()))>,bool> = true>
-    static uint16_t test_leafGetPrev(int);
-
-    template<typename U>
-    static uint8_t  test_leafSetPrev(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().leafSetPrev(std::declval<_Node&>(), std::declval<_Node&>()))>,bool> = true>
-    static uint16_t test_leafSetPrev(int);
-
-    template<typename U>
-    static uint8_t  test_getNthHolder(...);
-    template<typename U,std::enable_if_t<std::is_same_v<_Holder,decltype(std::declval<const U&>().getNthHolder(std::declval<_Node&>(),std::declval<size_t>()))>,bool> = true>
-    static uint16_t test_getNthHolder(int);
-
-    template<typename U>
-    static uint8_t  test_getNthHolderRef(...);
-    template<typename U,std::enable_if_t<std::is_same_v<_Holder&,decltype(std::declval<U&>().getNthHolderRef(std::declval<_Node&>(),std::declval<size_t>()))>,bool> = true>
-    static uint16_t test_getNthHolderRef(int);
-
-    template<typename U>
-    static uint8_t  test_setNthHolderValue(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().setNthHolderValue(std::declval<_Node&>(),std::declval<size_t>(),std::declval<_Value>()))>,bool> = true>
-    static uint16_t test_setNthHolderValue(int);
-
-    template<typename U>
-    static uint8_t  test_setHolderValue(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().setHolderValue(std::declval<_Holder&>(),std::declval<_Value>()))>,bool> = true>
-    static uint16_t test_setHolderValue(int);
-
-    template<typename U>
-    static uint8_t  test_leafGetNthKey(...);
-    template<typename U,std::enable_if_t<std::is_same_v<_Key,decltype(std::declval<const U&>().leafGetNthKey(std::declval<_Node&>(),std::declval<size_t>()))>,bool> = true>
-    static uint16_t test_leafGetNthKey(int);
-
-    template<typename U>
-    static uint8_t  test_interiorGetNthKey(...);
-    template<typename U,std::enable_if_t<std::is_same_v<_Key,decltype(std::declval<const U&>().interiorGetNthKey(std::declval<_Node&>(),std::declval<size_t>()))>,bool> = true>
-    static uint16_t test_interiorGetNthKey(int);
-
-    template<typename U>
-    static uint8_t  test_interiorSetNthKey(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().interiorSetNthKey(std::declval<_Node&>(),std::declval<size_t>(),std::declval<const _Key&>()))>,bool> = true>
-    static uint16_t test_interiorSetNthKey(int);
-
-    template<typename U>
-    static uint8_t  test_interiorClearNthKey(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().interiorClearNthKey(std::declval<_Node&>(),std::declval<size_t>()))>,bool> = true>
-    static uint16_t test_interiorClearNthKey(int);
-
-    template<typename U>
-    static uint8_t  test_extractNthHolder(...);
-    template<typename U,std::enable_if_t<std::is_same_v<_Holder,decltype(std::declval<U&>().extractNthHolder(std::declval<_Node&>(),std::declval<size_t>()))>,bool> = true>
-    static uint16_t test_extractNthHolder(int);
-
-    template<typename U>
-    static uint8_t  test_setNthHolder(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().setNthHolder(std::declval<_Node&>(), std::declval<size_t>(), std::move(std::declval<_Holder&>())))>,bool> = true>
-    static uint16_t test_setNthHolder(int);
-
-    template<typename U>
-    static uint8_t  test_leafGetOrder(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(std::declval<const U&>().leafGetOrder())>,bool> = true>
-    static uint16_t test_leafGetOrder(int);
-
-    template<typename U>
-    static uint8_t  test_interiorGetOrder(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(std::declval<const U&>().interiorGetOrder())>,bool> = true>
-    static uint16_t test_interiorGetOrder(int);
-
-    template<typename U>
-    static uint8_t  test_getNumberOfChildren(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(std::declval<const U&>().getNumberOfChildren(std::declval<_Node&>()))>,bool> = true>
-    static uint16_t test_getNumberOfChildren(int);
-
-    template<typename U>
-    static uint8_t  test_leafGetNumberOfKeys(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(std::declval<const U&>().leafGetNumberOfKeys(std::declval<_Node&>()))>,bool> = true>
-    static uint16_t test_leafGetNumberOfKeys(int);
-
-    template<typename U>
-    static uint8_t  test_interiorGetNumberOfKeys(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(std::declval<const U&>().interiorGetNumberOfKeys(std::declval<_Node&>()))>,bool> = true>
-    static uint16_t test_interiorGetNumberOfKeys(int);
-
-    template<typename U>
-    static uint8_t  test_isNullNode(...);
-    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(std::declval<const U&>().isNullNode(std::declval<_Node&>()))>,bool> = true>
-    static uint16_t test_isNullNode(int);
-
-    template<typename U>
-    static uint8_t  test_getNullNode(...);
-    template<typename U,std::enable_if_t<std::is_same_v<_Node,decltype(std::declval<const U&>().getNullNode())>,bool> = true>
-    static uint16_t test_getNullNode(int);
-
-    template<typename U>
-    static uint8_t  test_leafCreateEmptyNode(...);
-    template<typename U,std::enable_if_t<std::is_same_v<_Node,decltype(std::declval<U&>().leafCreateEmptyNode())>,bool> = true>
-    static uint16_t test_leafCreateEmptyNode(int);
-
-    template<typename U>
-    static uint8_t  test_interiorCreateEmptyNode(...);
-    template<typename U,std::enable_if_t<std::is_same_v<_Node,decltype(std::declval<U&>().interiorCreateEmptyNode())>,bool> = true>
-    static uint16_t test_interiorCreateEmptyNode(int);
-
-    template<typename U>
-    static uint8_t  test_releaseEmptyNode(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().releaseEmptyNode(std::move(std::declval<_Node&>())))>,bool> = true>
-    static uint16_t test_releaseEmptyNode(int);
-
-    template<typename U>
-    static uint8_t  test_getKey(...);
-    template<typename U,std::enable_if_t<std::is_same_v<_Key,decltype(std::declval<const U&>().getKey(std::declval<const _Holder&>()))>,bool> = true>
-    static uint16_t test_getKey(int);
-
-    template<typename U>
-    static uint8_t  test_keyCompareLess(...);
-    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(std::declval<const U&>().keyCompareLess(std::declval<const _Key&>(),std::declval<const _Key&>()))>,bool> = true>
-    static uint16_t test_keyCompareLess(int);
-
-    template<typename U>
-    static uint8_t  test_keyCompareEqual(...);
-    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(std::declval<const U&>().keyCompareEqual(std::declval<const _Key&>(),std::declval<const _Key&>()))>,bool> = true>
-    static uint16_t test_keyCompareEqual(int);
-
-    template<typename U>
-    static uint8_t  test_nodeCompareEqual(...);
-    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(std::declval<const U&>().nodeCompareEqual(std::declval<_Node&>(),std::declval<_Node&>()))>,bool> = true>
-    static uint16_t test_nodeCompareEqual(int);
-
-    static constexpr bool has_isLeaf                  = sizeof(test_isLeaf<_T>(1))                  == sizeof(uint16_t);
-    static constexpr bool has_allowEmptyLeaf          = sizeof(test_allowEmptyLeaf<_T>(1))          == sizeof(uint16_t);
-    static constexpr bool has_getNthChild             = sizeof(test_getNthChild<_T>(1))             == sizeof(uint16_t);
-    static constexpr bool has_setNthChild             = sizeof(test_setNthChild<_T>(1))             == sizeof(uint16_t);
-    static constexpr bool has_clearNthChild           = sizeof(test_clearNthChild<_T>(1))           == sizeof(uint16_t);
-    static constexpr bool has_getParent               = sizeof(test_getParent<_T>(1))               == sizeof(uint16_t); // optional
-    static constexpr bool has_setParent               = sizeof(test_setParent<_T>(1))               == sizeof(uint16_t); // optional
-    static constexpr bool has_leafGetNext             = sizeof(test_leafGetNext<_T>(1))             == sizeof(uint16_t);
-    static constexpr bool has_leafSetNext             = sizeof(test_leafSetNext<_T>(1))             == sizeof(uint16_t);
-    static constexpr bool has_leafGetPrev             = sizeof(test_leafGetPrev<_T>(1))             == sizeof(uint16_t);
-    static constexpr bool has_leafSetPrev             = sizeof(test_leafSetPrev<_T>(1))             == sizeof(uint16_t);
-    static constexpr bool has_getNthHolder            = sizeof(test_getNthHolder<_T>(1))            == sizeof(uint16_t);
-    static constexpr bool has_getNthHolderRef         = sizeof(test_getNthHolderRef<_T>(1))         == sizeof(uint16_t);
-    static constexpr bool has_setNthHolderValue       = sizeof(test_setNthHolderValue<_T>(1))       == sizeof(uint16_t);
-    static constexpr bool has_setHolderValue          = sizeof(test_setHolderValue<_T>(1))          == sizeof(uint16_t);
-    static constexpr bool has_leafGetNthKey           = sizeof(test_leafGetNthKey<_T>(1))           == sizeof(uint16_t);
-    static constexpr bool has_interiorGetNthKey       = sizeof(test_interiorGetNthKey<_T>(1))       == sizeof(uint16_t);
-    static constexpr bool has_interiorSetNthKey       = sizeof(test_interiorSetNthKey<_T>(1))       == sizeof(uint16_t);
-    static constexpr bool has_interiorClearNthKey     = sizeof(test_interiorClearNthKey<_T>(1))     == sizeof(uint16_t);
-    static constexpr bool has_extractNthHolder        = sizeof(test_extractNthHolder<_T>(1))        == sizeof(uint16_t);
-    static constexpr bool has_setNthHolder            = sizeof(test_setNthHolder<_T>(1))            == sizeof(uint16_t);
-    static constexpr bool has_leafGetOrder            = sizeof(test_leafGetOrder<_T>(1))            == sizeof(uint16_t);
-    static constexpr bool has_getNumberOfChildren     = sizeof(test_getNumberOfChildren<_T>(1))     == sizeof(uint16_t);
-    static constexpr bool has_interiorGetOrder        = sizeof(test_interiorGetOrder<_T>(1))        == sizeof(uint16_t);
-    static constexpr bool has_leafGetNumberOfKeys     = sizeof(test_leafGetNumberOfKeys<_T>(1))     == sizeof(uint16_t);
-    static constexpr bool has_interiorGetNumberOfKeys = sizeof(test_interiorGetNumberOfKeys<_T>(1)) == sizeof(uint16_t);
-    static constexpr bool has_isNullNode              = sizeof(test_isNullNode<_T>(1))              == sizeof(uint16_t);
-    static constexpr bool has_getNullNode             = sizeof(test_getNullNode<_T>(1))             == sizeof(uint16_t);
-    static constexpr bool has_leafCreateEmptyNode     = sizeof(test_leafCreateEmptyNode<_T>(1))     == sizeof(uint16_t);
-    static constexpr bool has_interiorCreateEmptyNode = sizeof(test_interiorCreateEmptyNode<_T>(1)) == sizeof(uint16_t);
-    static constexpr bool has_releaseEmptyNode        = sizeof(test_releaseEmptyNode<_T>(1))        == sizeof(uint16_t);
-    static constexpr bool has_getKey                  = sizeof(test_getKey<_T>(1))                  == sizeof(uint16_t);
-    static constexpr bool has_keyCompareLess          = sizeof(test_keyCompareLess<_T>(1))          == sizeof(uint16_t);
-    static constexpr bool has_keyCompareEqual         = sizeof(test_keyCompareEqual<_T>(1))         == sizeof(uint16_t);
-    static constexpr bool has_nodeCompareEqual        = sizeof(test_nodeCompareEqual<_T>(1))        == sizeof(uint16_t);
-
-    static_assert(!complain || !std::is_reference_v<_Node>,            "NODE should not be a reference");
+    static_assert(!complain || !std::is_reference_v<_Node>,           "NODE should not be a reference");
     static_assert(!complain || !std::is_const_v<_Node>,                "NODE should not be const-qualified");
     static_assert(!complain ||  std::is_copy_assignable_v<_Node>,      "NODE should be copy assignable");
     static_assert(!complain || !std::is_reference_v<_Holder>,          "HOLDER should not be a reference");
@@ -233,33 +68,10 @@ struct treeop_traits {
     static_assert(!complain || !std::is_reference_v<_Key>,             "KEY should not be a reference");
     static_assert(!complain || !std::is_const_v<_Key>,                 "KEY should not be const-qualified");
     static_assert(!complain ||  std::is_copy_assignable_v<_Key>,       "KEY should be copy assignable");
-    static_assert(!complain ||  has_isLeaf,                           "should implement 'bool isLeaf(NODE) const;'");
-    static_assert(!complain ||  has_getNthChild,                      "should implement 'NODE getNthChild(NODE, size_t) const;'");
-    static_assert(!complain ||  has_setNthChild,                      "should implement 'void setNthChild(NODE, size_t, NODE);'");
     static_assert(!complain ||  has_getNthHolder || has_getNthHolderRef,
                                                                       "should implement 'HOLDER getNthHolder(NODE, size_t) const;'");
     static_assert(!complain ||  std::is_same_v<_Value,void> || (has_setNthHolderValue || (has_getNthHolderRef && has_setHolderValue)), 
                                                                       "should provide value accessor for non-void value");
-    static_assert(!complain ||  has_interiorGetNthKey,                "should implement 'KEY interiorGetNthKey(NODE, size_t) const;'");
-    static_assert(!complain ||  has_interiorSetNthKey,                "should implement 'void interiorSetNthKey(NODE, size_t, const KEY&);'");
-    static_assert(!complain ||  has_interiorClearNthKey,              "should implement 'void interiorClearNthKey(NODE, size_t);'");
-    static_assert(!complain ||  has_extractNthHolder,                 "should implement 'HOLDER extractNthHolder(NODE, size_t);'");
-    static_assert(!complain ||  has_setNthHolder,                     "should implement 'void setNthHolder(NODE, size_t, HOLDER&& holder);'");
-    static_assert(!complain ||  has_leafGetOrder,                     "should implement 'size_t leafGetOrder() const;'");
-    static_assert(!complain ||  has_getNumberOfChildren,              "should implement 'size_t getNumberOfChildren(NODE);'");
-    static_assert(!complain ||  has_interiorGetOrder,                 "should implement 'size_t interiorGetOrder() const;'");
-    static_assert(!complain ||  has_leafGetNumberOfKeys,              "should implement 'size_t leafGetNumberOfKeys(NODE);'");
-    static_assert(!complain ||  has_interiorGetNumberOfKeys,          "should implement 'size_t interiorGetNumberOfKeys(NODE);'");
-    static_assert(!complain ||  has_isNullNode,                       "should implement 'bool isNullNode(NODE) const;'");
-    static_assert(!complain ||  has_getNullNode,                      "should implement 'NODE getNullNode() const;'");
-    static_assert(!complain ||  has_leafGetNext,                      "should implement 'NODE leafGetNext(NODE) const;'");
-    static_assert(!complain ||  has_leafSetNext,                      "should implement 'void leafSetNext(NODE, NODE);'");
-    static_assert(!complain ||  has_leafCreateEmptyNode,              "should implement 'NODE leafCreateEmptyNode();'");
-    static_assert(!complain ||  has_interiorCreateEmptyNode,          "should implement 'NODE interiorCreateEmptyNode();'");
-    static_assert(!complain ||  has_releaseEmptyNode,                 "should implement 'void releaseEmptyNode(NODE);'");
-    static_assert(!complain ||  has_getKey,                           "should implement 'KEY getKey(const HOLDER&) const;'");
-    static_assert(!complain ||  has_keyCompareLess,                   "should implement 'bool keyCompareLess(const KEY&, const KEY&) const;'");
-    static_assert(!complain ||  has_nodeCompareEqual,                 "should implement 'bool nodeCompareEqual(NODE, NODE) const;'");
 
     static constexpr bool value = !std::is_reference_v<_Node> && !std::is_const_v<_Node> && std::is_copy_assignable_v<_Node> &&
                                   !std::is_reference_v<_Holder>  && !std::is_const_v<_Holder> &&
@@ -1779,7 +1591,6 @@ protected:
 
 
 #include "./unarray.h"
-#include "./ldc_utils.h"
 #include <variant>
 namespace ldc::BPTreeBasicContainerImpl {
 template<typename _Key, typename _Value, size_t Order, size_t LeafOrder, bool parentsOps, bool prevOp>

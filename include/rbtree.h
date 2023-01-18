@@ -1,5 +1,6 @@
 #pragma once
 #include "./maxsize_vector.h"
+#include "./ldc_utils.h"
 #include <cassert>
 #include <cstdint>
 #include <cstddef>
@@ -10,112 +11,39 @@
 
 
 namespace ldc::RBTreeAlgorithmImpl {
-template <typename T, typename NODE, typename KEY, bool complain=false>
+template <typename _T, typename _Node, typename _Key, bool complain=false>
 struct treeop_traits {
-    template<typename U>
-    static uint8_t  test_getLeft(...);
-    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(std::declval<const U&>().getLeft(std::declval<NODE&>()))>,bool> = true>
-    static uint16_t test_getLeft(int);
+#define TREEOP_FUNC_TEST_OPTIONAL(...) LDC_MEMBER_FUNCTION_CALLABLE_DEFINE_STATIC_CONSTEXPR_AUTONAME(__VA_ARGS__)
+#define TREEOP_FUNC_TEST_REQUIRED(A, B, F, R, ...) \
+    LDC_MEMBER_FUNCTION_CALLABLE_DEFINE_STATIC_CONSTEXPR_AUTONAME(A, B, F, R, __VA_ARGS__); \
+    static_assert(!complain || has_##F, "should implement '" #R " " #F "(" #__VA_ARGS__ ") " #B "';")
 
-    template<typename U>
-    static uint8_t  test_setLeft(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().setLeft(std::declval<NODE&>(), std::declval<NODE&>()))>,bool> = true>
-    static uint16_t test_setLeft(int);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getLeft,          _Node, _Node);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getRight,         _Node, _Node);
+    TREEOP_FUNC_TEST_OPTIONAL(_T, const&, getParent,        _Node, _Node);
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       setLeft,          void,  _Node,        _Node);
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       setRight,         void,  _Node,        _Node);
+    TREEOP_FUNC_TEST_OPTIONAL(_T, ,       setParent,        void,  _Node,        _Node);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, isBlack,          bool,  _Node);
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       setBlack,         void,  _Node,        bool);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, isNullNode,       bool,  _Node);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getNullNode,      _Node);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getKey,           _Key,  _Node&);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, keyCompareLess,   bool,  const _Key&,  const _Key&);
+    TREEOP_FUNC_TEST_OPTIONAL(_T, const&, keyCompareEqual,  bool,  const _Key&,  const _Key&);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, nodeCompareEqual, bool,  const _Node&, const _Node&);
 
-    template<typename U>
-    static uint8_t  test_getRight(...);
-    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(std::declval<const U&>().getRight(std::declval<NODE&>()))>,bool> = true>
-    static uint16_t test_getRight(int);
+#undef TREEOP_FUNC_TEST_REQUIRED
+#undef TREEOP_FUNC_TEST_OPTIONAL
 
-    template<typename U>
-    static uint8_t  test_setRight(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().setRight(std::declval<NODE&>(), std::declval<NODE&>()))>,bool> = true>
-    static uint16_t test_setRight(int);
+    static_assert(!complain || !std::is_reference_v<_Node>,       "NODE should not be a reference");
+    static_assert(!complain || !std::is_const_v<_Node>,           "NODE should not be const-qualified");
+    static_assert(!complain ||  std::is_copy_assignable_v<_Node>, "NODE should be copy assignable");
+    static_assert(!complain || !std::is_reference_v<_Key>,        "KEY should not be a reference");
+    static_assert(!complain || !std::is_const_v<_Key>,            "KEY should not be const-qualified");
 
-    template<typename U>
-    static uint8_t  test_getParent(...);
-    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(std::declval<const U&>().getParent(std::declval<NODE&>()))>,bool> = true>
-    static uint16_t test_getParent(int);
-
-    template<typename U>
-    static uint8_t  test_setParent(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().setParent(std::declval<NODE&>(), std::declval<NODE&>()))>,bool> = true>
-    static uint16_t test_setParent(int);
-
-    template<typename U>
-    static uint8_t  test_isBlack(...);
-    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(std::declval<const U&>().isBlack(std::declval<NODE&>()))>,bool> = true>
-    static uint16_t test_isBlack(int);
-
-    template<typename U>
-    static uint8_t  test_setBlack(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().setBlack(std::declval<NODE&>(), *static_cast<bool*>(nullptr)))>,bool> = true>
-    static uint16_t test_setBlack(int);
-
-    template<typename U>
-    static uint8_t  test_isNullNode(...);
-    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(std::declval<const U&>().isNullNode(std::declval<NODE&>()))>,bool> = true>
-    static uint16_t test_isNullNode(int);
-
-    template<typename U>
-    static uint8_t  test_getNullNode(...);
-    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(std::declval<const U&>().getNullNode())>,bool> = true>
-    static uint16_t test_getNullNode(int);
-
-    template<typename U>
-    static uint8_t  test_getKey(...);
-    template<typename U,std::enable_if_t<std::is_same_v<KEY,decltype(std::declval<const U&>().getKey(std::declval<NODE&>()))>,bool> = true>
-    static uint16_t test_getKey(int);
-
-    template<typename U>
-    static uint8_t  test_keyCompareLess(...);
-    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(std::declval<const U&>().keyCompareLess(std::declval<const KEY&>(),std::declval<const KEY&>()))>,bool> = true>
-    static uint16_t test_keyCompareLess(int);
-
-    template<typename U>
-    static uint8_t  test_keyCompareEqual(...);
-    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(std::declval<const U&>().keyCompareEqual(std::declval<const KEY&>(),std::declval<const KEY&>()))>,bool> = true>
-    static uint16_t test_keyCompareEqual(int);
-
-    template<typename U>
-    static uint8_t  test_nodeCompareEqual(...);
-    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(std::declval<const U&>().nodeCompareEqual(std::declval<NODE&>(),std::declval<NODE&>()))>,bool> = true>
-    static uint16_t test_nodeCompareEqual(int);
-
-    static constexpr bool has_getLeft          = sizeof(test_getLeft<T>(1))          == sizeof(uint16_t);
-    static constexpr bool has_setLeft          = sizeof(test_setLeft<T>(1))          == sizeof(uint16_t);
-    static constexpr bool has_getRight         = sizeof(test_getRight<T>(1))         == sizeof(uint16_t);
-    static constexpr bool has_setRight         = sizeof(test_setRight<T>(1))         == sizeof(uint16_t);
-    static constexpr bool has_getParent        = sizeof(test_getParent<T>(1))        == sizeof(uint16_t); // optional
-    static constexpr bool has_setParent        = sizeof(test_setParent<T>(1))        == sizeof(uint16_t); // optional
-    static constexpr bool has_isBlack          = sizeof(test_isBlack<T>(1))          == sizeof(uint16_t);
-    static constexpr bool has_setBlack         = sizeof(test_setBlack<T>(1))         == sizeof(uint16_t);
-    static constexpr bool has_isNullNode       = sizeof(test_isNullNode<T>(1))       == sizeof(uint16_t);
-    static constexpr bool has_getNullNode      = sizeof(test_getNullNode<T>(1))      == sizeof(uint16_t);
-    static constexpr bool has_getKey           = sizeof(test_getKey<T>(1))           == sizeof(uint16_t);
-    static constexpr bool has_keyCompareLess   = sizeof(test_keyCompareLess<T>(1))   == sizeof(uint16_t);
-    static constexpr bool has_keyCompareEqual  = sizeof(test_keyCompareEqual<T>(1))  == sizeof(uint16_t);
-    static constexpr bool has_nodeCompareEqual = sizeof(test_nodeCompareEqual<T>(1)) == sizeof(uint16_t);
-
-    static_assert(!complain || !std::is_reference_v<NODE>,       "NODE should not be a reference");
-    static_assert(!complain || !std::is_const_v<NODE>,           "NODE should not be const-qualified");
-    static_assert(!complain ||  std::is_copy_assignable_v<NODE>, "NODE should be copy assignable");
-    static_assert(!complain || !std::is_reference_v<KEY>,        "KEY should not be a reference");
-    static_assert(!complain || !std::is_const_v<KEY>,            "KEY should not be const-qualified");
-    static_assert(!complain ||  has_getLeft,                     "should implement 'NODE getLeft(NODE) const;'");
-    static_assert(!complain ||  has_setLeft,                     "should implement 'voie setLeft(NODE, NODE);'");
-    static_assert(!complain ||  has_getRight,                    "should implement 'NODE getRight(NODE) const;'");
-    static_assert(!complain ||  has_setRight,                    "should implement 'voie setRight(NODE, NODE);'");
-    static_assert(!complain ||  has_isBlack,                     "should implement 'bool isBlack(NODE) const;'");
-    static_assert(!complain ||  has_setBlack,                    "should implement 'voie setBlack(NODE, bool);'");
-    static_assert(!complain ||  has_isNullNode,                  "should implement 'bool isNullNode(NODE) const;'");
-    static_assert(!complain ||  has_getNullNode,                 "should implement 'NODE getNullNode() const;'");
-    static_assert(!complain ||  has_getKey,                      "should implement 'KYE getKey(NODE) const;'");
-    static_assert(!complain ||  has_keyCompareLess,              "should implement 'bool keyCompareLess(const KEY&, const KEY&) const;'");
-    static_assert(!complain ||  has_nodeCompareEqual,            "should implement 'bool nodeCompareEqual(NODE, NODE) const;'");
-
-    static constexpr bool value = !std::is_reference_v<NODE> && !std::is_const_v<NODE> && std::is_copy_assignable_v<NODE> &&
-                                  !std::is_reference_v<KEY>  && !std::is_const_v<KEY> &&
+    static constexpr bool value = !std::is_reference_v<_Node> && !std::is_const_v<_Node> && std::is_copy_assignable_v<_Node> &&
+                                  !std::is_reference_v<_Key>  && !std::is_const_v<_Key> &&
                                   has_getLeft    && has_setLeft  &&
                                   has_getRight   && has_setRight &&
                                   has_isBlack    && has_setBlack &&
@@ -1147,7 +1075,6 @@ protected:
 
 
 #include "./unarray.h"
-#include "./ldc_utils.h"
 namespace ldc::RBTreeBasicContainerImpl {
 template<typename _Key, typename _Value, bool parentsOps>
 struct TreeNode {

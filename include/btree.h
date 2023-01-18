@@ -1,5 +1,6 @@
 #pragma once
 #include "./maxsize_vector.h"
+#include "./ldc_utils.h"
 #include <cassert>
 #include <cstdint>
 #include <cstddef>
@@ -11,180 +12,58 @@
 
 
 namespace ldc::BTreeAlgorithmImpl {
-template <typename T, typename NODE, typename HOLDER, typename KEY, typename VALUE, bool complain=false>
+template <typename _T, typename _Node, typename _Holder, typename _Key, typename _Value, bool complain=false>
 struct treeop_traits {
-    template<typename U>
-    static uint8_t  test_getNthChild(...);
-    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(std::declval<const U&>().getNthChild(std::declval<NODE&>(),std::declval<size_t>()))>,bool> = true>
-    static uint16_t test_getNthChild(int);
+#define TREEOP_FUNC_TEST_OPTIONAL(...) LDC_MEMBER_FUNCTION_CALLABLE_DEFINE_STATIC_CONSTEXPR_AUTONAME(__VA_ARGS__)
+#define TREEOP_FUNC_TEST_REQUIRED(A, B, F, R, ...) \
+    LDC_MEMBER_FUNCTION_CALLABLE_DEFINE_STATIC_CONSTEXPR_AUTONAME(A, B, F, R, __VA_ARGS__); \
+    static_assert(!complain || has_##F, "should implement '" #R " " #F "(" #__VA_ARGS__ ") " #B "';")
 
-    template<typename U>
-    static uint8_t  test_setNthChild(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().setNthChild(std::declval<NODE&>(), std::declval<size_t>(), std::declval<NODE&>()))>,bool> = true>
-    static uint16_t test_setNthChild(int);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getNthChild,         _Node,    _Node, size_t);
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       setNthChild,         void,     _Node, size_t, _Node);
+    TREEOP_FUNC_TEST_OPTIONAL(_T, ,       clearNthChild,       void,     _Node, size_t);
+    TREEOP_FUNC_TEST_OPTIONAL(_T, const&, getParent,           _Node,    _Node);
+    TREEOP_FUNC_TEST_OPTIONAL(_T, ,       setParent,           void,     _Node, _Node);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getNthHolder,        _Holder,  _Node, size_t);
+    TREEOP_FUNC_TEST_OPTIONAL(_T, ,       getNthHolderRef,     _Holder&, _Node, size_t);
+    TREEOP_FUNC_TEST_OPTIONAL(_T, ,       setNthHolderValue,   void,     _Node&, size_t, _Value);
+    TREEOP_FUNC_TEST_OPTIONAL(_T, ,       setHolderValue,      void,     _Holder&, _Value);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getNthKey,           _Key,     _Node, size_t);
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       extractNthHolder,    _Holder,  _Node&, size_t);
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       setNthHolder,        void,     _Node&, size_t, _Holder&&);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getOrder,            size_t);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getNumberOfChildren, size_t,   _Node);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getNumberOfKeys,     size_t,   _Node);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, isNullNode,          bool,     _Node);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getNullNode,         _Node);
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       createEmptyNode,     _Node);
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       releaseEmptyNode,    void,     _Node);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getKey,              _Key,     _Holder);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, keyCompareLess,      bool,     const _Key&, const _Key&);
+    TREEOP_FUNC_TEST_OPTIONAL(_T, const&, keyCompareEqual,     bool,     const _Key&, const _Key&);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, nodeCompareEqual,    bool,     const _Node&, const _Node&);
 
-    template<typename U>
-    static uint8_t  test_clearNthChild(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().clearNthChild(std::declval<NODE&>(), std::declval<size_t>()))>,bool> = true>
-    static uint16_t test_clearNthChild(int);
+#undef TREEOP_FUNC_TEST_REQUIRED
+#undef TREEOP_FUNC_TEST_OPTIONAL
 
-    template<typename U>
-    static uint8_t  test_getParent(...);
-    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(std::declval<const U&>().getParent(std::declval<NODE&>()))>,bool> = true>
-    static uint16_t test_getParent(int);
-
-    template<typename U>
-    static uint8_t  test_setParent(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().setParent(std::declval<NODE&>(), std::declval<NODE&>()))>,bool> = true>
-    static uint16_t test_setParent(int);
-
-    template<typename U>
-    static uint8_t  test_getNthHolder(...);
-    template<typename U,std::enable_if_t<std::is_same_v<HOLDER,decltype(std::declval<const U&>().getNthHolder(std::declval<NODE&>(),std::declval<size_t>()))>,bool> = true>
-    static uint16_t test_getNthHolder(int);
-
-    template<typename U>
-    static uint8_t  test_getNthHolderRef(...);
-    template<typename U,std::enable_if_t<std::is_same_v<HOLDER&,decltype(std::declval<const U&>().getNthHolderRef(std::declval<NODE&>(),std::declval<size_t>()))>,bool> = true>
-    static uint16_t test_getNthHolderRef(int);
-
-    template<typename U>
-    static uint8_t  test_setNthHolderValue(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<const U&>().setNthHolderValue(std::declval<NODE&>(),std::declval<size_t>(),std::declval<VALUE>()))>,bool> = true>
-    static uint16_t test_setNthHolderValue(int);
-
-    template<typename U>
-    static uint8_t  test_setHolderValue(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<const U&>().setHolderValue(std::declval<HOLDER&>(),std::declval<VALUE>()))>,bool> = true>
-    static uint16_t test_setHolderValue(int);
-
-    template<typename U>
-    static uint8_t  test_getNthKey(...);
-    template<typename U,std::enable_if_t<std::is_same_v<KEY,decltype(std::declval<const U&>().getNthKey(std::declval<NODE&>(),std::declval<size_t>()))>,bool> = true>
-    static uint16_t test_getNthKey(int);
-
-    template<typename U>
-    static uint8_t  test_extractNthHolder(...);
-    template<typename U,std::enable_if_t<std::is_same_v<HOLDER,decltype(std::declval<U&>().extractNthHolder(std::declval<NODE&>(),std::declval<size_t>()))>,bool> = true>
-    static uint16_t test_extractNthHolder(int);
-
-    template<typename U>
-    static uint8_t  test_setNthHolder(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().setNthHolder(std::declval<NODE&>(), std::declval<size_t>(), std::move(std::declval<HOLDER&>())))>,bool> = true>
-    static uint16_t test_setNthHolder(int);
-
-    template<typename U>
-    static uint8_t  test_getOrder(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(std::declval<const U&>().getOrder())>,bool> = true>
-    static uint16_t test_getOrder(int);
-
-    template<typename U>
-    static uint8_t  test_getNumberOfChildren(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(std::declval<const U&>().getNumberOfChildren(std::declval<NODE&>()))>,bool> = true>
-    static uint16_t test_getNumberOfChildren(int);
-
-    template<typename U>
-    static uint8_t  test_getNumberOfKeys(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(std::declval<const U&>().getNumberOfKeys(std::declval<NODE&>()))>,bool> = true>
-    static uint16_t test_getNumberOfKeys(int);
-
-    template<typename U>
-    static uint8_t  test_isNullNode(...);
-    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(std::declval<const U&>().isNullNode(std::declval<NODE&>()))>,bool> = true>
-    static uint16_t test_isNullNode(int);
-
-    template<typename U>
-    static uint8_t  test_getNullNode(...);
-    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(std::declval<const U&>().getNullNode())>,bool> = true>
-    static uint16_t test_getNullNode(int);
-
-    template<typename U>
-    static uint8_t  test_createEmptyNode(...);
-    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(std::declval<U&>().createEmptyNode())>,bool> = true>
-    static uint16_t test_createEmptyNode(int);
-
-    template<typename U>
-    static uint8_t  test_releaseEmptyNode(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().releaseEmptyNode(std::move(std::declval<NODE&>())))>,bool> = true>
-    static uint16_t test_releaseEmptyNode(int);
-
-    template<typename U>
-    static uint8_t  test_getKey(...);
-    template<typename U,std::enable_if_t<std::is_same_v<KEY,decltype(std::declval<const U&>().getKey(std::declval<const HOLDER&>()))>,bool> = true>
-    static uint16_t test_getKey(int);
-
-    template<typename U>
-    static uint8_t  test_keyCompareLess(...);
-    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(std::declval<const U&>().keyCompareLess(std::declval<const KEY&>(),std::declval<const KEY&>()))>,bool> = true>
-    static uint16_t test_keyCompareLess(int);
-
-    template<typename U>
-    static uint8_t  test_keyCompareEqual(...);
-    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(std::declval<const U&>().keyCompareEqual(std::declval<const KEY&>(),std::declval<const KEY&>()))>,bool> = true>
-    static uint16_t test_keyCompareEqual(int);
-
-    template<typename U>
-    static uint8_t  test_nodeCompareEqual(...);
-    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(std::declval<const U&>().nodeCompareEqual(std::declval<NODE&>(),std::declval<NODE&>()))>,bool> = true>
-    static uint16_t test_nodeCompareEqual(int);
-
-    static constexpr bool has_getNthChild         = sizeof(test_getNthChild<T>(1))         == sizeof(uint16_t);
-    static constexpr bool has_setNthChild         = sizeof(test_setNthChild<T>(1))         == sizeof(uint16_t);
-    static constexpr bool has_clearNthChild       = sizeof(test_clearNthChild<T>(1))       == sizeof(uint16_t);
-    static constexpr bool has_getParent           = sizeof(test_getParent<T>(1))           == sizeof(uint16_t); // optional
-    static constexpr bool has_setParent           = sizeof(test_setParent<T>(1))           == sizeof(uint16_t); // optional
-    static constexpr bool has_getNthHolder        = sizeof(test_getNthHolder<T>(1))        == sizeof(uint16_t);
-    static constexpr bool has_getNthHolderRef     = sizeof(test_getNthHolderRef<T>(1))     == sizeof(uint16_t);
-    static constexpr bool has_setNthHolderValue   = sizeof(test_setNthHolderValue<T>(1))   == sizeof(uint16_t);
-    static constexpr bool has_setHolderValue      = sizeof(test_setHolderValue<T>(1))      == sizeof(uint16_t);
-    static constexpr bool has_getNthKey           = sizeof(test_getNthKey<T>(1))           == sizeof(uint16_t);
-    static constexpr bool has_extractNthHolder    = sizeof(test_extractNthHolder<T>(1))    == sizeof(uint16_t);
-    static constexpr bool has_setNthHolder        = sizeof(test_setNthHolder<T>(1))        == sizeof(uint16_t);
-    static constexpr bool has_getOrder            = sizeof(test_getOrder<T>(1))            == sizeof(uint16_t);
-    static constexpr bool has_getNumberOfChildren = sizeof(test_getNumberOfChildren<T>(1)) == sizeof(uint16_t);
-    static constexpr bool has_getNumberOfKeys     = sizeof(test_getNumberOfKeys<T>(1))     == sizeof(uint16_t);
-    static constexpr bool has_isNullNode          = sizeof(test_isNullNode<T>(1))          == sizeof(uint16_t);
-    static constexpr bool has_getNullNode         = sizeof(test_getNullNode<T>(1))         == sizeof(uint16_t);
-    static constexpr bool has_createEmptyNode     = sizeof(test_createEmptyNode<T>(1))     == sizeof(uint16_t);
-    static constexpr bool has_releaseEmptyNode    = sizeof(test_releaseEmptyNode<T>(1))    == sizeof(uint16_t);
-    static constexpr bool has_getKey              = sizeof(test_getKey<T>(1))              == sizeof(uint16_t);
-    static constexpr bool has_keyCompareLess      = sizeof(test_keyCompareLess<T>(1))      == sizeof(uint16_t);
-    static constexpr bool has_keyCompareEqual     = sizeof(test_keyCompareEqual<T>(1))     == sizeof(uint16_t);
-    static constexpr bool has_nodeCompareEqual    = sizeof(test_nodeCompareEqual<T>(1))    == sizeof(uint16_t);
-
-    static_assert(!complain || !std::is_reference_v<NODE>,            "NODE should not be a reference");
-    static_assert(!complain || !std::is_const_v<NODE>,                "NODE should not be const-qualified");
-    static_assert(!complain ||  std::is_copy_assignable_v<NODE>,      "NODE should be copy assignable");
-    static_assert(!complain || !std::is_reference_v<HOLDER>,          "HOLDER should not be a reference");
-    static_assert(!complain || !std::is_const_v<HOLDER>,              "HOLDER should not be const-qualified");
-    static_assert(!complain ||  std::is_move_constructible_v<HOLDER>, "HOLDER should be copy assignable");
-    static_assert(!complain || !std::is_reference_v<KEY>,             "KEY should not be a reference");
-    static_assert(!complain || !std::is_const_v<KEY>,                 "KEY should not be const-qualified");
-    static_assert(!complain ||  std::is_copy_assignable_v<KEY>,       "KEY should be copy assignable");
-    static_assert(!complain ||  std::is_same_v<VALUE,void> || (has_setNthHolderValue || (has_getNthHolderRef && has_setHolderValue)), 
+    static_assert(!complain || !std::is_reference_v<_Node>,            "NODE should not be a reference");
+    static_assert(!complain || !std::is_const_v<_Node>,                "NODE should not be const-qualified");
+    static_assert(!complain ||  std::is_copy_assignable_v<_Node>,      "NODE should be copy assignable");
+    static_assert(!complain || !std::is_reference_v<_Holder>,          "HOLDER should not be a reference");
+    static_assert(!complain || !std::is_const_v<_Holder>,              "HOLDER should not be const-qualified");
+    static_assert(!complain ||  std::is_move_constructible_v<_Holder>, "HOLDER should be copy assignable");
+    static_assert(!complain || !std::is_reference_v<_Key>,             "KEY should not be a reference");
+    static_assert(!complain || !std::is_const_v<_Key>,                 "KEY should not be const-qualified");
+    static_assert(!complain ||  std::is_copy_assignable_v<_Key>,       "KEY should be copy assignable");
+    static_assert(!complain ||  std::is_same_v<_Value,void> || (has_setNthHolderValue || (has_getNthHolderRef && has_setHolderValue)), 
                                                                       "should provide value accessor for non-void value");
-    static_assert(!complain ||  has_getNthChild,                      "should implement 'NODE getNthChild(NODE, size_t) const;'");
-    static_assert(!complain ||  has_setNthChild,                      "should implement 'void setNthChild(NODE, size_t, NODE);'");
-    static_assert(!complain ||  has_getNthHolder,                     "should implement 'HOLDER getNthHolder(NODE, size_t) const;'");
-    static_assert(!complain ||  has_extractNthHolder,                 "should implement 'HOLDER extractNthHolder(NODE, size_t);'");
-    static_assert(!complain ||  has_setNthHolder,                     "should implement 'void setNthHolder(NODE, size_t, HOLDER&& holder);'");
-    static_assert(!complain ||  has_getOrder,                         "should implement 'size_t getOrder() const;'");
-    static_assert(!complain ||  has_getNumberOfChildren,              "should implement 'size_t getNumberOfChildren(NODE);'");
-    static_assert(!complain ||  has_getNumberOfKeys,                  "should implement 'size_t getNumberOfKeys(NODE);'");
-    static_assert(!complain ||  has_isNullNode,                       "should implement 'bool isNullNode(NODE) const;'");
-    static_assert(!complain ||  has_getNullNode,                      "should implement 'NODE getNullNode() const;'");
-    static_assert(!complain ||  has_createEmptyNode,                  "should implement 'NODE createEmptyNode();'");
-    static_assert(!complain ||  has_releaseEmptyNode,                 "should implement 'void releaseEmptyNode(NODE);'");
-    static_assert(!complain ||  has_getKey,                           "should implement 'KEY getKey(const HOLDER&) const;'");
-    static_assert(!complain ||  has_keyCompareLess,                   "should implement 'bool keyCompareLess(const KEY&, const KEY&) const;'");
-    static_assert(!complain ||  has_nodeCompareEqual,                 "should implement 'bool nodeCompareEqual(NODE, NODE) const;'");
 
-    static constexpr bool value = !std::is_reference_v<NODE> && !std::is_const_v<NODE> &&
-                                  !std::is_reference_v<HOLDER>  && !std::is_const_v<HOLDER> && std::is_copy_assignable_v<HOLDER> &&
-                                   std::is_move_constructible_v<HOLDER> &&
-                                  !std::is_reference_v<KEY>  && !std::is_const_v<KEY> && std::is_copy_assignable_v<KEY> &&
+    static constexpr bool value = !std::is_reference_v<_Node> && !std::is_const_v<_Node> &&
+                                  !std::is_reference_v<_Holder>  && !std::is_const_v<_Holder> && std::is_copy_assignable_v<_Holder> &&
+                                   std::is_move_constructible_v<_Holder> &&
+                                  !std::is_reference_v<_Key>  && !std::is_const_v<_Key> && std::is_copy_assignable_v<_Key> &&
                                   has_getNthChild && has_setNthChild  &&
-                                  std::is_same_v<VALUE,void> || (has_setNthHolderValue || (has_getNthHolderRef && has_setHolderValue)) &&
+                                  std::is_same_v<_Value,void> || (has_setNthHolderValue || (has_getNthHolderRef && has_setHolderValue)) &&
                                   has_getNthHolder && has_extractNthHolder && has_setNthHolder  &&
                                   has_getOrder && has_getNumberOfChildren && has_getNumberOfKeys &&
                                   has_isNullNode && has_getNullNode && has_createEmptyNode &&
@@ -1200,7 +1079,6 @@ public:
 
 
 #include "./unarray.h"
-#include "./ldc_utils.h"
 namespace ldc::BTreeBasicContainerImpl {
 template<typename _Key, typename _Value, size_t Order, bool parentsOps>
 struct TreeNode {
