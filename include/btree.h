@@ -1351,6 +1351,18 @@ public:
         BASE(treeops_t(_oth.m_ops.ops().m_cmp, _oth.m_ops.ops().m_allocator)),
         m_root(nullptr), m_size(0)
     {
+        *this = _oth;
+    }
+
+    inline BTreeInMemory(BTreeInMemory&& _oth):
+        BASE(std::move(_oth)), m_root(_oth.m_root), m_size(_oth.m_size)
+    {
+        _oth.m_size = 0;
+        _oth.m_root = nullptr;
+    }
+
+    inline BTreeInMemory& operator=(const BTreeInMemory& _oth) {
+        this->clear();
         if (_oth.size() > 0) {
             auto& oth = const_cast<BTreeInMemory&>(_oth);
             auto b = oth.begin();
@@ -1362,6 +1374,17 @@ public:
             m_root = this->initWithAscSequence(oth.size(), fn);
             m_size = oth.size();
         }
+        return *this;
+    }
+
+    inline BTreeInMemory& operator=(BTreeInMemory&& _oth) {
+        this->clear();
+        this->m_root = _oth.m_root;
+        this->m_size = _oth.m_size;
+        _oth.m_root = nullptr;
+        _oth.m_size = 0;
+        BASE::operator=(std::move(_oth));
+        return *this;
     }
 
     inline ITERATOR insert(KVPair&& val) {
@@ -1415,6 +1438,7 @@ public:
         if (m_root) {
             this->releaseNode(m_root);
             m_root = nullptr;
+            m_size = 0;
         }
     }
 

@@ -4,6 +4,7 @@
 #include <limits>
 #include <algorithm>
 #include <assert.h>
+#include "ldc_utils.h"
 
 
 namespace ldc {
@@ -28,9 +29,47 @@ public:
     inline void    k_backward  (_IterBase& path) { m_container.backward(path); }
     inline KVPair  k_deleteIter(_IterBase iter) {return m_container.deleteIter(iter); }
     inline KVPair  k_getHolder (_IterBase iter) const { return const_cast<_Container&>(m_container).getHolder(iter); }
-    inline KVPair& k_getHolderRef (_IterBase iter) { return m_container.getHolderRef(iter); }
-    inline int     k_compareHolderPath(const _IterBase& it1, const _IterBase& it2) const { return m_container.compareHolderPath(it1, it2); }
-    inline _Key    k_getHolderKey(_IterBase iter) { return m_container.getHolderKey(iter); }
+    inline KVPair& k_getHolderRef(_IterBase iter) { return m_container.getHolderRef(iter); }
+    inline _Key    k_getHolderKey(_IterBase iter) const { return nonconst().m_container.getHolderKey(iter); }
+
+    inline int k_compareHolderPath(const _IterBase& it1, const _IterBase& it2) const {
+        if constexpr (LDC_MEMBER_FUNCTION_CALLABLE_VALUE(_Container, compareHolderPath)) {
+            return m_container.compareHolderPath(it1, it2);
+        } else if constexpr (LDC_MEMBER_FUNCTION_CALLABLE_VALUE(_Container, keyCompareLess)) {
+            if (!this->k_exists(it1)) {
+                if (this->k_exists(it2)) {
+                    return 1;
+                }
+                return 0;
+            } else if (!this->k_exists(it2)) {
+                return -1;
+            }
+
+            if (it1 == it2) return 0;
+
+            const auto k1 = this->k_getHolderKey(it1);
+            const auto k2 = this->k_getHolderKey(it2);
+            if (m_container.keyCompareLess(k1,k2)) {
+                return -1;
+            } else if (m_container.keyCompareLess(k2,k1)) {
+                return 1;
+            }
+
+            auto m1 = it1, m2 = it2;
+            for (;this->k_exists(it1)&&this->k_exists(it2);nonconst().k_forward(m1),nonconst().k_forward(m2)) {
+                if (m1 == it2) {
+                    return -1;
+                } else if (m2 == it1) {
+                    return 1;
+                }
+            }
+            return this->k_exists(m1) ? -1 : 1;
+        } else {
+            static_assert(LDC_MEMBER_FUNCTION_CALLABLE_VALUE(_Container, compareHolderPath) ||
+                          LDC_MEMBER_FUNCTION_CALLABLE_VALUE(_Container, keyCompareLess), "unable to implement compareHolderPath");
+            return 0;
+        }
+    }
 
     template<typename T>
     inline void k_setHolderValue(_IterBase iter, T val) { return m_container.setHolderValue(iter, val); }
@@ -40,6 +79,9 @@ public:
 
 private:
     _Container m_container;
+    inline ContainerWrapper& nonconst() const { return const_cast<ContainerWrapper&>(*this); }
+    LDC_MEMBER_FUNCTION_CALLABLE(const,compareHolderPath,int,const _IterBase&,const _IterBase&);
+    LDC_MEMBER_FUNCTION_CALLABLE(const,keyCompareLess,bool,const _Key&,const _Key&);
 };
 
 

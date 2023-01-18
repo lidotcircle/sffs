@@ -73,8 +73,8 @@ struct TreeNode2Ops {
     bool nodeCompareEqual(TreeNode2* n1, TreeNode2* n2) const { return n1 == n2; }
 };
 
-using base1 = RBTreeAlgorithmImpl::RBTreeAlgorithm<TreeNodeOps,TreeNode*,int>;
-using base2 = RBTreeAlgorithmImpl::RBTreeAlgorithm<TreeNode2Ops,TreeNode2*,int>;
+using base1 = RBTreeAlgorithmImpl::RBTreeAlgorithm<TreeNodeOps,TreeNode*,int,false,false>;
+using base2 = RBTreeAlgorithmImpl::RBTreeAlgorithm<TreeNode2Ops,TreeNode2*,int,false,true>;
 
 template<typename RBTreeAlgo, typename NODE, typename Ops>
 struct rbtree: public RBTreeAlgo {

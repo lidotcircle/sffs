@@ -6,83 +6,80 @@
 #include <utility>
 #include <queue>
 #include <type_traits>
+#include <functional>
 
 
 namespace ldc::RBTreeAlgorithmImpl {
 template <typename T, typename NODE, typename KEY, bool complain=false>
 struct treeop_traits {
-    static NODE& node;
-    static const NODE& const_node;
-    static const KEY& const_key;
-
     template<typename U>
     static uint8_t  test_getLeft(...);
-    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(static_cast<const U*>(nullptr)->getLeft(node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(std::declval<const U&>().getLeft(std::declval<NODE&>()))>,bool> = true>
     static uint16_t test_getLeft(int);
 
     template<typename U>
     static uint8_t  test_setLeft(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(static_cast<U*>(nullptr)->setLeft(node, node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().setLeft(std::declval<NODE&>(), std::declval<NODE&>()))>,bool> = true>
     static uint16_t test_setLeft(int);
 
     template<typename U>
     static uint8_t  test_getRight(...);
-    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(static_cast<const U*>(nullptr)->getRight(node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(std::declval<const U&>().getRight(std::declval<NODE&>()))>,bool> = true>
     static uint16_t test_getRight(int);
 
     template<typename U>
     static uint8_t  test_setRight(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(static_cast<U*>(nullptr)->setRight(node, node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().setRight(std::declval<NODE&>(), std::declval<NODE&>()))>,bool> = true>
     static uint16_t test_setRight(int);
 
     template<typename U>
     static uint8_t  test_getParent(...);
-    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(static_cast<const U*>(nullptr)->getParent(node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(std::declval<const U&>().getParent(std::declval<NODE&>()))>,bool> = true>
     static uint16_t test_getParent(int);
 
     template<typename U>
     static uint8_t  test_setParent(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(static_cast<U*>(nullptr)->setParent(node, node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().setParent(std::declval<NODE&>(), std::declval<NODE&>()))>,bool> = true>
     static uint16_t test_setParent(int);
 
     template<typename U>
     static uint8_t  test_isBlack(...);
-    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(static_cast<const U*>(nullptr)->isBlack(node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(std::declval<const U&>().isBlack(std::declval<NODE&>()))>,bool> = true>
     static uint16_t test_isBlack(int);
 
     template<typename U>
     static uint8_t  test_setBlack(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(static_cast<U*>(nullptr)->setBlack(node, *static_cast<bool*>(nullptr)))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<void,decltype(std::declval<U&>().setBlack(std::declval<NODE&>(), *static_cast<bool*>(nullptr)))>,bool> = true>
     static uint16_t test_setBlack(int);
 
     template<typename U>
     static uint8_t  test_isNullNode(...);
-    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(static_cast<const U*>(nullptr)->isNullNode(node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(std::declval<const U&>().isNullNode(std::declval<NODE&>()))>,bool> = true>
     static uint16_t test_isNullNode(int);
 
     template<typename U>
     static uint8_t  test_getNullNode(...);
-    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(static_cast<const U*>(nullptr)->getNullNode())>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<NODE,decltype(std::declval<const U&>().getNullNode())>,bool> = true>
     static uint16_t test_getNullNode(int);
 
     template<typename U>
     static uint8_t  test_getKey(...);
-    template<typename U,std::enable_if_t<std::is_same_v<KEY,decltype(static_cast<const U*>(nullptr)->getKey(node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<KEY,decltype(std::declval<const U&>().getKey(std::declval<NODE&>()))>,bool> = true>
     static uint16_t test_getKey(int);
 
     template<typename U>
     static uint8_t  test_keyCompareLess(...);
-    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(static_cast<const U*>(nullptr)->keyCompareLess(const_key,const_key))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(std::declval<const U&>().keyCompareLess(std::declval<const KEY&>(),std::declval<const KEY&>()))>,bool> = true>
     static uint16_t test_keyCompareLess(int);
 
     template<typename U>
     static uint8_t  test_keyCompareEqual(...);
-    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(static_cast<const U*>(nullptr)->keyCompareEqual(const_key,const_key))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(std::declval<const U&>().keyCompareEqual(std::declval<const KEY&>(),std::declval<const KEY&>()))>,bool> = true>
     static uint16_t test_keyCompareEqual(int);
 
     template<typename U>
     static uint8_t  test_nodeCompareEqual(...);
-    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(static_cast<const U*>(nullptr)->nodeCompareEqual(node,node))>,bool> = true>
+    template<typename U,std::enable_if_t<std::is_same_v<bool,decltype(std::declval<const U&>().nodeCompareEqual(std::declval<NODE&>(),std::declval<NODE&>()))>,bool> = true>
     static uint16_t test_nodeCompareEqual(int);
 
     static constexpr bool has_getLeft          = sizeof(test_getLeft<T>(1))          == sizeof(uint16_t);
@@ -139,13 +136,13 @@ struct RbtreeOpWrapper {
     inline void setRight(NODE node, NODE n) { m_ops.setRight(node, n); }
 
     inline NODE getParent(NODE node) const  {
-        if constexpr (treeop_traits<T,NODE,KEY>::has_getParent) {
+        if constexpr (traits::has_getParent) {
             return m_ops.getParent(node);
         }
         return node;
     }
     inline void setParent(NODE node, NODE n)  {
-        if constexpr (treeop_traits<T,NODE,KEY>::has_setParent) {
+        if constexpr (traits::has_setParent) {
             return m_ops.setParent(node, n);
         }
     }
@@ -178,18 +175,21 @@ struct RbtreeOpWrapper {
         }
     }
 
+    inline T& ops() { return m_ops; }
+    inline const T& ops() const { return m_ops; }
+
 private:
     using traits = treeop_traits<T,NODE,KEY>;
     T m_ops;
 };
 
 template<typename T, typename NODE, typename KEY,
-         bool multikey = false, size_t static_vector_size = 128,
+         bool multikey = false, bool ParentsOps = true, size_t static_vector_size = 128,
          std::enable_if_t<treeop_traits<T,NODE,KEY,true>::value,bool> = true>
 class RBTreeAlgorithm {
 public:
     using traits = treeop_traits<T,NODE,KEY>;
-    static constexpr bool parents_ops = traits::has_getParent && traits::has_setParent;
+    static constexpr bool parents_ops = traits::has_getParent && traits::has_setParent && ParentsOps;
     using NodePath = std::conditional_t<parents_ops, NODE,
                          std::conditional_t<static_cast<bool>(static_vector_size > 0), maxsize_vector<NODE,static_vector_size>,std::vector<NODE>>>;
 
@@ -1070,7 +1070,314 @@ public:
         }
     }
 
-private:
+    inline void getNode(const NodePath& path) const {
+        assert(this->exists(path));
+        return this->GetNodeAncestor(path, 0);
+    }
+
+    inline bool keyCompareLess(const KEY& k1, const KEY& k2) const {
+        return m_ops.keyCompareLess(k1, k2);
+    }
+
+    template<typename U, std::enable_if_t<std::is_same_v<NODE,decltype(std::declval<U&>()())>,bool> = true>
+    inline NODE initWithAscSequence(size_t size, U iterFunc) {
+        assert(size > 0);
+        auto depth = 1;
+        while ((1 << depth) - 1 < size) depth++;
+        size_t m = 0;
+        const std::function<NODE(size_t,size_t)> initNode = [&](size_t d, size_t s) {
+            const auto n1 = (s - 1) / 2;
+            const auto n2 = n1 + (s - 1) % 2;
+
+            NODE left  = m_ops.getNullNode();
+            if (n1 > 0) left  = initNode(d+1,n1);
+
+            NODE ans = iterFunc();
+
+            NODE right = m_ops.getNullNode();
+            if (n2 > 0) right = initNode(d+1,n2);
+
+            if (d == depth && depth > 1) {
+                m_ops.setBlack(ans, false);
+            } else {
+                m_ops.setBlack(ans, true);
+            }
+
+            m_ops.setLeft(ans, left);
+            m_ops.setRight(ans, right);
+            if constexpr (parents_ops) {
+                if (!m_ops.isNullNode(left)) m_ops.setParent(left, ans);
+                if (!m_ops.isNullNode(right)) m_ops.setParent(right, ans);
+            }
+            return ans;
+        };
+        return initNode(1, size);
+    }
+
+    template<typename U>
+    inline void releaseNode(NODE node, U rel) {
+        NodePath ph = this->InitPath<NodePath>();
+        this->NodePathPush(ph, node);
+        for(;this->exists(ph);) {
+            const auto n = this->GetNodeAncestor(ph, 0);
+            if (!m_ops.isNullNode(m_ops.getLeft(n))) {
+                this->NodePathPush(ph, m_ops.getLeft(n));
+            } else if (!m_ops.isNullNode(m_ops.getRight(n))) {
+                this->NodePathPush(ph, m_ops.getRight(n));
+            } else {
+                this->NodePathPop(ph);
+                const auto p = this->GetNodeAncestor(ph, 0);
+                if (!m_ops.isNullNode(p)) {
+                    if (m_ops.nodeCompareEqual(n, m_ops.getLeft(p))) {
+                        m_ops.setLeft(p, m_ops.getNullNode());
+                    } else {
+                        assert(m_ops.nodeCompareEqual(n, m_ops.getRight(p)));
+                        m_ops.setRight(p, m_ops.getNullNode());
+                    }
+                }
+                rel(n);
+            }
+        }
+    }
+
+protected:
     RbtreeOpWrapper<T,NODE,KEY> m_ops;
+};
+}
+
+
+#include "./unarray.h"
+#include "./ldc_utils.h"
+namespace ldc::RBTreeBasicContainerImpl {
+template<typename _Key, typename _Value, bool parentsOps>
+struct TreeNode {
+    using KVPair = std::conditional_t<std::is_same_v<_Value,void>,_Key,std::pair<const _Key,_Value>>;
+    std::conditional_t<parentsOps,TreeNode*,dummy_struct> m_parent;
+
+    TreeNode *m_left, *m_right;
+    bool     m_black;
+    KVPair   m_value;
+
+    template<typename TK>
+    inline explicit TreeNode(TK&& val):
+        m_left(nullptr), m_right(nullptr), m_black(false), m_value(std::forward<TK>(val))
+    {
+        if constexpr (parentsOps) {
+            m_parent = nullptr;
+        }
+    }
+
+    ~TreeNode() = default;
+};
+
+template<typename _Key, typename _Value, typename _CmpLess, typename _Allocator,
+         bool parentsOps>
+struct TreeNodeOps {
+    using TNODE  = TreeNode<_Key,_Value,parentsOps>;
+    using KVPair = typename TNODE::KVPair;
+    using _Node  = TNODE*;
+    _CmpLess           m_cmp;
+
+    explicit TreeNodeOps(const _CmpLess& cmp): m_cmp(cmp) {}
+
+    _Node getLeft (_Node n) const { return n->m_left; }
+    _Node getRight(_Node n) const { return n->m_right; }
+
+    void setLeft (_Node n, _Node l) const { n->m_left = l; }
+    void setRight(_Node n, _Node r) const { n->m_right = r; }
+
+    bool isBlack(_Node n) const { return n->m_black; }
+    void setBlack(_Node n, bool black) const { n->m_black = black; }
+
+    inline _Node getParent(_Node node) const  {
+        if constexpr (parentsOps) {
+            return node->m_parent;
+        } else {
+            return nullptr;
+        }
+    }
+    inline void setParent(_Node node, _Node n)  {
+        if constexpr (parentsOps) {
+            node->m_parent = n;
+        }
+    }
+
+    inline bool isNullNode(_Node node) const { return node == nullptr; }
+    inline _Node getNullNode() const { return nullptr; }
+
+    inline _Key getKey(_Node& n) const {
+        if constexpr (std::is_same_v<_Value,void>) {
+            return n->m_value;
+        } else {
+            return n->m_value.first;
+        }
+    }
+
+    inline bool keyCompareLess(const _Key& lhs, const _Key& rhs) const { return m_cmp(lhs, rhs); }
+
+    inline bool nodeCompareEqual(_Node lhs, _Node rhs) const { return lhs == rhs; }
+};
+
+template<typename _Key, typename _Value, typename _CmpLess, typename _Allocator,
+         bool parentsOps, bool multikey>
+using RBTreeAlgo = RBTreeAlgorithmImpl::RBTreeAlgorithm<
+                         TreeNodeOps<_Key,_Value,_CmpLess,_Allocator,parentsOps>,
+                         TreeNode<_Key,_Value,parentsOps>*,
+                         _Key, multikey, parentsOps>;
+
+template<typename _Key, typename _Value, typename _CmpLess, typename _Allocator,
+         bool _parentsOps, bool _multikey>
+struct RBTreeInMemory: protected RBTreeAlgo<_Key,_Value,_CmpLess,_Allocator,_parentsOps,_multikey> {
+    using BASE      = RBTreeAlgo<_Key,_Value,_CmpLess,_Allocator,_parentsOps,_multikey>;
+    using treeops_t = TreeNodeOps<_Key,_Value,_CmpLess,_Allocator,_parentsOps>;
+    using TNODE     = typename treeops_t::TNODE;
+    using _Node     = typename treeops_t::_Node;
+    using KVPair    = typename treeops_t::KVPair;
+    using ITERATOR  = typename BASE::NodePath;
+    static constexpr auto  ref_accessor = true;
+
+
+private:
+    _Node  m_root;
+    size_t m_size;
+    using _storage_allocator = typename std::allocator_traits<_Allocator>::template rebind_alloc<TNODE>;
+    _storage_allocator m_allocator;
+    inline _Node createEmptyNode(KVPair&& pair) {
+        auto ptr = m_allocator.allocate(1);
+        return new (ptr) TNODE(std::move(pair));
+    }
+    inline void releaseEmptyNode(_Node&& node) {
+        std::destroy_n(node, 1);
+        m_allocator.deallocate(node, 1);
+    }
+
+public:
+    inline RBTreeInMemory(const _CmpLess& cmp, const _Allocator& alloc): 
+        BASE(treeops_t(cmp)), m_allocator(alloc),
+        m_root(nullptr), m_size(0) {}
+
+    inline RBTreeInMemory(const RBTreeInMemory& _oth):
+        BASE(treeops_t(_oth.m_ops.ops().m_cmp)), m_allocator(_oth.m_allocator),
+        m_root(nullptr), m_size(0)
+    {
+        *this = _oth;
+    }
+
+    inline RBTreeInMemory(RBTreeInMemory&& _oth):
+        BASE(std::move(_oth)), m_root(_oth.m_root), m_size(_oth.m_size)
+    {
+        _oth.m_size = 0;
+        _oth.m_root = nullptr;
+    }
+
+    inline RBTreeInMemory& operator=(const RBTreeInMemory& _oth) {
+        this->clear();
+        if (_oth.size() > 0) {
+            auto& oth = const_cast<RBTreeInMemory&>(_oth);
+            auto b = oth.begin();
+            const auto fn = [&]() {
+                auto val = oth.getHolder(b);
+                oth.forward(b);
+                auto node = this->createEmptyNode(std::move(val));
+                return node;
+            };
+            m_root = this->initWithAscSequence(oth.size(), fn);
+            m_size = oth.size();
+        }
+        return *this;
+    }
+
+    inline RBTreeInMemory& operator=(RBTreeInMemory&& _oth) {
+        this->clear();
+        this->m_root = _oth.m_root;
+        this->m_size = _oth.m_size;
+        _oth.m_root = nullptr;
+        _oth.m_size = 0;
+        BASE::operator=(std::move(_oth));
+        return *this;
+    }
+
+    inline ITERATOR insert(KVPair&& val) {
+        auto node = this->createEmptyNode(std::move(val));
+        auto ans = this->insertNode(m_root, node);
+        if (this->exists(ans)) {
+            m_size++;
+        } else {
+            this->releaseEmptyNode(std::move(node));
+        }
+        return ans;
+    }
+
+    inline ITERATOR find(const _Key& key) {
+        if (this->m_root == nullptr) return this->end();
+
+        return this->findNode(m_root, key);
+    }
+
+    inline ITERATOR lower_bound(const _Key& key) {
+        if (this->m_root == nullptr) return this->end();
+
+        return BASE::lower_bound(this->m_root, key);
+    }
+
+    inline ITERATOR upper_bound(const _Key& key) {
+        if (this->m_root == nullptr) return this->end();
+
+        return BASE::upper_bound(this->m_root, key);
+    }
+
+    inline ITERATOR begin() { return BASE::begin(this->m_root); }
+    inline ITERATOR end()   { return BASE::end(this->m_root); }
+
+    inline void forward(ITERATOR& path) { BASE::forward(this->m_root, path); }
+
+    inline void backward(ITERATOR& path) { BASE::backward(this->m_root, path); }
+
+    inline KVPair deleteIter(ITERATOR iter) {
+        assert(this->m_root && this->exists(iter));
+        auto node = this->deleteNode(this->m_root, iter);
+        const auto val = std::move(node->m_value);
+        this->releaseEmptyNode(std::move(node));
+        m_size--;
+        return val;
+    }
+
+    using BASE::exists;
+    using BASE::keyCompareLess;
+    inline KVPair getHolder(ITERATOR iter) const {
+        const auto node = this->getNode(iter);
+        return node->m_value;
+    }
+    inline _Key getHolderKey(ITERATOR iter) const {
+        const auto node = this->getNode(iter);
+        if constexpr (std::is_same_v<_Value,void>) {
+            return node->m_value;
+        } else {
+            return node->m_value.first;
+        }
+    }
+    inline KVPair& getHolderRef(ITERATOR iter) {
+        const auto node = this->getNode(iter);
+        return node->m_value;
+    }
+    inline void setHolderValue(ITERATOR iter, std::conditional_t<std::is_same_v<_Value,void>,dummy_struct,_Value> val) {
+        if constexpr (!std::is_same_v<_Value,void>) {
+            const auto node = this->getNode(iter);
+            node->m_value.second = val;
+        } else {
+            assert(false);
+        }
+    }
+
+    inline size_t size() const { return m_size; }
+
+    inline void clear() {
+        if (m_root) {
+            this->releaseNode(m_root, [&](_Node n) { this->releaseEmptyNode(std::move(n)); });
+            m_root = nullptr;
+        }
+    }
+
+    ~RBTreeInMemory() { this->clear(); }
 };
 }
