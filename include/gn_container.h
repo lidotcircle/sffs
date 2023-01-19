@@ -34,9 +34,9 @@ public:
     inline _Key    k_getHolderKey(_IterBase iter) const { return nonconst().m_container.getHolderKey(iter); }
 
     inline int k_compareHolderPath(const _IterBase& it1, const _IterBase& it2) const {
-        if constexpr (LDC_MEMBER_FUNCTION_CALLABLE_VALUE(_Container, compareHolderPath)) {
+        if constexpr (LDC_CLASS_MEMBER_TEST_VALUE(_Container, compareHolderPath)) {
             return m_container.compareHolderPath(it1, it2);
-        } else if constexpr (LDC_MEMBER_FUNCTION_CALLABLE_VALUE(_Container, keyCompareLess)) {
+        } else if constexpr (LDC_CLASS_MEMBER_TEST_VALUE(_Container, keyCompareLess)) {
             if (!this->k_exists(it1)) {
                 if (this->k_exists(it2)) {
                     return 1;
@@ -66,8 +66,8 @@ public:
             }
             return this->k_exists(m1) ? -1 : 1;
         } else {
-            static_assert(LDC_MEMBER_FUNCTION_CALLABLE_VALUE(_Container, compareHolderPath) ||
-                          LDC_MEMBER_FUNCTION_CALLABLE_VALUE(_Container, keyCompareLess), "unable to implement compareHolderPath");
+            static_assert(LDC_CLASS_MEMBER_TEST_VALUE(_Container, compareHolderPath) ||
+                          LDC_CLASS_MEMBER_TEST_VALUE(_Container, keyCompareLess), "unable to implement compareHolderPath");
             return 0;
         }
     }
@@ -81,8 +81,8 @@ public:
 private:
     _Container m_container;
     inline ContainerWrapper& nonconst() const { return const_cast<ContainerWrapper&>(*this); }
-    LDC_MEMBER_FUNCTION_CALLABLE(const,compareHolderPath,int,const _IterBase&,const _IterBase&);
-    LDC_MEMBER_FUNCTION_CALLABLE(const,keyCompareLess,bool,const _Key&,const _Key&);
+    LDC_CLASS_MEMBER_TEST(const,compareHolderPath,int(const _IterBase&,const _IterBase&));
+    LDC_CLASS_MEMBER_TEST(const,keyCompareLess,bool(const _Key&,const _Key&));
 };
 
 

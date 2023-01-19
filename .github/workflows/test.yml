@@ -38,6 +38,11 @@ jobs:
           export CC=$(which clang-15) && export CXX=$(which clang++-15) && \
           mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release -DCXX_VERSION=17 && make
 
+      - name: Release GCC Build
+        run: |
+          export CC=$(which gcc) && export CXX=$(which g++) && \
+          mkdir buildgcc && cd buildgcc && cmake .. -DCMAKE_BUILD_TYPE=Release -DCXX_VERSION=17 && make
+
       - name: run clang-tidy
         run: if (clang-tidy-15 -p build include/ 2>/dev/null  | grep -e 'warning'); then  false; else true; fi
 

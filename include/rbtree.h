@@ -13,25 +13,25 @@
 namespace ldc::RBTreeAlgorithmImpl {
 template <typename _T, typename _Node, typename _Key, bool complain=false>
 struct treeop_traits {
-#define TREEOP_FUNC_TEST_OPTIONAL(...) LDC_MEMBER_FUNCTION_CALLABLE_DEFINE_STATIC_CONSTEXPR_AUTONAME(__VA_ARGS__)
-#define TREEOP_FUNC_TEST_REQUIRED(A, B, F, R, ...) \
-    LDC_MEMBER_FUNCTION_CALLABLE_DEFINE_STATIC_CONSTEXPR_AUTONAME(A, B, F, R, __VA_ARGS__); \
-    static_assert(!complain || has_##F, "should implement '" #R " " #F "(" #__VA_ARGS__ ") " #B "';")
+#define TREEOP_FUNC_TEST_OPTIONAL(A, B, C, D) LDC_CLASS_MEMBER_TEST_VALUE_AUTONAME(A, B, C, D)
+#define TREEOP_FUNC_TEST_REQUIRED(A, B, F, P) \
+    LDC_CLASS_MEMBER_TEST_VALUE_AUTONAME(A, B, F, P); \
+    static_assert(!complain || has_##F, "should implement '" #F " " #P " " #B "';")
 
-    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getLeft,          _Node, _Node);
-    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getRight,         _Node, _Node);
-    TREEOP_FUNC_TEST_OPTIONAL(_T, const&, getParent,        _Node, _Node);
-    TREEOP_FUNC_TEST_REQUIRED(_T, ,       setLeft,          void,  _Node,        _Node);
-    TREEOP_FUNC_TEST_REQUIRED(_T, ,       setRight,         void,  _Node,        _Node);
-    TREEOP_FUNC_TEST_OPTIONAL(_T, ,       setParent,        void,  _Node,        _Node);
-    TREEOP_FUNC_TEST_REQUIRED(_T, const&, isBlack,          bool,  _Node);
-    TREEOP_FUNC_TEST_REQUIRED(_T, ,       setBlack,         void,  _Node,        bool);
-    TREEOP_FUNC_TEST_REQUIRED(_T, const&, isNullNode,       bool,  _Node);
-    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getNullNode,      _Node);
-    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getKey,           _Key,  _Node&);
-    TREEOP_FUNC_TEST_REQUIRED(_T, const&, keyCompareLess,   bool,  const _Key&,  const _Key&);
-    TREEOP_FUNC_TEST_OPTIONAL(_T, const&, keyCompareEqual,  bool,  const _Key&,  const _Key&);
-    TREEOP_FUNC_TEST_REQUIRED(_T, const&, nodeCompareEqual, bool,  const _Node&, const _Node&);
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getLeft,          _Node(_Node));
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getRight,         _Node(_Node));
+    TREEOP_FUNC_TEST_OPTIONAL(_T, const&, getParent,        _Node(_Node));
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       setLeft,          void (_Node,        _Node));
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       setRight,         void (_Node,        _Node));
+    TREEOP_FUNC_TEST_OPTIONAL(_T, ,       setParent,        void (_Node,        _Node));
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, isBlack,          bool (_Node));
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       setBlack,         void (_Node,        bool));
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, isNullNode,       bool (_Node));
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getNullNode,      _Node());
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getKey,           _Key (_Node&));
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, keyCompareLess,   bool (const _Key&,  const _Key&));
+    TREEOP_FUNC_TEST_OPTIONAL(_T, const&, keyCompareEqual,  bool (const _Key&,  const _Key&));
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, nodeCompareEqual, bool (const _Node&, const _Node&));
 
 #undef TREEOP_FUNC_TEST_REQUIRED
 #undef TREEOP_FUNC_TEST_OPTIONAL

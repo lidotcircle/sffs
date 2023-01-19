@@ -14,47 +14,48 @@
 namespace ldc::BPTreeAlgorithmImpl {
 template <typename _T, typename _Node, typename _Holder, typename _Key, typename _Value, bool complain=false>
 struct treeop_traits {
-    LDC_STATIC_FUNCTION_CALLABLE_DEFINE_STATIC_CONSTEXPR_AUTONAME(_T, allowEmptyLeaf, bool, _Node);
+    using SAFE_VALUE = std::conditional_t<std::is_same_v<_Value,void>,dummy_struct,_Value>;
 
-#define TREEOP_FUNC_TEST_OPTIONAL(...) LDC_MEMBER_FUNCTION_CALLABLE_DEFINE_STATIC_CONSTEXPR_AUTONAME(__VA_ARGS__)
-#define TREEOP_FUNC_TEST_REQUIRED(A, B, F, R, ...) \
-    LDC_MEMBER_FUNCTION_CALLABLE_DEFINE_STATIC_CONSTEXPR_AUTONAME(A, B, F, R, __VA_ARGS__); \
-    static_assert(!complain || has_##F, "should implement '" #R " " #F "(" #__VA_ARGS__ ") " #B "';")
+#define TREEOP_FUNC_TEST_OPTIONAL(A, B, C, D) LDC_CLASS_MEMBER_TEST_VALUE_AUTONAME(A, B, C, D)
+#define TREEOP_FUNC_TEST_REQUIRED(A, B, F, P) \
+    LDC_CLASS_MEMBER_TEST_VALUE_AUTONAME(A, B, F, P); \
+    static_assert(!complain || has_##F, "should implement '" #F " " #P " " #B "';")
 
-    TREEOP_FUNC_TEST_REQUIRED(_T, const&, isLeaf,                  bool,     _Node);
-    TREEOP_FUNC_TEST_OPTIONAL(_T, const&, getParent,               _Node,    _Node);
-    TREEOP_FUNC_TEST_OPTIONAL(_T, ,       setParent,               void,     _Node, _Node);
-    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getNthChild,             _Node,    _Node, size_t);
-    TREEOP_FUNC_TEST_REQUIRED(_T, ,       setNthChild,             void,     _Node, size_t, _Node);
-    TREEOP_FUNC_TEST_OPTIONAL(_T, ,       clearNthChild,           void,     _Node, size_t);
-    TREEOP_FUNC_TEST_REQUIRED(_T, const&, interiorGetOrder,        size_t);
-    TREEOP_FUNC_TEST_REQUIRED(_T, const&, interiorGetNthKey,       _Key,     _Node, size_t);
-    TREEOP_FUNC_TEST_REQUIRED(_T, ,       interiorSetNthKey,       void,     _Node, size_t, const _Key&);
-    TREEOP_FUNC_TEST_REQUIRED(_T, ,       interiorClearNthKey,     void,     _Node, size_t);
-    TREEOP_FUNC_TEST_REQUIRED(_T, const&, interiorGetNumberOfKeys, size_t,   _Node);
-    TREEOP_FUNC_TEST_REQUIRED(_T, ,       interiorCreateEmptyNode, _Node);
-    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getNumberOfChildren,     size_t,   _Node);
-    TREEOP_FUNC_TEST_REQUIRED(_T, const&, leafGetOrder,            size_t);
-    TREEOP_FUNC_TEST_REQUIRED(_T, const&, leafGetNumberOfKeys,     size_t,   _Node);
-    TREEOP_FUNC_TEST_REQUIRED(_T, ,       leafCreateEmptyNode,     _Node);
-    TREEOP_FUNC_TEST_OPTIONAL(_T, const&, leafGetNthKey,           _Key,     _Node, size_t);
-    TREEOP_FUNC_TEST_REQUIRED(_T, const&, leafGetNext,             _Node,    _Node);
-    TREEOP_FUNC_TEST_REQUIRED(_T, ,       leafSetNext,             void,     _Node, _Node);
-    TREEOP_FUNC_TEST_REQUIRED(_T, const&, leafGetPrev,             _Node,    _Node);
-    TREEOP_FUNC_TEST_REQUIRED(_T, ,       leafSetPrev,             void,     _Node, _Node);
-    TREEOP_FUNC_TEST_REQUIRED(_T, ,       extractNthHolder,        _Holder,  _Node, size_t);
-    TREEOP_FUNC_TEST_OPTIONAL(_T, const&, getNthHolder,            _Holder,  _Node, size_t);
-    TREEOP_FUNC_TEST_REQUIRED(_T, ,       setNthHolder,            void,     _Node, size_t, _Holder&&);
-    TREEOP_FUNC_TEST_OPTIONAL(_T, ,       getNthHolderRef,         _Holder&, _Node, size_t);
-    TREEOP_FUNC_TEST_OPTIONAL(_T, ,       setNthHolderValue,       void,     _Node, size_t, _Value);
-    TREEOP_FUNC_TEST_OPTIONAL(_T, ,       setHolderValue,          void,     _Holder&, _Value);
-    TREEOP_FUNC_TEST_REQUIRED(_T, ,       releaseEmptyNode,        void,     _Node);
-    TREEOP_FUNC_TEST_REQUIRED(_T, const&, isNullNode,              bool,     _Node);
-    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getNullNode,             _Node);
-    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getKey,                  _Key,     _Holder);
-    TREEOP_FUNC_TEST_REQUIRED(_T, const&, keyCompareLess,          bool,     const _Key&, const _Key&);
-    TREEOP_FUNC_TEST_OPTIONAL(_T, const&, keyCompareEqual,         bool,     const _Key&, const _Key&);
-    TREEOP_FUNC_TEST_REQUIRED(_T, const&, nodeCompareEqual,        bool,     const _Node&, const _Node&);
+    LDC_CLASS_STATIC_MEMBER_TEST_VALUE_AUTONAME(_T, allowEmptyLeaf, bool());
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, isLeaf,                  bool     (_Node));
+    TREEOP_FUNC_TEST_OPTIONAL(_T, const&, getParent,               _Node    (_Node));
+    TREEOP_FUNC_TEST_OPTIONAL(_T, ,       setParent,               void     (_Node, _Node));
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getNthChild,             _Node    (_Node, size_t));
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       setNthChild,             void     (_Node, size_t, _Node));
+    TREEOP_FUNC_TEST_OPTIONAL(_T, ,       clearNthChild,           void     (_Node, size_t));
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, interiorGetOrder,        size_t   ());
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, interiorGetNthKey,       _Key     (_Node, size_t));
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       interiorSetNthKey,       void     (_Node, size_t, const _Key&));
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       interiorClearNthKey,     void     (_Node, size_t));
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, interiorGetNumberOfKeys, size_t   (_Node));
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       interiorCreateEmptyNode, _Node    ());
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getNumberOfChildren,     size_t   (_Node));
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, leafGetOrder,            size_t   ());
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, leafGetNumberOfKeys,     size_t   (_Node));
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       leafCreateEmptyNode,     _Node    ());
+    TREEOP_FUNC_TEST_OPTIONAL(_T, const&, leafGetNthKey,           _Key     (_Node, size_t));
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, leafGetNext,             _Node    (_Node));
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       leafSetNext,             void     (_Node, _Node));
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, leafGetPrev,             _Node    (_Node));
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       leafSetPrev,             void     (_Node, _Node));
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       extractNthHolder,        _Holder  (_Node, size_t));
+    TREEOP_FUNC_TEST_OPTIONAL(_T, const&, getNthHolder,            _Holder  (_Node, size_t));
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       setNthHolder,            void     (_Node, size_t, _Holder&&));
+    TREEOP_FUNC_TEST_OPTIONAL(_T, ,       getNthHolderRef,         _Holder& (_Node, size_t));
+    TREEOP_FUNC_TEST_OPTIONAL(_T, ,       setNthHolderValue,       void     (_Node, size_t, SAFE_VALUE));
+    TREEOP_FUNC_TEST_OPTIONAL(_T, ,       setHolderValue,          void     (_Holder&, SAFE_VALUE));
+    TREEOP_FUNC_TEST_REQUIRED(_T, ,       releaseEmptyNode,        void     (_Node));
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, isNullNode,              bool     (_Node));
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getNullNode,             _Node    ());
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, getKey,                  _Key     (_Holder));
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, keyCompareLess,          bool     (const _Key&, const _Key&));
+    TREEOP_FUNC_TEST_OPTIONAL(_T, const&, keyCompareEqual,         bool     (const _Key&, const _Key&));
+    TREEOP_FUNC_TEST_REQUIRED(_T, const&, nodeCompareEqual,        bool     (const _Node&, const _Node&));
 
 #undef TREEOP_FUNC_TEST_REQUIRED
 #undef TREEOP_FUNC_TEST_OPTIONAL
