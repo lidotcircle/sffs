@@ -9,6 +9,7 @@
 #include <queue>
 #include <functional>
 #include <type_traits>
+#include <memory>
 
 
 namespace ldc::BTreeAlgorithmImpl {
@@ -1180,7 +1181,7 @@ struct TreeNodeOps {
         return new (ptr) TNODE();
     }
     inline void releaseEmptyNode(_Node&& node) {
-        std::destroy_n(node, 1);
+        std::destroy_at(node);
         m_allocator.deallocate(node, 1);
     }
 

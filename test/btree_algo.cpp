@@ -4,6 +4,7 @@
 #include <set>
 #include <random>
 #include <optional>
+#include <array>
 #include "btree.h"
 using namespace ldc;
 

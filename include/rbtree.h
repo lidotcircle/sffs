@@ -8,6 +8,7 @@
 #include <queue>
 #include <type_traits>
 #include <functional>
+#include <memory>
 
 
 namespace ldc::RBTreeAlgorithmImpl {
@@ -1174,7 +1175,7 @@ private:
         return new (ptr) TNODE(std::move(pair));
     }
     inline void releaseEmptyNode(_Node&& node) {
-        std::destroy_n(node, 1);
+        std::destroy_at(node);
         m_allocator.deallocate(node, 1);
     }
 

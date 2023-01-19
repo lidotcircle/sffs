@@ -5,6 +5,7 @@
 #include <random>
 #include <optional>
 #include <variant>
+#include <array>
 #include "bptree.h"
 using namespace ldc;
 

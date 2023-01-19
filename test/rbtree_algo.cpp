@@ -3,6 +3,7 @@
 #include <map>
 #include <set>
 #include <random>
+#include <optional>
 #include "rbtree.h"
 using namespace ldc;
 
