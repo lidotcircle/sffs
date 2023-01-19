@@ -177,8 +177,14 @@ public:
             this->push_back(v);
     }
 
-    maxsize_vector(maxsize_vector&& oth): m_array(oth.m_array), m_size(oth.m_size), m_appvec(std::move(oth.m_appvec))
+    maxsize_vector(maxsize_vector&& oth): m_size(0)
     {
+        for (size_t i=0;i<N && i < oth.size();i++)
+            this->emplace_back(std::move(oth.at(i)));
+        if constexpr (appendvector) {
+            m_appvec(std::move(oth.m_appvec));
+        }
+        this->m_size = oth.m_size;
         oth.m_size = 0;
     }
 

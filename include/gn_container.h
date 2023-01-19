@@ -3,6 +3,7 @@
 #include <utility>
 #include <limits>
 #include <algorithm>
+#include <stdexcept>
 #include <assert.h>
 #include "./ldc_utils.h"
 
