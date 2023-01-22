@@ -26,7 +26,7 @@
             template<typename LDC_U, \
                      std::enable_if_t<std::is_same_v<LDC_Ret, \
                          decltype(std::declval<LDC_U QUALIFIERS>().MEMBER(std::declval<LDC_Args>()...)) \
-                     >,bool> = true> \
+                     > || std::is_same_v<LDC_Ret,ldc::AnyType>,bool> = true> \
             static uint16_t test(int); \
         }; \
     }; \
@@ -62,7 +62,7 @@
             template<typename LDC_U, \
                      std::enable_if_t<std::is_same_v<LDC_Ret, \
                          decltype(LDC_U::MEMBER(std::declval<LDC_Args>()...)) \
-                     >,bool> = true> \
+                     > || std::is_same_v<LDC_Ret,ldc::AnyType>,bool> = true> \
             static uint16_t test(int); \
         }; \
     }; \
@@ -78,6 +78,9 @@
 
 namespace ldc {
 struct dummy_struct {};
+
+struct NonExistsType {};
+struct AnyType {};
 
 inline void unreachable() { assert(false && "unreachable"); }
 

@@ -4,6 +4,6 @@
 #include <iostream>
 #include <random>
 #include <stdexcept>
-using namespace SFFS;
+using namespace ldc::SFFS;
 
 BENCHMARK_MAIN();
