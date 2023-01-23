@@ -1117,7 +1117,8 @@ public:
             return std::nullopt;
         }
 
-        auto child = m_algo.findNode(parentId, childname);
+        const auto root = this->getSubdirectoryEntry(parentId);
+        auto child = m_algo.findNode(root, childname);
         if (!m_algo.exists(child)) return std::nullopt;
 
         return m_algo.getNode(child);
@@ -1177,7 +1178,7 @@ public:
 
     inline void setBlack(uint32_t entryid, bool isBlack) {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
-        m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE + 66, &isBlack, sizeof(isBlack));
+        m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE + 67, &isBlack, sizeof(isBlack));
     }
 
     inline uint32_t getLeftChild(uint32_t entryid) const {
@@ -1826,6 +1827,7 @@ private:
         not_empty,
         invalid_path,
         cannot_move,
+        permission_denied,
     };
     ErrorCode m_errcode;
 
@@ -1916,6 +1918,16 @@ private:
 
     inline bool openFile(FSPath dir, const std::string& basename) {
         assert(m_openedDirectories.count(dir) > 0);
+
+        {
+            dir.push_back(basename);
+            if (m_openedFiles.count(dir) > 0) {
+                m_openedFiles.at(dir).m_ref++;
+                return true;
+            }
+            dir.pop_back();
+        }
+
         const auto& parentdir = m_openedDirectories.at(dir);
         const auto child = m_dirtable.searchChild(parentdir.m_entryid, this->buildName(basename));
         if (child.has_value()) {
@@ -1927,7 +1939,8 @@ private:
             }
 
             dir.push_back(basename);
-            m_openedDirectories.insert(std::make_pair(dir, OpenedDirectory(dir, child_id)));
+            m_openedFiles.insert(std::make_pair(dir, OpenedFile(dir, *this, child_id)));
+            m_openedFiles.at(dir).m_ref++;
         } else {
             this->decRef(dir);
             this->m_errcode = ErrorCode::not_found;
@@ -2026,13 +2039,11 @@ public:
         const auto& parentDir = m_openedDirectories.at(pp);
         if (!this->openFile(pp, basename)) {
             if (m_errcode == ErrorCode::nonfile_already_exists) {
-                this->decRef(pp);
                 return std::nullopt;
             }
 
             assert(m_errcode == ErrorCode::not_found);
             if (mode && fileopenmode::CREATE == 0) {
-                this->decRef(pp);
                 return std::nullopt;
             } else {
                 m_dirtable.createEntry(parentDir.m_entryid, this->buildName(basename), EntryType::UserStream).value();
@@ -2162,6 +2173,11 @@ public:
         }
 
         const auto& ff = m_fileEntires.at(file);
+        if ((ff.m_mode & fileopenmode::READ) == 0) {
+            m_errcode = ErrorCode::permission_denied;
+            return 0;
+        }
+
         const auto ans = ff.m_file->m_stream.read(ff.m_offset, buf, n);
         ff.m_offset += ans;
 
@@ -2174,6 +2190,11 @@ public:
         }
 
         const auto& ff = m_fileEntires.at(file);
+        if ((ff.m_mode & (fileopenmode::WRITE | fileopenmode::CREATE | fileopenmode::APPEND)) == 0) {
+            m_errcode = ErrorCode::permission_denied;
+            return 0;
+        }
+
         const auto ans = ff.m_file->m_stream.write(ff.m_offset, buf, n);
         ff.m_offset += ans;
 
