@@ -9,12 +9,14 @@
 #include <memory>
 #include <map>
 #include <set>
+#include <variant>
 #include <vector>
 #include <limits>
 #include <type_traits>
 #include <array>
 #include <list>
 #include <queue>
+#include <functional>
 #include <optional>
 #include "./ldc_utils.h"
 #include "./rbtree.h"
@@ -168,25 +170,25 @@ public:
 template<typename T, std::enable_if_t<Impl::is_block_device<T>::value,bool> = true>
 class BlockDeviceRefWrapper {
 public:
-    explicit inline BlockDeviceRefWrapper(T& block): m_block(block) {}
+    explicit inline BlockDeviceRefWrapper(T& block): m_block(&block) {}
 
     inline size_t read(addr_t addr, void* buf, size_t n) const {
-        return this->m_block.read(addr, buf, n);
+        return this->m_block->read(addr, buf, n);
     }
     inline size_t write(addr_t addr, const void* buf, size_t n) {
-        return this->m_block.write(addr, buf, n);
+        return this->m_block->write(addr, buf, n);
     }
     inline size_t maxsize() const {
-        return this->m_block.maxsize();
+        return this->m_block->maxsize();
     }
     inline void flush() {
         if constexpr (Impl::device_traits<T>::has_flush) {
-            this->m_block.flush();
+            this->m_block->flush();
         }
     }
 
 private:
-    T& m_block;
+    T* m_block;
 };
 
 // TODO
@@ -236,52 +238,6 @@ private:
     std::set<addr_t>            m_cached;
     std::set<addr_t>            m_pinned;
     std::map<addr_t,CacheBlock> m_caches;
-};
-
-class StatInfo {
-};
-
-class OpenFileNode {
-private:
-    bool     m_valid;
-    size_t   m_filesize;
-    uint32_t m_secId;
-    size_t   m_refcount;
-};
-
-class FileEntry {
-private:
-    std::shared_ptr<OpenFileNode> m_node;
-    size_t                        m_offset;
-    std::ios_base::openmode       m_mode;
-};
-
-class DirectoryEntry {
-private:
-    uint32_t m_entryid;
-    size_t   m_version;
-};
-
-class DirectoryEntryIterator {
-public:
-    DirectoryEntryIterator(DirectoryEntry& entry, size_t version, std::vector<uint32_t> entryids);
-
-private:
-    DirectoryEntry& m_entry;
-    std::vector<uint32_t> m_topdown_entryids;
-    size_t m_version;
-};
-
-class FSPath {
-private:
-    std::vector<std::string> m_components;
-};
-
-using file_t = std::shared_ptr<FileEntry>;
-using dir_t  = std::shared_ptr<DirectoryEntry>;
-
-enum class ErrorCode {
-    noerror = 0,
 };
 
 enum class AllocTableEntry {
@@ -482,6 +438,7 @@ private:
         this->setDirStreamSectorId  (static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
         this->setFirstSectorIdOfSSAT(static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
         this->setFirstSectorIdOfMSAT(static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
+        this->setMinSizeOfStandardStream(4096);
 
         for (size_t i=0;i<109;i++) {
             this->setHeaderMSAT(i, static_cast<uint32_t>(AllocTableEntry::NOT_USED));
@@ -904,7 +861,7 @@ public:
 
     inline void deleteLastSector() {
         this->prepareCacheUntil(std::numeric_limits<size_t>::max());
-        assert(this->m_secIdChainCache().size() > 1);
+        assert(this->m_secIdChainCache.size() > 1);
 
         const auto prev = m_secIdChainCache.size() > 2 
                              ? m_secIdChainCache[m_secIdChainCache.size() - 3] 
@@ -938,12 +895,8 @@ public:
 
     inline size_t read(addr_t addr, void* buf, size_t n) const {
         const auto tlt = prepareCacheUntil(static_cast<size_t>(n + addr));
-        if (tlt < static_cast<size_t>(n + addr)) {
-            while (this->size() < static_cast<size_t>(n + addr)) {
-                auto _this = const_cast<SectorChainStream*>(this);
-                _this->appendSector();
-            }
-        }
+        if (tlt < static_cast<size_t>(n + addr))
+            throw OutOfRange();
 
         const auto ss = this->sectorSize();
         int nread = 0;
@@ -995,6 +948,21 @@ public:
     SectorChainStream(const SectorChainStream&) = delete;
     SectorChainStream& operator=(const SectorChainStream&) = delete;
 
+    SectorChainStream(SectorChainStream&& oth):
+        m_header(oth.m_header), m_sat(oth.m_sat), m_block(std::move(oth.m_block)),
+        m_headSecId(oth.m_headSecId), m_secIdChainCache(std::move(oth.m_secIdChainCache))
+    {
+    }
+
+    SectorChainStream& operator=(SectorChainStream&& oth) {
+        assert(&this->m_header == &oth.m_header);
+        assert(&this->m_sat    == &oth.m_sat);
+        this->m_block = std::move(oth.m_block);
+        this->m_headSecId = std::move(oth.m_headSecId);
+        this->m_secIdChainCache = std::move(oth.m_secIdChainCache);
+        return *this;
+    }
+
 private:
     inline size_t sectorSize() const { return m_header.sizeOfSector(); }
 
@@ -1026,19 +994,19 @@ private:
     mutable std::vector<uint32_t> m_secIdChainCache;
 };
 
+enum class EntryType {
+    Empty = 0,
+    UserStorage = 1,
+    UserStream = 2,
+    LockBytes = 3,
+    Property = 4,
+    RootStorage = 5,
+};
+
 #define COMPOUND_FILE_ENTRY_SIZE 128
 template<typename T, std::enable_if_t<Impl::is_block_device<T>::value,bool> = true>
 class DirectoryTable {
 public:
-    enum class EntryType {
-        Empty = 0,
-        UserStorage = 1,
-        UserStream = 2,
-        LockBytes = 3,
-        Property = 4,
-        RootStorage = 5,
-    };
-
     inline DirectoryTable(CompoundFileHeaderAccessor<T>& header, SectorAllocationTable<T>& sat, T block_ref):
         m_header(header),
         m_stream(header, sat, std::move(block_ref), header.getDirStreamSectorId()),
@@ -1092,7 +1060,7 @@ public:
         }
     }
 
-    inline uint32_t createEntry(uint32_t parentDirEntryId, const std::array<uint16_t,32>& name, EntryType type) {
+    inline std::optional<uint32_t> createEntry(uint32_t parentDirEntryId, const std::array<uint16_t,32>& name, EntryType type) {
         if (m_free_entries == 0) {
             const auto addr = m_stream.appendSector();
             m_stream.fillzeros(addr, static_cast<addr_t>(m_stream.size()));
@@ -1104,7 +1072,7 @@ public:
         const auto ptype = this->getEntryType(parentDirEntryId);
         assert(ptype == EntryType::RootStorage || ptype == EntryType::UserStorage);
 
-        size_t id = m_usedentries.size();
+        size_t id = 0;
         for (;id<m_usedentries.size() && m_usedentries[id];id++);
 
         this->setName(id, name);
@@ -1112,27 +1080,51 @@ public:
         m_usedentries[id] = true;
         m_free_entries--;
 
-        if (!insertIntoDirectory(parentDirEntryId, id)) {
-            m_free_entries++;
-            m_usedentries[id] = false;
-            throw AlreadyExists();
-        }
-
-        return id;
+        return this->insertEntry(parentDirEntryId, id);
     }
 
-    inline void deleteEntry(uint32_t parentDirEntryId, uint32_t deleteId)
+    inline std::optional<uint32_t> insertEntry(uint32_t parentDirEntryId, uint32_t childEntryId) {
+        if (!insertIntoDirectory(parentDirEntryId, childEntryId)) {
+            m_free_entries++;
+            m_usedentries[childEntryId] = false;
+            return std::nullopt;
+        }
+
+        return childEntryId;
+    }
+
+    inline std::optional<uint32_t> deleteEntry(uint32_t parentDirEntryId, uint32_t deleteId)
     {
         assert(deleteId > 0);
         auto name = this->getName(deleteId);
         auto root = this->getSubdirectoryEntry(parentDirEntryId);
         auto node = m_algo.findNode(root, name);
         if (m_algo.exists(node)) {
+            const auto ans = m_algo.getNode(node);
             m_algo.deleteNode(parentDirEntryId, node);
             m_free_entries++;
             m_usedentries[deleteId] = false;
+            return ans;
         }
+        return std::nullopt;
     }
+
+    inline std::optional<uint32_t> searchChild(uint32_t parentId, const std::array<uint16_t,32>& childname) const {
+        const auto etype = this->getEntryType(parentId);
+        if (etype != EntryType::RootStorage &&
+            etype != EntryType::UserStorage)
+        {
+            return std::nullopt;
+        }
+
+        auto child = m_algo.findNode(parentId, childname);
+        if (!m_algo.exists(child)) return std::nullopt;
+
+        return m_algo.getNode(child);
+    }
+
+    inline uint32_t getShortStreamSecId() const { return this->getSectorID(0); }
+    inline void setShortStreamSecId(uint32_t val) { return this->setSectorID(0, val); }
 
     inline void fillzeros(uint32_t entryid) {
         const char buf[COMPOUND_FILE_ENTRY_SIZE] = { 0 };
@@ -1173,7 +1165,7 @@ public:
     inline void setEntryType(uint32_t entryid, EntryType type) {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
         uint8_t t = static_cast<uint8_t>(type);
-        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 66, &t, sizeof(t));
+        m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE + 66, &t, sizeof(t));
     }
 
     inline bool isBlack(uint32_t entryid) const {
@@ -1185,7 +1177,7 @@ public:
 
     inline void setBlack(uint32_t entryid, bool isBlack) {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
-        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 66, &isBlack, sizeof(isBlack));
+        m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE + 66, &isBlack, sizeof(isBlack));
     }
 
     inline uint32_t getLeftChild(uint32_t entryid) const {
@@ -1343,12 +1335,12 @@ private:
     };
     using RBTreeAlgorithm = ldc::RBTreeAlgorithmImpl::RBTreeAlgorithm<rbtreeops,uint32_t,std::array<uint16_t,32>,false,false>;
 
-    inline uint32_t getNullNode() { return static_cast<uint32_t>(-1); }
+    inline uint32_t getNullNode() const { return static_cast<uint32_t>(-1); }
     inline bool     isNullNode(uint32_t n) const { return n == this->getNullNode(); }
 
     inline bool insertIntoDirectory(uint32_t parentDir, uint32_t newentry) {
         this->setBlack(newentry, false);
-        const auto root = this->getSubdirectoryEntry(parentDir);
+        auto root = this->getSubdirectoryEntry(parentDir);
         bool isEmpty = this->isNullNode(root);
         auto insertPt = m_algo.insertNode(root, newentry);
         if (m_algo.exists(insertPt)) {
@@ -1369,16 +1361,604 @@ private:
 };
 
 template<typename T, std::enable_if_t<Impl::is_block_device<T>::value,bool> = true>
+class ShortSectorStream {
+public:
+    using stream_t = SectorChainStream<T>;
+
+    inline ShortSectorStream(CompoundFileHeaderAccessor<T>& header, DirectoryTable<T>& dirtable, SectorAllocationTable<T>& sat, T block_ref):
+        m_header(header), m_dirtable(dirtable), m_stream(header, sat, std::move(block_ref), m_dirtable.getShortStreamSecId())
+    {
+    }
+
+    inline size_t read(addr_t addr, void* buf, size_t n) const { return m_stream.read(addr, buf, n); }
+
+    inline size_t write(addr_t addr, const void* buf, size_t n) {
+        if (n == 0) return 0;
+
+        const auto s1 = m_stream.size();
+        const auto ans = m_stream.write(addr, buf, n);
+        if (s1 == 0) m_dirtable.setShortStreamSecId(m_stream.getHeadSectorID());
+        return ans;
+    }
+
+    inline size_t maxsize() { return m_stream.maxsize(); }
+
+private:
+    CompoundFileHeaderAccessor<T>& m_header;
+    DirectoryTable<T>&             m_dirtable;
+    stream_t                       m_stream;
+};
+
+template<typename T, std::enable_if_t<Impl::is_block_device<T>::value,bool> = true>
+class ShortSectorAllocationTable {
+public:
+    using stream_t = SectorChainStream<T>;
+
+    inline ShortSectorAllocationTable(CompoundFileHeaderAccessor<T>& header, SectorAllocationTable<T>& sat, T block_ref):
+        m_header(header),
+        m_stream(header, sat, std::move(block_ref), header.getFirstSectorIdOfSSAT())
+    {
+    }
+
+    inline uint32_t get(uint32_t idx) const {
+        uint32_t _val;
+        m_stream.read(idx * sizeof(uint32_t), &_val, sizeof(uint32_t));
+        return _val;
+    }
+
+    inline void set(uint32_t idx, AllocTableEntry val) { return this->set(idx, static_cast<uint32_t>(val)); }
+
+    inline void set(uint32_t idx, uint32_t val) {
+        const auto s1 = m_stream.size();
+
+        m_stream.write(idx * sizeof(uint32_t), &val, sizeof(uint32_t));
+
+        if (s1 == 0)
+            m_header.setFirstSectorIdOfSSAT(m_stream.getHeadSectorID());
+
+        const auto s2 = m_stream.size();
+        if (s1 < s2)
+            m_header.setNumsSectorforSSAT(s2 / m_header.sizeOfShortSector());
+    }
+
+    // FIXME brute-force search
+    inline uint32_t alloc() {
+        const auto end = m_stream.size()/sizeof(uint32_t);
+        for (uint32_t i=0;i<end;i++) {
+            if (this->get(i) == static_cast<uint32_t>(AllocTableEntry::NOT_USED)) {
+                return i;
+            }
+        }
+
+        m_stream.appendSector();
+        const auto newend = m_stream.size()/sizeof(uint32_t);
+        assert(newend > end);
+        for (uint32_t i=end;i<newend;i++)
+            this->set(i, static_cast<uint32_t>(AllocTableEntry::NOT_USED));
+        return end;
+    }
+
+private:
+    CompoundFileHeaderAccessor<T>& m_header;
+    stream_t                       m_stream;
+};
+
+template<typename T, std::enable_if_t<Impl::is_block_device<T>::value,bool> = true>
+class ShortSectorChainStream {
+public:
+    inline ShortSectorChainStream(CompoundFileHeaderAccessor<T>& header, ShortSectorAllocationTable<T>& ssat, T block_ref, uint32_t headSSecId):
+        m_header(header), m_ssat(ssat), m_block(std::move(block_ref)), m_headssecId(headSSecId)
+    {
+       assert(is_reg_entry(m_headssecId) || m_headssecId == static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
+    }
+
+    inline uint32_t getHeadShortSectorID() const { return m_headssecId; }
+
+    inline void deleteStream() {
+        if (m_headssecId == static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN)) {
+            return;
+        }
+
+        this->prepareCacheUntil(std::numeric_limits<size_t>::max());
+        m_ssecIdChainCache.pop_back();
+        for (auto ssecId: m_ssecIdChainCache) {
+            assert(is_reg_entry(ssecId));
+            m_ssat.set(ssecId, static_cast<uint32_t>(AllocTableEntry::NOT_USED));
+        }
+        m_ssecIdChainCache.clear();
+        this->m_headssecId = static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN);
+    }
+
+    inline void deleteLastSector() {
+        this->prepareCacheUntil(std::numeric_limits<size_t>::max());
+        assert(this->m_ssecIdChainCache.size() > 1);
+
+        if (m_ssecIdChainCache.size() > 2) {
+            m_ssat.set(m_ssecIdChainCache[m_ssecIdChainCache.size() - 3], AllocTableEntry::END_OF_CHAIN);
+        }
+        m_ssat.set(m_ssecIdChainCache[m_ssecIdChainCache.size() - 2], AllocTableEntry::NOT_USED);
+        m_ssecIdChainCache.erase(m_ssecIdChainCache.end() - 2);
+        if (m_ssecIdChainCache.size() == 1) {
+            this->m_headssecId = static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN);
+        }
+    }
+
+    inline addr_t appendSector() {
+        this->prepareCacheUntil(std::numeric_limits<size_t>::max());
+        const auto newsec = m_ssat.alloc();
+        m_ssat.set(newsec, static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
+        if (m_ssecIdChainCache.size() > 1) {
+            m_ssecIdChainCache.pop_back();
+            m_ssat.set(m_ssecIdChainCache.back(), newsec);
+            m_ssecIdChainCache.push_back(newsec);
+            m_ssecIdChainCache.push_back(static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
+        } else {
+            m_ssecIdChainCache.insert(m_ssecIdChainCache.begin(), newsec);
+            m_headssecId = newsec;
+        }
+
+        return static_cast<addr_t>(this->size() - this->shortSectorSize());
+    }
+
+    inline size_t size() const {
+        return this->prepareCacheUntil(std::numeric_limits<size_t>::max());
+    }
+
+    inline size_t read(addr_t addr, void* buf, size_t n) const {
+        const auto tlt = prepareCacheUntil(static_cast<size_t>(n + addr));
+        if (tlt < static_cast<size_t>(n + addr))
+            throw OutOfRange();
+
+        const auto ss = this->shortSectorSize();
+        int nread = 0;
+        while (nread < n) {
+            const auto ssecIdx = (addr + nread) / ss;
+            const auto offset = (addr + nread) % ss;
+            const auto k = std::min(n - nread, ss - offset);
+            assert(m_ssecIdChainCache.size() > ssecIdx + 1);
+            const auto ssecId = m_ssecIdChainCache[ssecIdx];
+            this->m_block.read(ssecId * ss + offset, (static_cast<char*>(buf) + nread), k);
+            nread += k;
+        }
+    }
+
+    inline size_t write(addr_t addr, const void* buf, size_t n) {
+        const auto tlt = prepareCacheUntil(static_cast<size_t>(n + addr));
+        if (tlt < static_cast<size_t>(n + addr)) {
+            while (this->size() < static_cast<size_t>(n + addr)) {
+                this->appendSector();
+            }
+        }
+
+        const auto ss = this->shortSectorSize();
+        int nwrited = 0;
+        while (nwrited < n) {
+            const auto ssecIdx = (addr + nwrited) / ss;
+            const auto offset = (addr + nwrited) % ss;
+            const auto k = std::min(n - nwrited, ss - offset);
+            assert(m_ssecIdChainCache.size() > ssecIdx + 1);
+            const auto ssecId = m_ssecIdChainCache[ssecIdx];
+            this->m_block.write(ssecId * ss + offset, (static_cast<const char*>(buf) + nwrited), k);
+            nwrited += k;
+        }
+    }
+
+    inline void fillzeros(addr_t begin, addr_t end) {
+        const char buf[4096] = {0};
+        while (begin < end) {
+            const size_t s = std::min(sizeof(buf), end - begin);
+            this->write(begin, buf, s);
+            begin += s;
+        }
+    }
+ 
+    inline size_t maxsize() const {
+        return m_block.maxsize();
+    }
+
+    ShortSectorChainStream(const ShortSectorChainStream&) = delete;
+    ShortSectorChainStream& operator=(const ShortSectorChainStream&) = delete;
+
+    ShortSectorChainStream(ShortSectorChainStream&& oth):
+        m_header(oth.m_header), m_ssat(oth.m_ssat), m_block(std::move(oth.m_block)),
+        m_headssecId(oth.m_headssecId), m_ssecIdChainCache(oth.m_ssecIdChainCache)
+    {
+    }
+    ShortSectorChainStream& operator=(ShortSectorChainStream&& oth) {
+        assert(&m_header == &oth.m_header);
+        assert(&m_ssat   == &oth.m_ssat);
+        m_block = std::move(oth.m_block);
+        m_ssecIdChainCache = std::move(oth.m_ssecIdChainCache);
+        m_headssecId = oth.m_headssecId;
+        return *this;
+    }
+
+private:
+    inline size_t shortSectorSize() const { return m_header.sizeOfShortSector(); }
+
+    inline size_t prepareCacheUntil(size_t limit) const {
+        if (m_ssecIdChainCache.empty()) {
+            m_ssecIdChainCache.push_back(m_headssecId);
+        }
+
+        while (m_ssecIdChainCache.back() != static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN) &&
+               m_ssecIdChainCache.size() * this->shortSectorSize() < limit)
+        {
+            auto next = m_ssat.get(m_ssecIdChainCache.back());
+            m_ssecIdChainCache.push_back(next);
+        }
+
+        const auto n = m_ssecIdChainCache.back() == static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN) ? 
+                           m_ssecIdChainCache.size() - 1: m_ssecIdChainCache.size();
+        return n * this->shortSectorSize();
+    }
+
+
+private:
+    CompoundFileHeaderAccessor<T>& m_header;
+    ShortSectorAllocationTable<T>& m_ssat;
+    BlockDeviceExt<T>              m_block;
+    uint32_t                       m_headssecId;
+    mutable std::vector<uint32_t>  m_ssecIdChainCache;
+};
+
+enum fileopenmode {
+    CREATE = 1 << 0,
+    WRITE  = 1 << 1,
+    READ   = 1 << 2,
+    APPEND = 1 << 3,
+};
+
+template<typename T, std::enable_if_t<Impl::is_block_device<T>::value,bool> = true>
 class FileSystem {
 private:
+    FileSystem(T&& block, uint16_t majorVersion, uint16_t sectorShift, uint16_t shortSectorShift):
+        m_block(std::move(block)),
+        m_header(CompoundFileHeaderAccessor<BlockDeviceRefWrapper<DeviceType>>::format(
+                    BlockDeviceRefWrapper<DeviceType>(m_block),
+                    majorVersion, sectorShift, shortSectorShift)),
+        m_sat(m_header, BlockDeviceRefWrapper<DeviceType>(m_block)),
+        m_dirtable(m_header, m_sat, BlockDeviceRefWrapper<DeviceType>(m_block)),
+        m_ssat(m_header, m_sat, BlockDeviceRefWrapper<DeviceType>(m_block)),
+        m_sstream(m_header, m_dirtable, m_sat, BlockDeviceRefWrapper<DeviceType>(m_block)),
+        m_handler_count(100)
+    {
+    }
+
     using DeviceType = BlockDeviceExt<T>;
+    using mixstream_t = std::variant<SectorChainStream<BlockDeviceRefWrapper<DeviceType>>,ShortSectorChainStream<BlockDeviceRefWrapper<DeviceType>>>;
+    inline mixstream_t OpenFileStream(uint32_t entryid)
+    {
+        const auto fssize = m_dirtable.getSize(entryid);
+        if (fssize < m_header.getMinSizeOfStandardStream()) {
+            return OpenShortStream(m_dirtable.getSectorID(entryid));
+        }
+
+        return OpenNormalStream(m_dirtable.getSectorID(entryid));
+    }
+
+    inline auto OpenShortStream(uint32_t ssecId) {
+        return ShortSectorChainStream(
+                m_header, m_ssat,
+                BlockDeviceRefWrapper<DeviceType>(m_block),
+                ssecId);
+    }
+
+    inline auto OpenNormalStream(uint32_t secId) {
+        return SectorChainStream(
+                m_header, m_sat,
+                BlockDeviceRefWrapper<DeviceType>(m_block),
+                secId);
+    }
+
+    class FileStream {
+    public:
+        inline FileStream(FileSystem<T>& fs, uint32_t entryid):
+            m_fs(fs), m_entryid(entryid), m_filesize(0), m_stream(m_fs.OpenFileStream(entryid))
+        {
+            m_filesize = m_fs.m_dirtable.getSize(m_entryid);
+        }
+
+        inline size_t write(addr_t addr, const void* buf, size_t bufsize) {
+            if (this->isShort()) {
+                if (addr + bufsize >= m_fs.m_header.getMinSizeOfStandardStream()) {
+                    auto stream = m_fs.OpenNormalStream(static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
+                    unsigned char cbuf[4096] = { 0 };
+                    uint32_t idx = 0;
+                    while (idx < m_filesize) {
+                        const auto n = std::min(sizeof(cbuf), m_filesize - idx);
+                        this->shortStream().read(idx, cbuf, n);
+                        const auto v = stream.write(idx, cbuf, n);
+                        assert(v == n);
+                        idx += n;
+                    }
+                    this->shortStream().deleteStream();
+                    const auto ans = this->normalStream().write(addr, buf, bufsize);
+                    m_filesize = addr + bufsize;
+                    m_fs.m_dirtable.setSize(m_entryid, m_filesize);
+                    m_fs.m_dirtable.setSectorID(m_entryid, stream.getHeadSectorID());
+                    m_stream = std::move(stream);
+                    return ans;
+                } else {
+                    const auto ans = this->shortStream().write(addr, buf, bufsize);
+
+                    if (m_filesize == 0)
+                        m_fs.m_dirtable.setSectorID(m_entryid, this->shortStream().getHeadShortSectorID());
+
+                    if (addr + ans > m_filesize) {
+                        m_filesize = addr + ans;
+                        m_fs.m_dirtable.setSize(m_entryid, m_filesize);
+                    }
+                    return ans;
+                }
+            } else {
+                const auto ans = this->normalStream().write(addr, buf, bufsize);
+
+                if (addr + ans > m_filesize) {
+                    m_filesize = addr + ans;
+                    m_fs.m_dirtable.setSize(m_entryid, m_filesize);
+                }
+                return ans;
+            }
+        }
+
+        inline size_t read (addr_t addr, void* buf, size_t bufsize) const {
+            if (addr + bufsize > m_filesize)
+                throw OutOfRange();
+
+            if (this->isShort()) {
+                return this->shortStream().read(addr, buf, bufsize);
+            } else {
+                return this->normalStream().read(addr, buf, bufsize);
+            }
+        }
+
+        inline void truncate(size_t newsize) {
+            if (newsize > m_filesize) {
+                const unsigned char buf[4096] = { 0 };
+                auto fsize  = m_filesize;
+                while (fsize < newsize) {
+                    auto n = std::min(sizeof(buf), newsize - fsize);
+                    this->write(fsize, buf, n);
+                    fsize += n;
+                }
+            } else {
+                if (this->isShort()) {
+                    auto& shortst = this->shortStream();
+                    while (shortst.size() > newsize - 1 + m_fs.m_header.sizeOfShortSector()) {
+                        shortst.deleteLastSector();
+                    }
+                } else {
+                    if (newsize < m_fs.m_header.getMinSizeOfStandardStream()) {
+                        auto stream = m_fs.OpenShortStream(static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
+                        unsigned char buf[4096] = { 0 };
+                        uint32_t idx = 0;
+                        while (idx < newsize) {
+                            const auto n = std::min(sizeof(buf), newsize - idx);
+                            this->read(idx, buf, n);
+                            stream.write(idx, buf, n);
+                            idx += n;
+                        }
+                        m_fs.m_dirtable.setSectorID(m_entryid, stream.getHeadShortSectorID());
+                        m_stream = std::move(stream);
+                    } else {
+                        auto& normalst = this->normalStream();
+                        while (normalst.size() > newsize - 1 + m_fs.m_header.sizeOfSector()) {
+                            normalst.deleteLastSector();
+                        }
+                    }
+                }
+            }
+
+            m_filesize = newsize;
+            m_fs.m_dirtable.setSize(m_entryid, m_filesize);
+        }
+
+        inline size_t size() const { return m_filesize; }
+
+    private:
+        auto& normalStream() { return std::get<0>(m_stream); }
+        auto& shortStream()  { return std::get<1>(m_stream); }
+
+        const auto& normalStream() const { return std::get<0>(m_stream); }
+        const auto& shortStream()  const { return std::get<1>(m_stream); }
+
+
+        bool isShort() const {
+            return std::holds_alternative<ShortSectorChainStream<BlockDeviceRefWrapper<DeviceType>>>(m_stream);
+        }
+
+        FileSystem<T>& m_fs;
+        uint32_t       m_entryid;
+        size_t         m_filesize;
+        mixstream_t    m_stream;
+    };
+
+    struct StatInfo {
+        EntryType m_type;
+        size_t    m_size;
+    };
+
+    using FSPath = std::vector<std::string>;
+
+    struct OpenedFile {
+        FileStream m_stream;
+        FSPath     m_path;
+        size_t     m_ref;
+
+        OpenedFile(const FSPath& path, FileSystem<T>& fs, uint32_t entryid):
+            m_stream(fs, entryid), m_path(path), m_ref(0)
+        {
+        }
+    };
+
+    struct FileEntry {
+        OpenedFile*  m_file;
+        size_t       m_offset;
+        fileopenmode m_mode;
+    };
+
+    struct OpenedDirectory {
+        FSPath   m_path;
+        size_t   m_ref;
+        uint32_t m_entryid;
+
+        OpenedDirectory(const FSPath& path, uint32_t entryid):
+            m_path(path), m_ref(0), m_entryid(entryid)
+        {
+        }
+    };
+
+    struct DirectoryEntry {
+        OpenedDirectory* m_dir;
+    };
+
+    using file_t = int;
+    using dir_t  = std::optional<int>;
+
+    enum class ErrorCode {
+        noerror = 0,
+        invalid_handle,
+        file_opened,
+        already_exists,
+        nonfile_already_exists,
+        not_found,
+        not_empty,
+        invalid_path,
+        cannot_move,
+    };
+    ErrorCode m_errcode;
+
+    DeviceType                                                    m_block;
+    CompoundFileHeaderAccessor<BlockDeviceRefWrapper<DeviceType>> m_header;
+    SectorAllocationTable<BlockDeviceRefWrapper<DeviceType>>      m_sat;
+    DirectoryTable<BlockDeviceRefWrapper<DeviceType>>             m_dirtable;
+    ShortSectorAllocationTable<BlockDeviceRefWrapper<DeviceType>> m_ssat;
+    ShortSectorStream<BlockDeviceRefWrapper<DeviceType>>          m_sstream;
+
+    // File System State
+    std::map<FSPath,OpenedFile>      m_openedFiles;
+    std::map<FSPath,OpenedDirectory> m_openedDirectories;
+    std::map<file_t,FileEntry>       m_fileEntires;
+    std::map<dir_t, DirectoryEntry>  m_dirEntires;
+    int                              m_handler_count;
+
+    inline void decRef(const FSPath& path) {
+        auto p = path;
+        if (m_openedFiles.count(p)) {
+            m_openedFiles.at(p).m_ref--;
+            if (m_openedFiles.at(p).m_ref == 0) {
+                m_openedFiles.erase(m_openedFiles.find(p));
+            }
+        }
+
+        if (m_openedDirectories.count(p)) {
+            m_openedDirectories.at(p).m_ref--;
+            if (m_openedDirectories.at(p).m_ref == 0) {
+                m_openedDirectories.erase(m_openedDirectories.find(p));
+            }
+        }
+
+        if (p.empty()) return;
+        p.pop_back();
+        for (;!p.empty();p.pop_back()) {
+            m_openedDirectories.at(p).m_ref--;
+            if (m_openedDirectories.at(p).m_ref == 0) {
+                m_openedDirectories.erase(m_openedDirectories.find(p));
+            }
+        }
+        m_openedDirectories.at(p).m_ref--;
+    }
+
+    inline std::array<uint16_t,32> buildName(const std::string& str) {
+        std::array<uint16_t,32> ans = { 0 };
+        for (size_t i=0;i<str.size()&&i<ans.size();i++) {
+            ans[i] = str[i];
+        }
+        return ans;
+    }
+
+    inline bool openDirectory(const FSPath& path) {
+        FSPath p;
+        if (m_openedDirectories.count(p) == 0) {
+            m_openedDirectories.insert(std::make_pair(p, OpenedDirectory(p, 0)));
+        }
+        auto ptr_parentDir = &m_openedDirectories.at(p);
+        ptr_parentDir->m_ref++;
+
+        for (size_t i=0;i<path.size();i++) {
+            p.push_back(path[i]);
+            if (m_openedDirectories.count(p) > 0) {
+                m_openedDirectories.at(p).m_ref++;
+            } else {
+                const auto child = m_dirtable.searchChild(ptr_parentDir->m_entryid, this->buildName(path[i]));
+                if (child.has_value()) {
+                    const auto child_id = child.value();
+                    if (m_dirtable.getEntryType(child_id) != EntryType::UserStorage) {
+                        p.pop_back();
+                        this->decRef(p);
+                        return false;
+                    }
+
+                    m_openedDirectories.insert(std::make_pair(p, OpenedDirectory(p, child_id)));
+                } else {
+                    p.pop_back();
+                    this->decRef(p);
+                    return false;
+                }
+            }
+
+            ptr_parentDir = &m_openedDirectories.at(p);
+        }
+
+        return true;
+    }
+
+    inline bool openFile(FSPath dir, const std::string& basename) {
+        assert(m_openedDirectories.count(dir) > 0);
+        const auto& parentdir = m_openedDirectories.at(dir);
+        const auto child = m_dirtable.searchChild(parentdir.m_entryid, this->buildName(basename));
+        if (child.has_value()) {
+            const auto child_id = child.value();
+            if (m_dirtable.getEntryType(child_id) != EntryType::UserStream) {
+                this->decRef(dir);
+                this->m_errcode = ErrorCode::nonfile_already_exists;
+                return false;
+            }
+
+            dir.push_back(basename);
+            m_openedDirectories.insert(std::make_pair(dir, OpenedDirectory(dir, child_id)));
+        } else {
+            this->decRef(dir);
+            this->m_errcode = ErrorCode::not_found;
+            return false;
+        }
+
+        return true;
+    }
+
+    inline bool openFile(FSPath path) {
+        assert(!path.empty());
+        const auto basename = path.back();
+        path.pop_back();
+
+        if (!this->openDirectory(path)) return false;
+
+        return openFile(path, basename);
+    }
 
 public:
+    FileSystem(const FileSystem&) = delete;
+    FileSystem& operator=(const FileSystem&) = delete;
+
     explicit FileSystem(T&& block):
         m_block(std::move(block)),
         m_header(BlockDeviceRefWrapper<DeviceType>(m_block)),
         m_sat(m_header, BlockDeviceRefWrapper<DeviceType>(m_block)),
-        m_dirtable(m_header, m_sat, BlockDeviceRefWrapper<DeviceType>(m_block))
+        m_dirtable(m_header, m_sat, BlockDeviceRefWrapper<DeviceType>(m_block)),
+        m_ssat(m_header, m_sat, BlockDeviceRefWrapper<DeviceType>(m_block)),
+        m_sstream(m_header, m_dirtable, m_sat, BlockDeviceRefWrapper<DeviceType>(m_block)),
+        m_handler_count(100)
     {
     }
 
@@ -1392,59 +1972,270 @@ public:
         return this->m_errcode;
     }
 
-    bool mkdir(const FSPath& dirname);
-    bool rmdir(const FSPath& dirname);
+    bool mkdir(const FSPath& dirname) {
+        assert(!dirname.empty());
+        auto pp = dirname;
+        pp.pop_back();
+        if (!this->openDirectory(pp))
+            return false;
 
-    file_t open(const FSPath& filename, std::ios_base::openmode mode);
-    bool   close(file_t file);
+        const auto& parentDir = m_openedDirectories.at(pp);
+        const auto entryid = m_dirtable.createEntry(parentDir.m_entryid, this->buildName(dirname.back()), EntryType::UserStorage);
+        this->decRef(pp);
+        if (!entryid.has_value()) {
+            this->m_errcode = ErrorCode::already_exists;
+            return false;
+        }
 
-    dir_t  opendir(const FSPath& path);
-    bool   closedir(dir_t dir);
-
-    bool unlink(const FSPath& file);
-    bool rename(file_t file, const std::string& newname);
-    bool rename(dir_t  dir,  const std::string& newname);
-    bool move(const FSPath& path, const FSPath& newpath);
-
-    size_t read (file_t file, void* buf, size_t n) const;
-    size_t write(file_t file, const void* buf, size_t n);
-
-    void truncate(file_t file, size_t new_size);
-
-    StatInfo stat(file_t file);
-    StatInfo stat(dir_t  dir);
-
-    size_t seek(file_t file, long offset, int origin);
-
-private:
-    FileSystem(T&& block, uint16_t majorVersion, uint16_t sectorShift, uint16_t shortSectorShift):
-        m_block(std::move(block)),
-        m_header(CompoundFileHeaderAccessor<BlockDeviceRefWrapper<DeviceType>>::format(
-                    BlockDeviceRefWrapper<DeviceType>(m_block),
-                    majorVersion, sectorShift, shortSectorShift)),
-        m_sat(m_header, BlockDeviceRefWrapper<DeviceType>(m_block)),
-        m_dirtable(m_header, m_sat, BlockDeviceRefWrapper<DeviceType>(m_block))
-    {
+        return true;
     }
 
-    DeviceType                                                    m_block;
-    CompoundFileHeaderAccessor<BlockDeviceRefWrapper<DeviceType>> m_header;
-    SectorAllocationTable<BlockDeviceRefWrapper<DeviceType>>      m_sat;
-    DirectoryTable<BlockDeviceRefWrapper<DeviceType>>             m_dirtable;
+    bool rmdir(const FSPath& dirname) {
+        assert(!dirname.empty());
+        if (!this->openDirectory(dirname))
+            return false;
 
-    ErrorCode m_errcode;
+        const auto& dir = m_openedDirectories.at(dirname);
+        if (dir.m_ref > 1) {
+            m_errcode = ErrorCode::file_opened;
+            this->decRef(dirname);
+            return false;
+        }
 
-    std::map<uint32_t,std::shared_ptr<OpenFileNode>> m_entryid2node;
-    std::map<uint32_t,dir_t> m_entryid2dir;
+        if (m_dirtable.getSubdirectoryEntry(dir.m_entryid) != static_cast<uint32_t>(-1)) {
+            m_errcode = ErrorCode::not_empty;
+            this->decRef(dirname);
+            return false;
+        }
+
+        auto pp = dirname;
+        pp.pop_back();
+        const auto& uu = m_openedDirectories.at(pp);
+        m_dirtable.deleteEntry(uu.m_entryid, dir.m_entryid).value();
+        this->decRef(dirname);
+        return true;
+    }
+
+    std::optional<file_t> open(const FSPath& filename, fileopenmode mode) {
+        auto pp = filename;
+        const auto basename = pp.back();
+        pp.pop_back();
+
+        if (!this->openDirectory(pp)) return std::nullopt;
+
+        const auto& parentDir = m_openedDirectories.at(pp);
+        if (!this->openFile(pp, basename)) {
+            if (m_errcode == ErrorCode::nonfile_already_exists) {
+                this->decRef(pp);
+                return std::nullopt;
+            }
+
+            assert(m_errcode == ErrorCode::not_found);
+            if (mode && fileopenmode::CREATE == 0) {
+                this->decRef(pp);
+                return std::nullopt;
+            } else {
+                m_dirtable.createEntry(parentDir.m_entryid, this->buildName(basename), EntryType::UserStream).value();
+                const auto result = this->openFile(pp, basename);
+                assert(result);
+            }
+        }
+
+        const auto handler = m_handler_count++;
+        FileEntry entry {&m_openedFiles.at(filename), 0, mode};
+        if (mode && fileopenmode::APPEND) {
+            entry.m_offset = entry.m_file->m_stream.size();
+        } else if (mode && fileopenmode::WRITE) {
+            entry.m_file->m_stream.truncate(0);
+        }
+
+        m_fileEntires[handler] = std::move(entry);
+        return handler;
+    }
+
+    bool close(file_t file) {
+        if (m_fileEntires.count(file) == 0)
+            return false;
+
+        const auto entry = m_fileEntires[file];
+        m_fileEntires.erase(m_fileEntires.find(file));
+        decRef(entry.m_file->m_path);
+        return true;
+    }
+
+    std::optional<dir_t> opendir(const FSPath& path) {
+        if (!this->openDirectory(path)) return std::nullopt;
+
+        const int handler = m_handler_count++;
+        DirectoryEntry entry {m_openedDirectories.at(path)};
+        m_dirEntires[handler] = entry;
+
+        return handler;
+    }
+
+    bool closedir(dir_t dir) {
+        if (this->m_dirEntires.count(dir) == 0) {
+            this->m_errcode = ErrorCode::invalid_handle;
+            return false;
+        }
+
+        auto dirEntry = this->m_dirEntires[dir];
+        const auto path = dirEntry.m_dir->m_path;
+        this->decRef(path);
+        return true;
+    }
+
+    bool unlink(const FSPath& filename) {
+        assert(!filename.empty());
+        if (!this->openFile(filename))
+            return false;
+
+        const auto& file = m_openedFiles.at(filename);
+        if (file.m_ref > 1) {
+            m_errcode = ErrorCode::filename_opened;
+            this->decRef(filename);
+            return false;
+        }
+
+        auto pp = filename;
+        pp.pop_back();
+        const auto& uu = m_openedDirectories.at(pp);
+        m_dirtable.deleteEntry(uu.m_entryid, file.m_entryid).value();
+        this->decRef(filename);
+        return true;
+    }
+
+    /**
+     * move a file/directory to new path
+     *
+     * @param path original path, should be a valid path to file or directory
+     * @param newpath new path which should not exist, but whose parent directory must exist
+     * @return true if everything is fine otherwise false
+     */
+    bool move(const FSPath& path, const FSPath& newpath) {
+        if (path.empty() || newpath.empty()) {
+            m_errcode = ErrorCode::cannot_move;
+            return false;
+        }
+
+        auto newpp = newpath;
+        newpp.pop_back();
+        if (!this->openDirectory(newpp)) {
+            m_errcode = ErrorCode::invalid_path;
+            return false;
+        }
+
+        const auto nu = m_dirtable.searchChild(m_openedDirectories.at(newpp).m_entryid, this->buildName(newpath.back()));
+        if (nu.has_value()) {
+            m_errcode = ErrorCode::already_exists;
+            this->decRef(newpp);
+            return false;
+        }
+
+        auto pp = path;
+        pp.pop_back();
+        if (!this->openDirectory(pp)) {
+            m_errcode = ErrorCode::invalid_path;
+            this->decRef(newpp);
+            return false;
+        }
+
+        const auto ku = m_dirtable.searchChild(m_openedDirectories.at(pp).m_entryid, this->buildName(path.back()));
+        if (!ku.has_value()) {
+            m_errcode = ErrorCode::not_found;
+            this->decRef(pp);
+            this->decRef(newpp);
+            return false;
+        }
+
+        const auto nd = m_dirtable.deleteEntry(m_openedDirectories.at(pp).m_entryid, ku.value()).value();
+        m_dirtable.insertEntry(m_openedDirectories.at(newpp).m_entryid, nd).value();
+        this->decRef(pp);
+        this->decRef(newpp);
+        return true;
+    }
+
+    size_t read(file_t file, void* buf, size_t n) const {
+        if (m_fileEntires.count(file) == 0) {
+            m_errcode = ErrorCode::invalid_handle;
+            return 0;
+        }
+
+        const auto& ff = m_fileEntires.at(file);
+        const auto ans = ff.m_file->m_stream.read(ff.m_offset, buf, n);
+        ff.m_offset += ans;
+
+        return ans;
+    }
+    size_t write(file_t file, const void* buf, size_t n) {
+        if (m_fileEntires.count(file) == 0) {
+            m_errcode = ErrorCode::invalid_handle;
+            return 0;
+        }
+
+        const auto& ff = m_fileEntires.at(file);
+        const auto ans = ff.m_file->m_stream.write(ff.m_offset, buf, n);
+        ff.m_offset += ans;
+
+        return ans;
+    }
+    // FIXME origin
+    bool seek(file_t file, long offset, int origin) {
+        if (m_fileEntires.count(file) == 0) {
+            m_errcode = ErrorCode::invalid_handle;
+            return false;
+        }
+
+        const auto& ff = m_fileEntires.at(file);
+        ff.m_offset = offset;
+        return true;
+    }
+
+    bool truncate(file_t file, size_t new_size) {
+        if (m_fileEntires.count(file) == 0) {
+            m_errcode = ErrorCode::invalid_handle;
+            return false;
+        }
+
+        const auto& ff = m_fileEntires.at(file);
+        const auto ans = ff.m_file->m_stream.truncate(new_size);
+        ff.m_offset = std::min(ff.m_offset, new_size);
+
+        return true;
+    }
+
+    std::optional<StatInfo> stat(const FSPath& path) {
+        if (path.empty()) {
+            return StatInfo { EntryType::RootStorage, 0 };
+        }
+
+        auto pp = path;
+        pp.pop_back();
+        if (!this->openDirectory(pp)) {
+            m_errcode = ErrorCode::invalid_path;
+            return std::nullopt;
+        }
+
+        const auto nu = m_dirtable.searchChild(m_openedDirectories.at(pp).m_entryid, this->buildName(path.back()));
+        if (!nu.has_value()) {
+            m_errcode = ErrorCode::invalid_path;
+            this->decRef(pp);
+            return std::nullopt;
+        }
+
+        const auto type = static_cast<EntryType>(m_dirtable.getEntryType(nu.value()));
+        size_t size = m_dirtable.getSize(nu.value());
+        return StatInfo { type, size };
+    }
 };
 
 class MemorySpace {
-public:
-    inline explicit MemorySpace(size_t size): m_space(size, 0) { }
+    public:
+        inline explicit MemorySpace(size_t size): m_space(size, 0) { }
 
-    inline size_t read (addr_t addr, void* buf, size_t n) const {
-        if (addr + n > this->maxsize()) {
-            throw OutOfRange();
+        inline size_t read (addr_t addr, void* buf, size_t n) const {
+            if (addr + n > this->maxsize()) {
+                throw OutOfRange();
         }
 
         memcpy(buf, this->m_space.data() + addr, n);

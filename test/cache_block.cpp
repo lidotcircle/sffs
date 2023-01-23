@@ -9,6 +9,9 @@ TEST(cache, write) {
     auto ms = MemorySpace(1024 * 1024 * 10);
     auto fs = FileSystem<BlockDeviceRefWrapper<MemorySpace>>::format(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
 
+    fs.mkdir({"hello"});
+    fs.open({"hello", "world"}, fileopenmode::CREATE );
+
     for (size_t i=0;i<1024*2;i++) {
         if (i % 16 == 0) {
             printf("0x%.4zX: ", i);
