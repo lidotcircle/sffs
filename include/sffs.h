@@ -43,9 +43,13 @@ struct device_traits {
     LDC_CLASS_MEMBER_TEST_VALUE_AUTONAME(T, const&, maxsize, size_t());
 };
 
-template <typename T>
+template <typename T, bool complain = false>
 struct is_block_device {
     using traits = device_traits<T>;
+
+    static_assert(traits::has_read    || !complain, "read");
+    static_assert(traits::has_write   || !complain, "write");
+    static_assert(traits::has_maxsize || !complain, "maxsize");
 
     static constexpr bool value = traits::has_read && traits::has_write && traits::has_maxsize;
 };
@@ -904,11 +908,12 @@ public:
             const auto secIdx = (addr + nread) / ss;
             const auto offset = (addr + nread) % ss;
             const auto k = std::min(n - nread, ss - offset);
-            assert(m_secIdChainCache.size() > secIdx + 1);
+            assert(m_secIdChainCache.size() > secIdx);
             const auto secId = m_secIdChainCache[secIdx];
             this->m_block.read(m_header.headerSize() + secId * ss + offset, (static_cast<char*>(buf) + nread), k);
             nread += k;
         }
+        return nread;
     }
 
     inline size_t write(addr_t addr, const void* buf, size_t n) {
@@ -925,11 +930,12 @@ public:
             const auto secIdx = (addr + nwrited) / ss;
             const auto offset = (addr + nwrited) % ss;
             const auto k = std::min(n - nwrited, ss - offset);
-            assert(m_secIdChainCache.size() > secIdx + 1);
+            assert(m_secIdChainCache.size() > secIdx);
             const auto secId = m_secIdChainCache[secIdx];
             this->m_block.write(m_header.headerSize() + secId * ss + offset, (static_cast<const char*>(buf) + nwrited), k);
             nwrited += k;
         }
+        return nwrited;
     }
 
     inline void fillzeros(addr_t begin, addr_t end) {
@@ -1018,13 +1024,18 @@ public:
             m_free_entries = m_stream.size() / COMPOUND_FILE_ENTRY_SIZE - 1;
             const std::array<uint16_t, 32> RootEntry = { 0x52, 0x6F, 0x6F, 0x74, 0x20, 0x45, 0x6E, 0x74, 0x72, 0x79, 0x00 };
             this->fillzeros(0);
-            this->setName(0, RootEntry);
-            this->setEntryType(0, EntryType::RootStorage);
-            this->setBlack(0, true);
-            this->setLeftChild(0, this->getNullNode());
-            this->setRightChild(0, this->getNullNode());
+            this->setName             (0, RootEntry);
+            this->setEntryType        (0, EntryType::RootStorage);
+            this->setBlack            (0, true);
+            this->setLeftChild        (0, this->getNullNode());
+            this->setRightChild       (0, this->getNullNode());
             this->setSubdirectoryEntry(0, this->getNullNode());
-            this->setSize(0, 0);
+            this->setStreamUID        (0, { 0 });
+            this->setUserFlags        (0, 0);
+            this->setCreatedTimestamp (0, { 0 });
+            this->setModifiedTimestamp(0, { 0 });
+            this->setSectorID         (0, static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
+            this->setSize             (0, 0);
         }
 
         m_free_entries = m_stream.size() / COMPOUND_FILE_ENTRY_SIZE;
@@ -1075,8 +1086,18 @@ public:
         size_t id = 0;
         for (;id<m_usedentries.size() && m_usedentries[id];id++);
 
-        this->setName(id, name);
-        this->setEntryType(id, type);
+        this->setName             (id, name);
+        this->setEntryType        (id, type);
+        this->setBlack            (id, false);
+        this->setLeftChild        (id, this->getNullNode());
+        this->setRightChild       (id, this->getNullNode());
+        this->setSubdirectoryEntry(id, this->getNullNode());
+        this->setStreamUID        (id, { 0 });
+        this->setUserFlags        (id, 0);
+        this->setCreatedTimestamp (id, { 0 });
+        this->setModifiedTimestamp(id, { 0 });
+        this->setSectorID         (id, static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
+        this->setSize             (id, 0);
         m_usedentries[id] = true;
         m_free_entries--;
 
@@ -1126,6 +1147,9 @@ public:
 
     inline uint32_t getShortStreamSecId() const { return this->getSectorID(0); }
     inline void setShortStreamSecId(uint32_t val) { return this->setSectorID(0, val); }
+
+    inline uint32_t getShortStreamSize() const { return this->getSize(0); }
+    inline void setShortStreamSize(uint32_t size) { return this->setSize(0, size); }
 
     inline void fillzeros(uint32_t entryid) {
         const char buf[COMPOUND_FILE_ENTRY_SIZE] = { 0 };
@@ -1367,11 +1391,17 @@ public:
     using stream_t = SectorChainStream<T>;
 
     inline ShortSectorStream(CompoundFileHeaderAccessor<T>& header, DirectoryTable<T>& dirtable, SectorAllocationTable<T>& sat, T block_ref):
-        m_header(header), m_dirtable(dirtable), m_stream(header, sat, std::move(block_ref), m_dirtable.getShortStreamSecId())
+        m_header(header), m_dirtable(dirtable), m_stream(header, sat, std::move(block_ref),
+        m_dirtable.getShortStreamSecId()), m_size(m_dirtable.getShortStreamSize())
     {
     }
 
-    inline size_t read(addr_t addr, void* buf, size_t n) const { return m_stream.read(addr, buf, n); }
+    inline size_t read(addr_t addr, void* buf, size_t n) const {
+        if (addr + n > m_size)
+            throw OutOfRange();
+
+        return m_stream.read(addr, buf, n);
+    }
 
     inline size_t write(addr_t addr, const void* buf, size_t n) {
         if (n == 0) return 0;
@@ -1379,15 +1409,22 @@ public:
         const auto s1 = m_stream.size();
         const auto ans = m_stream.write(addr, buf, n);
         if (s1 == 0) m_dirtable.setShortStreamSecId(m_stream.getHeadSectorID());
+
+        if (addr + n > m_size) {
+            m_size = addr + n;
+            m_dirtable.setShortStreamSize(m_size);
+        }
+
         return ans;
     }
 
-    inline size_t maxsize() { return m_stream.maxsize(); }
+    inline size_t maxsize() const { return m_stream.maxsize(); }
 
 private:
     CompoundFileHeaderAccessor<T>& m_header;
     DirectoryTable<T>&             m_dirtable;
     stream_t                       m_stream;
+    uint32_t                       m_size;
 };
 
 template<typename T, std::enable_if_t<Impl::is_block_device<T>::value,bool> = true>
@@ -1447,8 +1484,8 @@ private:
 template<typename T, std::enable_if_t<Impl::is_block_device<T>::value,bool> = true>
 class ShortSectorChainStream {
 public:
-    inline ShortSectorChainStream(CompoundFileHeaderAccessor<T>& header, ShortSectorAllocationTable<T>& ssat, T block_ref, uint32_t headSSecId):
-        m_header(header), m_ssat(ssat), m_block(std::move(block_ref)), m_headssecId(headSSecId)
+    inline ShortSectorChainStream(CompoundFileHeaderAccessor<T>& header, ShortSectorAllocationTable<T>& ssat, ShortSectorStream<T>& sss, uint32_t headSSecId):
+        m_header(header), m_ssat(ssat), m_block(BlockDeviceRefWrapper<ShortSectorStream<T>>(sss)), m_headssecId(headSSecId)
     {
        assert(is_reg_entry(m_headssecId) || m_headssecId == static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
     }
@@ -1516,11 +1553,12 @@ public:
             const auto ssecIdx = (addr + nread) / ss;
             const auto offset = (addr + nread) % ss;
             const auto k = std::min(n - nread, ss - offset);
-            assert(m_ssecIdChainCache.size() > ssecIdx + 1);
+            assert(m_ssecIdChainCache.size() > ssecIdx);
             const auto ssecId = m_ssecIdChainCache[ssecIdx];
             this->m_block.read(ssecId * ss + offset, (static_cast<char*>(buf) + nread), k);
             nread += k;
         }
+        return nread;
     }
 
     inline size_t write(addr_t addr, const void* buf, size_t n) {
@@ -1537,11 +1575,12 @@ public:
             const auto ssecIdx = (addr + nwrited) / ss;
             const auto offset = (addr + nwrited) % ss;
             const auto k = std::min(n - nwrited, ss - offset);
-            assert(m_ssecIdChainCache.size() > ssecIdx + 1);
+            assert(m_ssecIdChainCache.size() > ssecIdx);
             const auto ssecId = m_ssecIdChainCache[ssecIdx];
             this->m_block.write(ssecId * ss + offset, (static_cast<const char*>(buf) + nwrited), k);
             nwrited += k;
         }
+        return nwrited;
     }
 
     inline void fillzeros(addr_t begin, addr_t end) {
@@ -1598,12 +1637,12 @@ private:
 private:
     CompoundFileHeaderAccessor<T>& m_header;
     ShortSectorAllocationTable<T>& m_ssat;
-    BlockDeviceExt<T>              m_block;
+    BlockDeviceExt<BlockDeviceRefWrapper<ShortSectorStream<T>>> m_block;
     uint32_t                       m_headssecId;
     mutable std::vector<uint32_t>  m_ssecIdChainCache;
 };
 
-enum fileopenmode {
+enum fileopenmode : int{
     CREATE = 1 << 0,
     WRITE  = 1 << 1,
     READ   = 1 << 2,
@@ -1641,7 +1680,7 @@ private:
     inline auto OpenShortStream(uint32_t ssecId) {
         return ShortSectorChainStream(
                 m_header, m_ssat,
-                BlockDeviceRefWrapper<DeviceType>(m_block),
+                m_sstream,
                 ssecId);
     }
 
@@ -1674,7 +1713,7 @@ private:
                         idx += n;
                     }
                     this->shortStream().deleteStream();
-                    const auto ans = this->normalStream().write(addr, buf, bufsize);
+                    const auto ans = stream.write(addr, buf, bufsize);
                     m_filesize = addr + bufsize;
                     m_fs.m_dirtable.setSize(m_entryid, m_filesize);
                     m_fs.m_dirtable.setSectorID(m_entryid, stream.getHeadSectorID());
@@ -1829,7 +1868,7 @@ private:
         cannot_move,
         permission_denied,
     };
-    ErrorCode m_errcode;
+    ErrorCode mutable m_errcode;
 
     DeviceType                                                    m_block;
     CompoundFileHeaderAccessor<BlockDeviceRefWrapper<DeviceType>> m_header;
@@ -1841,7 +1880,7 @@ private:
     // File System State
     std::map<FSPath,OpenedFile>      m_openedFiles;
     std::map<FSPath,OpenedDirectory> m_openedDirectories;
-    std::map<file_t,FileEntry>       m_fileEntires;
+    std::map<file_t,FileEntry>       mutable m_fileEntires;
     std::map<dir_t, DirectoryEntry>  m_dirEntires;
     int                              m_handler_count;
 
@@ -2000,6 +2039,7 @@ public:
             return false;
         }
 
+        m_dirtable.setSectorID(entryid.value(), 0);
         return true;
     }
 
@@ -2028,6 +2068,8 @@ public:
         this->decRef(dirname);
         return true;
     }
+
+    inline std::optional<file_t> open(const FSPath& filename, int mode) { return this->open(filename, static_cast<fileopenmode>(mode)); }
 
     std::optional<file_t> open(const FSPath& filename, fileopenmode mode) {
         auto pp = filename;
@@ -2172,7 +2214,7 @@ public:
             return 0;
         }
 
-        const auto& ff = m_fileEntires.at(file);
+        auto& ff = m_fileEntires.at(file);
         if ((ff.m_mode & fileopenmode::READ) == 0) {
             m_errcode = ErrorCode::permission_denied;
             return 0;
@@ -2189,7 +2231,7 @@ public:
             return 0;
         }
 
-        const auto& ff = m_fileEntires.at(file);
+        auto& ff = m_fileEntires.at(file);
         if ((ff.m_mode & (fileopenmode::WRITE | fileopenmode::CREATE | fileopenmode::APPEND)) == 0) {
             m_errcode = ErrorCode::permission_denied;
             return 0;
@@ -2207,7 +2249,7 @@ public:
             return false;
         }
 
-        const auto& ff = m_fileEntires.at(file);
+        auto& ff = m_fileEntires.at(file);
         ff.m_offset = offset;
         return true;
     }

@@ -10,7 +10,7 @@ TEST(cache, write) {
     auto fs = FileSystem<BlockDeviceRefWrapper<MemorySpace>>::format(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
 
     ASSERT_TRUE(fs.mkdir({"hello"}));
-    fs.open({"hello", "world"}, fileopenmode::CREATE );
+    auto fn = fs.open({"hello", "world"}, fileopenmode::CREATE | fileopenmode::READ );
     const auto hellostat = fs.stat({"hello"});
     const auto wwstat = fs.stat({"ww"});
     const auto rootstat = fs.stat({});
@@ -18,6 +18,7 @@ TEST(cache, write) {
     ASSERT_TRUE(rootstat.has_value());
     ASSERT_TRUE(hellostat.has_value());
     ASSERT_FALSE(wwstat.has_value());
+    ASSERT_TRUE(fn.has_value());
 
     ASSERT_EQ(rootstat.value().m_type, EntryType::RootStorage);
     ASSERT_EQ(hellostat.value().m_type, EntryType::UserStorage);
@@ -26,6 +27,24 @@ TEST(cache, write) {
     ASSERT_TRUE(worldstat.has_value());
     ASSERT_EQ(worldstat->m_size, 0);
     ASSERT_EQ(worldstat->m_type, EntryType::UserStream);
+
+    {
+        auto fd = fn.value();
+        std::string bbx;
+        for (size_t i=0;i<10000;i++) {
+            const auto buf = std::to_string(i);
+            fs.write(fd, buf.c_str(), buf.size());
+            bbx += buf;
+        }
+        const auto fstat = fs.stat({"hello", "world"});
+        ASSERT_TRUE(fstat.has_value());
+        ASSERT_EQ(bbx.size(), fstat->m_size);
+
+        ASSERT_TRUE(fs.seek(fd, 0, 0));
+        std::string rb(bbx.size(), 0);
+        ASSERT_EQ(fs.read(fd, rb.data(), bbx.size()), bbx.size());
+        ASSERT_EQ(rb, bbx);
+    }
 
     for (size_t i=0;i<1024*2;i++) {
         if (i % 16 == 0) {
