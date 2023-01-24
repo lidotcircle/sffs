@@ -1649,6 +1649,10 @@ enum fileopenmode : int{
     APPEND = 1 << 3,
 };
 
+enum class seekwhence : int {
+    SET, CUR, END
+};
+
 template<typename T, std::enable_if_t<Impl::is_block_device<T>::value,bool> = true>
 class FileSystem {
 private:
@@ -2242,15 +2246,25 @@ public:
 
         return ans;
     }
-    // FIXME origin
-    bool seek(file_t file, long offset, int origin) {
+
+    bool seek(file_t file, long offset, seekwhence pos) {
         if (m_fileEntires.count(file) == 0) {
             m_errcode = ErrorCode::invalid_handle;
             return false;
         }
 
         auto& ff = m_fileEntires.at(file);
-        ff.m_offset = offset;
+
+        size_t toffset = ff.m_offset;
+        if (pos == seekwhence::CUR) {
+            toffset = ff.m_offset + offset;
+        } else if (pos == seekwhence::END) {
+            toffset = ff.m_file->m_stream.size() + offset;
+        } else {
+            toffset = offset;
+        }
+
+        ff.m_offset = toffset;
         return true;
     }
 

@@ -40,7 +40,7 @@ TEST(cache, write) {
         ASSERT_TRUE(fstat.has_value());
         ASSERT_EQ(bbx.size(), fstat->m_size);
 
-        ASSERT_TRUE(fs.seek(fd, 0, 0));
+        ASSERT_TRUE(fs.seek(fd, 0, seekwhence::SET));
         std::string rb(bbx.size(), 0);
         ASSERT_EQ(fs.read(fd, rb.data(), bbx.size()), bbx.size());
         ASSERT_EQ(rb, bbx);
