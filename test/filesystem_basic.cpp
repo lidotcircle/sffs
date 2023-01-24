@@ -5,7 +5,7 @@
 using namespace ldc::SFFS;
 
 
-TEST(cache, write) {
+TEST(filesystem, basic) {
     auto ms = MemorySpace(1024 * 1024 * 10);
     auto fs = FileSystem<BlockDeviceRefWrapper<MemorySpace>>::format(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
 
@@ -44,6 +44,34 @@ TEST(cache, write) {
         std::string rb(bbx.size(), 0);
         ASSERT_EQ(fs.read(fd, rb.data(), bbx.size()), bbx.size());
         ASSERT_EQ(rb, bbx);
+
+        ASSERT_TRUE(fs.truncate(fd, 1000));
+        ASSERT_EQ(fs.stat({"hello", "world"})->m_size, 1000);
+        ASSERT_TRUE(fs.seek(fd, 0, seekwhence::SET));
+        std::string rxx(1000, 0);
+        ASSERT_EQ(fs.read(fd, rxx.data(), rxx.size()), rxx.size());
+        ASSERT_EQ(rxx, bbx.substr(0, 1000));
+
+        ASSERT_FALSE(fs.unlink({"hello", "world"}));
+        ASSERT_TRUE(fs.close(fd));
+        ASSERT_TRUE(fs.unlink({"hello", "world"}));
+        const auto un = fs.stat({"hello", "world"});
+        ASSERT_FALSE(un.has_value());
+        ASSERT_FALSE(fs.open({"hello", "world"}, fileopenmode::READ).has_value());
+    }
+
+    {
+        auto fn = fs.open({"hello", "world"}, fileopenmode::CREATE | fileopenmode::READ );
+        ASSERT_TRUE(fn.has_value());
+        ASSERT_EQ(fs.write(fn.value(), "nope", 4), 4);
+        ASSERT_FALSE(fs.move({"hello", "world"}, {"nope"}));
+        ASSERT_TRUE(fs.close(fn.value()));
+        ASSERT_TRUE(fs.move({"hello", "world"}, {"nope"}));
+        ASSERT_FALSE(fs.stat({"hello", "world"}).has_value());
+        ASSERT_TRUE(fs.stat({"nope"}).has_value());
+        ASSERT_EQ(fs.stat({"nope"})->m_size, 4);
+        ASSERT_TRUE(fs.move({"nope"}, {"nope2"}));
+        ASSERT_TRUE(fs.stat({"nope2"}).has_value());
     }
 
     for (size_t i=0;i<1024*2;i++) {

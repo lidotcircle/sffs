@@ -1122,9 +1122,12 @@ public:
         auto node = m_algo.findNode(root, name);
         if (m_algo.exists(node)) {
             const auto ans = m_algo.getNode(node);
-            m_algo.deleteNode(parentDirEntryId, node);
+            const auto oldroot = root;
+            m_algo.deleteNode(root, node);
             m_free_entries++;
             m_usedentries[deleteId] = false;
+            if (root != oldroot)
+                this->setSubdirectoryEntry(parentDirEntryId, root);
             return ans;
         }
         return std::nullopt;
@@ -1366,10 +1369,10 @@ private:
     inline bool insertIntoDirectory(uint32_t parentDir, uint32_t newentry) {
         this->setBlack(newentry, false);
         auto root = this->getSubdirectoryEntry(parentDir);
-        bool isEmpty = this->isNullNode(root);
+        const auto oldroot = root;
         auto insertPt = m_algo.insertNode(root, newentry);
         if (m_algo.exists(insertPt)) {
-            if (isEmpty) {
+            if (root != oldroot) {
                 this->setSubdirectoryEntry(parentDir, root);
             }
             return true;
@@ -1758,6 +1761,16 @@ private:
         }
 
         inline void truncate(size_t newsize) {
+            if (newsize == 0) {
+                if (this->isShort()) {
+                    this->shortStream().deleteStream();
+                } else {
+                    this->normalStream().deleteStream();
+                }
+                m_filesize = 0;
+                return;
+            }
+
             if (newsize > m_filesize) {
                 const unsigned char buf[4096] = { 0 };
                 auto fsize  = m_filesize;
@@ -1797,6 +1810,8 @@ private:
             m_filesize = newsize;
             m_fs.m_dirtable.setSize(m_entryid, m_filesize);
         }
+
+        inline uint32_t entryid() const { return m_entryid; };
 
         inline size_t size() const { return m_filesize; }
 
@@ -2089,20 +2104,20 @@ public:
             }
 
             assert(m_errcode == ErrorCode::not_found);
-            if (mode && fileopenmode::CREATE == 0) {
-                return std::nullopt;
-            } else {
+            if (mode & fileopenmode::CREATE) {
                 m_dirtable.createEntry(parentDir.m_entryid, this->buildName(basename), EntryType::UserStream).value();
                 const auto result = this->openFile(pp, basename);
                 assert(result);
+            } else {
+                return std::nullopt;
             }
         }
 
         const auto handler = m_handler_count++;
         FileEntry entry {&m_openedFiles.at(filename), 0, mode};
-        if (mode && fileopenmode::APPEND) {
+        if (mode & fileopenmode::APPEND) {
             entry.m_offset = entry.m_file->m_stream.size();
-        } else if (mode && fileopenmode::WRITE) {
+        } else if (mode & fileopenmode::WRITE) {
             entry.m_file->m_stream.truncate(0);
         }
 
@@ -2147,9 +2162,9 @@ public:
         if (!this->openFile(filename))
             return false;
 
-        const auto& file = m_openedFiles.at(filename);
+        auto& file = m_openedFiles.at(filename);
         if (file.m_ref > 1) {
-            m_errcode = ErrorCode::filename_opened;
+            m_errcode = ErrorCode::file_opened;
             this->decRef(filename);
             return false;
         }
@@ -2157,7 +2172,8 @@ public:
         auto pp = filename;
         pp.pop_back();
         const auto& uu = m_openedDirectories.at(pp);
-        m_dirtable.deleteEntry(uu.m_entryid, file.m_entryid).value();
+        file.m_stream.truncate(0);
+        m_dirtable.deleteEntry(uu.m_entryid, file.m_stream.entryid()).value();
         this->decRef(filename);
         return true;
     }
@@ -2172,6 +2188,11 @@ public:
     bool move(const FSPath& path, const FSPath& newpath) {
         if (path.empty() || newpath.empty()) {
             m_errcode = ErrorCode::cannot_move;
+            return false;
+        }
+
+        if (m_openedFiles.count(path) > 0) {
+            m_errcode = ErrorCode::file_opened;
             return false;
         }
 
@@ -2206,6 +2227,7 @@ public:
         }
 
         const auto nd = m_dirtable.deleteEntry(m_openedDirectories.at(pp).m_entryid, ku.value()).value();
+        m_dirtable.setName(nd, this->buildName(newpath.back()));
         m_dirtable.insertEntry(m_openedDirectories.at(newpp).m_entryid, nd).value();
         this->decRef(pp);
         this->decRef(newpp);
@@ -2229,6 +2251,7 @@ public:
 
         return ans;
     }
+
     size_t write(file_t file, const void* buf, size_t n) {
         if (m_fileEntires.count(file) == 0) {
             m_errcode = ErrorCode::invalid_handle;
@@ -2274,8 +2297,8 @@ public:
             return false;
         }
 
-        const auto& ff = m_fileEntires.at(file);
-        const auto ans = ff.m_file->m_stream.truncate(new_size);
+        auto& ff = m_fileEntires.at(file);
+        ff.m_file->m_stream.truncate(new_size);
         ff.m_offset = std::min(ff.m_offset, new_size);
 
         return true;
