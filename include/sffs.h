@@ -298,7 +298,7 @@ public:
         }
         m_sizeOfSector = 1 << s;
 
-        const auto sm = m_block.template get<uint16_t>(30);
+        const auto sm = m_block.template get<uint16_t>(32);
         if (sm > 25) {
             throw SectorTooHuge();
         }
@@ -2373,7 +2373,21 @@ public:
 
         return this->entry2stat(nu.value(), path);
     }
+
+    const auto& block() const { return m_block; }
 };
+
+
+template<typename T, std::enable_if_t<Impl::is_block_device<T>::value,bool> = true>
+inline FileSystem<T> openFileSystem(T&& block) {return FileSystem<T>(std::move(block));}
+
+template<typename T, std::enable_if_t<Impl::is_block_device<T>::value,bool> = true>
+inline FileSystem<T> formatFileSystem(
+        T&& block, uint16_t majorVersion, 
+        uint16_t sectorShift, uint16_t shortSectorShift)
+{
+    return FileSystem<T>::format(std::move(block), majorVersion, sectorShift, shortSectorShift);
+}
 
 
 class FileWrapper {
@@ -2381,7 +2395,8 @@ public:
     inline explicit FileWrapper(const std::string& filename, const char* mode):
         m_fd(nullptr), m_size(0)
     {
-        m_fd = std::fopen(filename.c_str(), mode);
+        m_fd = filename.empty() ? std::tmpfile() : std::fopen(filename.c_str(), mode);
+
         if (m_fd) {
             if (std::fseek(m_fd, 0, SEEK_END) < 0) return;
             m_size = ftell(m_fd);

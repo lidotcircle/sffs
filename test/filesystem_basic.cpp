@@ -5,12 +5,9 @@
 using namespace ldc::SFFS;
 
 
-TEST(filesystem, basic) {
-    auto ms = MemorySpace(1024 * 1024 * 10);
-    auto fs = FileSystem<BlockDeviceRefWrapper<MemorySpace>>::format(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
-    // auto ms = FileWrapper("./testfile", "wr+");
-    // auto fs = FileSystem<BlockDeviceRefWrapper<FileWrapper>>::format(BlockDeviceRefWrapper<FileWrapper>(ms), 3, 9, 6);
-
+template<typename T>
+static void test_fs(FileSystem<T>& fs) 
+{
     ASSERT_TRUE(fs.mkdir({"hello"}));
     auto fn = fs.open({"hello", "world"}, fileopenmode::CREATE | fileopenmode::READ );
     const auto hellostat = fs.stat({"hello"});
@@ -81,16 +78,32 @@ TEST(filesystem, basic) {
         ASSERT_TRUE(fs.closedir(fs.opendir({"hello"}).value()));
     }
 
-    for (size_t i=0;i<1024*2;i++) {
+/*     for (size_t i=0;i<1024*2;i++) {
         if (i % 16 == 0) {
             printf("0x%.4zX: ", i);
         }
         unsigned char val;
-        ms.read(i, &val, 1);
+        fs.block().read(i, &val, 1);
         std::printf("0x%.2X ", val);
 
         if ((i + 1) % 16 == 0) {
             std::cout << std::endl;
         }
-    }
+    } */
+}
+
+TEST(filesystem, memory_basic)
+{
+    auto ms = MemorySpace(1024 * 1024 * 10);
+    auto fs = formatFileSystem(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
+    test_fs(fs);
+
+    auto ff2 = openFileSystem(BlockDeviceRefWrapper<MemorySpace>(ms));
+}
+
+TEST(filesystem, file_basic)
+{
+    auto ms = FileWrapper("", "wr+");
+    auto fs = formatFileSystem(BlockDeviceRefWrapper<FileWrapper>(ms), 3, 9, 6);
+    test_fs(fs);
 }
