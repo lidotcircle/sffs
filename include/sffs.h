@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdio>
 #include <stdint.h>
 #include <stddef.h>
 #include <assert.h>
@@ -281,10 +282,6 @@ public:
             if (signature_buf[i] != cf_signature[i]) {
                 throw BadFormat();
             }
-        }
-
-        if (this->version() != 3 && this->version() != 4) {
-            throw BadFormat();
         }
 
         if (this->version() != 3 && this->version() != 4) {
@@ -2378,13 +2375,58 @@ public:
     }
 };
 
-class MemorySpace {
-    public:
-        inline explicit MemorySpace(size_t size): m_space(size, 0) { }
 
-        inline size_t read (addr_t addr, void* buf, size_t n) const {
-            if (addr + n > this->maxsize()) {
-                throw OutOfRange();
+class FileWrapper {
+public:
+    inline explicit FileWrapper(const std::string& filename, const char* mode):
+        m_fd(nullptr), m_size(0)
+    {
+        m_fd = std::fopen(filename.c_str(), mode);
+        if (m_fd) {
+            if (std::fseek(m_fd, 0, SEEK_END) < 0) return;
+            m_size = ftell(m_fd);
+        }
+    }
+
+    inline size_t read(addr_t addr, void* buf, size_t n) const {
+        if (addr + n > m_size) {
+            throw OutOfRange();
+        }
+        if (!m_fd) return 0;
+
+        std::fseek(m_fd, addr, SEEK_SET);
+        return std::fread(buf, 1, n, m_fd);
+    }
+
+    inline size_t write(addr_t addr, const void* buf, size_t n) {
+        if (addr + n > this->maxsize()) {
+            throw OutOfRange();
+        }
+        if (!m_fd) return 0;
+
+        std::fseek(m_fd, addr, SEEK_SET);
+        const auto ans = std::fwrite(buf, 1, n, m_fd);
+        std::fflush(m_fd);
+        if (addr + ans > m_size) m_size = addr + ans;
+        return ans;
+    }
+
+    inline size_t maxsize() const {
+        return std::numeric_limits<uint32_t>::max();
+    }
+
+private:
+    FILE*  m_fd;
+    size_t m_size;
+};
+
+class MemorySpace {
+public:
+    inline explicit MemorySpace(size_t size): m_space(size, 0) { }
+
+    inline size_t read (addr_t addr, void* buf, size_t n) const {
+        if (addr + n > this->maxsize()) {
+            throw OutOfRange();
         }
 
         memcpy(buf, this->m_space.data() + addr, n);

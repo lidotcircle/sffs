@@ -8,6 +8,8 @@ using namespace ldc::SFFS;
 TEST(filesystem, basic) {
     auto ms = MemorySpace(1024 * 1024 * 10);
     auto fs = FileSystem<BlockDeviceRefWrapper<MemorySpace>>::format(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
+    // auto ms = FileWrapper("./testfile", "wr+");
+    // auto fs = FileSystem<BlockDeviceRefWrapper<FileWrapper>>::format(BlockDeviceRefWrapper<FileWrapper>(ms), 3, 9, 6);
 
     ASSERT_TRUE(fs.mkdir({"hello"}));
     auto fn = fs.open({"hello", "world"}, fileopenmode::CREATE | fileopenmode::READ );
