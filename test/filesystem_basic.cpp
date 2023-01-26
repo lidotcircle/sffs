@@ -19,6 +19,8 @@ TEST(filesystem, basic) {
     ASSERT_TRUE(hellostat.has_value());
     ASSERT_FALSE(wwstat.has_value());
     ASSERT_TRUE(fn.has_value());
+    ASSERT_EQ(fs.listdir({}).size(), 1);
+    ASSERT_EQ(fs.listdir({"hello"}).size(), 1);
 
     ASSERT_EQ(rootstat.value().m_type, EntryType::RootStorage);
     ASSERT_EQ(hellostat.value().m_type, EntryType::UserStorage);
@@ -70,8 +72,11 @@ TEST(filesystem, basic) {
         ASSERT_FALSE(fs.stat({"hello", "world"}).has_value());
         ASSERT_TRUE(fs.stat({"nope"}).has_value());
         ASSERT_EQ(fs.stat({"nope"})->m_size, 4);
+        ASSERT_EQ(fs.listdir({}).size(), 2);
         ASSERT_TRUE(fs.move({"nope"}, {"nope2"}));
         ASSERT_TRUE(fs.stat({"nope2"}).has_value());
+        ASSERT_EQ(fs.listdir({}).size(), 2);
+        ASSERT_TRUE(fs.closedir(fs.opendir({"hello"}).value()));
     }
 
     for (size_t i=0;i<1024*2;i++) {

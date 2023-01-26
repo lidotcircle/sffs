@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <cstdint>
 #include <type_traits>
+#include <algorithm>
 
 
 #define LDC_CLASS_MEMBER_TEST(QUALIFIERS, MEMBER, PROTO) \
@@ -83,5 +84,62 @@ struct NonExistsType {};
 struct AnyType {};
 
 inline void unreachable() { assert(false && "unreachable"); }
+
+
+template <typename FUNC>
+struct deferred_call
+{
+    deferred_call(const deferred_call& that) = delete;
+    deferred_call& operator=(const deferred_call& that) = delete;
+
+    explicit deferred_call(FUNC&& f) 
+        : m_func(std::forward<FUNC>(f)), m_bOwner(true) 
+    {
+    }
+
+    deferred_call(deferred_call&& that)
+        : m_func(std::move(that.m_func)), m_bOwner(that.m_bOwner)
+    {
+        that.m_bOwner = false;
+    }
+
+    ~deferred_call()
+    {
+        execute();
+    }
+
+    bool cancel()
+    {
+        bool bWasOwner = m_bOwner;
+        m_bOwner = false;
+        return bWasOwner;
+    }
+
+    bool execute()
+    {
+        const auto bWasOwner = m_bOwner;
+
+        if (m_bOwner)
+        {
+            m_bOwner = false;
+            m_func();
+        }
+
+        return bWasOwner;
+    }
+
+private:
+    FUNC m_func;
+    bool m_bOwner;
+};
+
+/**
+ * !!! be cautious about lifetime of return value
+ */
+template <typename F>
+deferred_call<F> defer(F&& f)
+{
+    return deferred_call<F>(std::forward<F>(f));
+}
 
 };

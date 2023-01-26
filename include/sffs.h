@@ -1148,6 +1148,23 @@ public:
         return m_algo.getNode(child);
     }
 
+    inline std::vector<uint32_t> getChildren(uint32_t parentId) const {
+        const auto etype = this->getEntryType(parentId);
+        if (etype != EntryType::RootStorage &&
+            etype != EntryType::UserStorage)
+        {
+            return {};
+        }
+
+        std::vector<uint32_t> ans;
+        const auto root = this->getSubdirectoryEntry(parentId);
+        for (auto iter = m_algo.begin(root);m_algo.exists(iter);m_algo.forward(root, iter)) {
+            ans.push_back(m_algo.getNode(iter));
+        }
+
+        return ans;
+    }
+
     inline uint32_t getShortStreamSecId() const { return this->getSectorID(0); }
     inline void setShortStreamSecId(uint32_t val) { return this->setSectorID(0, val); }
 
@@ -1833,12 +1850,13 @@ private:
         mixstream_t    m_stream;
     };
 
+    using FSPath = std::vector<std::string>;
+
     struct StatInfo {
+        FSPath    m_path;
         EntryType m_type;
         size_t    m_size;
     };
-
-    using FSPath = std::vector<std::string>;
 
     struct OpenedFile {
         FileStream m_stream;
@@ -1873,7 +1891,7 @@ private:
     };
 
     using file_t = int;
-    using dir_t  = std::optional<int>;
+    using dir_t  = int;
 
     enum class ErrorCode {
         noerror = 0,
@@ -1930,8 +1948,16 @@ private:
         m_openedDirectories.at(p).m_ref--;
     }
 
-    inline std::array<uint16_t,32> buildName(const std::string& str) {
+    inline std::array<uint16_t,32> buildName(const std::string& str) const {
         std::array<uint16_t,32> ans = { 0 };
+        for (size_t i=0;i<str.size()&&i<ans.size();i++) {
+            ans[i] = str[i];
+        }
+        return ans;
+    }
+
+    inline std::string name2str(const std::array<uint16_t,32>& str) const {
+        std::string ans;
         for (size_t i=0;i<str.size()&&i<ans.size();i++) {
             ans[i] = str[i];
         }
@@ -2016,6 +2042,12 @@ private:
         if (!this->openDirectory(path)) return false;
 
         return openFile(path, basename);
+    }
+
+    inline StatInfo entry2stat(uint32_t entryid, FSPath path) const {
+        const auto type = static_cast<EntryType>(m_dirtable.getEntryType(entryid));
+        size_t size = m_dirtable.getSize(entryid);
+        return StatInfo { path, type, size };
     }
 
 public:
@@ -2135,11 +2167,29 @@ public:
         return true;
     }
 
+    std::vector<StatInfo> listdir(const FSPath& dir) const {
+        auto _this = const_cast<FileSystem*>(this);
+        if (!_this->openDirectory(dir)) return {};
+
+        auto& mm = _this->m_openedDirectories.at(dir);
+        const auto dirid = mm.m_entryid;
+        const auto childrenId = m_dirtable.getChildren(dirid);
+        std::vector<StatInfo> ans;
+        for (const auto id: childrenId) {
+            auto path = dir;
+            path.push_back(this->name2str(m_dirtable.getName(id)));
+            ans.push_back(this->entry2stat(id, path));
+        }
+
+        _this->decRef(dir);
+        return ans;
+    }
+
     std::optional<dir_t> opendir(const FSPath& path) {
         if (!this->openDirectory(path)) return std::nullopt;
 
         const int handler = m_handler_count++;
-        DirectoryEntry entry {m_openedDirectories.at(path)};
+        DirectoryEntry entry { &m_openedDirectories.at(path) };
         m_dirEntires[handler] = entry;
 
         return handler;
@@ -2304,14 +2354,15 @@ public:
         return true;
     }
 
-    std::optional<StatInfo> stat(const FSPath& path) {
+    std::optional<StatInfo> stat(const FSPath& path) const {
         if (path.empty()) {
-            return StatInfo { EntryType::RootStorage, 0 };
+            return StatInfo { path, EntryType::RootStorage, 0 };
         }
+        auto _this = const_cast<FileSystem*>(this);
 
         auto pp = path;
         pp.pop_back();
-        if (!this->openDirectory(pp)) {
+        if (!_this->openDirectory(pp)) {
             m_errcode = ErrorCode::invalid_path;
             return std::nullopt;
         }
@@ -2319,13 +2370,11 @@ public:
         const auto nu = m_dirtable.searchChild(m_openedDirectories.at(pp).m_entryid, this->buildName(path.back()));
         if (!nu.has_value()) {
             m_errcode = ErrorCode::invalid_path;
-            this->decRef(pp);
+            _this->decRef(pp);
             return std::nullopt;
         }
 
-        const auto type = static_cast<EntryType>(m_dirtable.getEntryType(nu.value()));
-        size_t size = m_dirtable.getSize(nu.value());
-        return StatInfo { type, size };
+        return this->entry2stat(nu.value(), path);
     }
 };
 
