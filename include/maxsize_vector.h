@@ -109,7 +109,11 @@ public:
             }
         }
 
-        while (!this->empty()) this->pop_back();
+        if constexpr (!std::is_trivially_destructible_v<T>) {
+            while (!this->empty()) this->pop_back();
+        } else {
+            m_size = 0;
+        }
     }
     template<typename K>
     inline void push_back(K&& val) {
@@ -146,6 +150,7 @@ public:
             if (m_size < N) {
                 m_array[m_size].destroy();
             } else {
+                assert(m_appvec.size() > 0);
                 m_appvec.pop_back();
             }
         } else {
@@ -181,9 +186,7 @@ public:
     {
         for (size_t i=0;i<N && i < oth.size();i++)
             this->emplace_back(std::move(oth.at(i)));
-        if constexpr (appendvector) {
-            m_appvec(std::move(oth.m_appvec));
-        }
+        m_appvec = std::move(oth.m_appvec);
         this->m_size = oth.m_size;
         oth.m_size = 0;
     }
@@ -195,10 +198,10 @@ public:
 
     maxsize_vector& operator=(maxsize_vector&& oth) {
         this->clear();
-        this->m_size  = oth.m_size;
-        this->m_appvec = std::move(this->m_appvec);
-        for (size_t i=0;i<N;i++) { this->m_array[i] = oth.m_array[i]; }
-        oth.m_size = 0;
+        for (size_t i=0;i<N && i < oth.size();i++)
+            this->emplace_back(std::move(oth.at(i)));
+        m_appvec = std::move(oth.m_appvec);
+        this->m_size = oth.m_size;
         return *this;
     }
 
