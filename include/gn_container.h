@@ -16,7 +16,7 @@ public:
 
     inline explicit ContainerWrapper(_Container&& container): m_container(std::move(container)) {}
 
-    inline _IterBase k_insert(KVPair&& val) { return m_container.insert(std::move(val)); }
+    inline _IterBase k_insert(KVPair val) { return m_container.insert(std::move(val)); }
 
     inline _IterBase k_find(const _Key& key) { return m_container.find(key); }
     inline _IterBase k_lower_bound(const _Key& key) { return m_container.lower_bound(key); }
@@ -220,10 +220,40 @@ class GnContainerIteratorMem: public GnContainerIterator<reverse,const_iterator,
             }
         }
 
-        pointer         operator->() { return &this->container().k_getHolderRef(this->m_iter); }
-        const_pointer   operator->() const { return &this->container().k_getHolderRef(this->m_iter); }
-        reference       operator*() { return this->container().k_getHolderRef(this->m_iter); }
-        const_reference operator*() const { return this->container().k_getHolderRef(this->m_iter); }
+        using _P = std::conditional_t<const_iterator,const_pointer,pointer>;
+        using _R = std::conditional_t<const_iterator,const_reference,reference>;
+        _P operator->() const {
+            return &const_cast<GnContainerIteratorMem*>(this)
+                        ->container()
+                        .k_getHolderRef(this->m_iter);
+        }
+        _R operator*() const {
+            return const_cast<GnContainerIteratorMem*>(this)
+                ->container()
+                .k_getHolderRef(this->m_iter);
+        }
+
+        GnContainerIteratorMem& operator++() {
+            base_t::operator++();
+            return *this;
+        }
+
+        GnContainerIteratorMem operator++(int) {
+            auto ans = *this;
+            this->operator++();
+            return ans;
+        }
+
+        GnContainerIteratorMem& operator--() {
+            base_t::operator--();
+            return *this;
+        }
+
+        GnContainerIteratorMem operator--(int) {
+            auto ans = *this;
+            this->operator++();
+            return ans;
+        }
 };
 
 template<bool ref_accessor, bool reverse, bool const_iterator, typename _Container, typename _IterBase, typename _Key, typename _Value, typename KVPair, typename IterCategory>
@@ -238,6 +268,9 @@ private:
     ContainerWrapper_t m_container;
     static constexpr auto ref_accessor = ContainerWrapper_t::ref_accessor;
     inline auto& nonconst() const { return const_cast<GnContainer*>(this)->m_container; }
+
+    struct DUMMY {};
+    using XValueType = std::conditional_t<!std::is_same_v<_Value,void> && ref_accessor, _Value, DUMMY>;
 
 public:
     using iterator               = GnContainerIteratorEx<ref_accessor, false,false,_Container,_IterBase,_Key,_Value,KVPair,IterCategory>;
@@ -256,6 +289,58 @@ public:
     }
 
     bool operator!=(const GnContainer& oth) const { return !this->operator==(oth); }
+
+    template <typename Key,
+              std::enable_if_t<std::is_same_v<Key, _Key> && ref_accessor, bool> = true>
+    XValueType& at(const Key& key) {
+        if constexpr (std::is_same_v<XValueType,DUMMY>) {
+            return std::declval<DUMMY>();
+        } else {
+            const auto it = this->find(key);
+            if (it == end()) {
+                throw std::out_of_range("key not found");
+            }
+            return it->second;
+        }
+    }
+
+    template <typename Key,
+              std::enable_if_t<std::is_same_v<Key, _Key> && ref_accessor,
+                               bool> = true>
+    XValueType& operator[](const Key& key) {
+        if constexpr (std::is_same_v<XValueType, DUMMY>) {
+            return std::declval<DUMMY>();
+        } else {
+            const auto it = this->find(key);
+            if (it == end()) {
+                if constexpr (std::is_integral_v<_Value>) {
+                    const auto [it, _] =
+                        this->insert(std::make_pair(key, _Value(0)));
+                    return it->second;
+                } else {
+                    const auto [it, _] =
+                        this->insert(std::make_pair(key, _Value()));
+                    return it->second;
+                }
+            } else {
+                return it->second;
+            }
+        }
+    }
+
+    template <typename Key,
+              std::enable_if_t<std::is_same_v<Key, _Key>, bool> = true>
+    const XValueType& at(const Key& key) const {
+        if constexpr (std::is_same_v<XValueType, DUMMY>) {
+            return std::declval<DUMMY>();
+        } else {
+            const auto it = this->find(key);
+            if (it == end()) {
+                throw std::out_of_range("key not found");
+            }
+            return it->second;
+        }
+    }
 
     inline iterator begin() { return iterator(m_container.k_begin(), nonconst()); }
     inline iterator end() {   return iterator(m_container.k_end(),   nonconst()); }
@@ -343,6 +428,11 @@ public:
     inline size_t size() const { return m_container.k_size(); }
     inline bool   empty() const { return this->size() == 0; }
     inline size_t max_size() const noexcept { return std::numeric_limits<size_t>::max(); }
+
+    std::pair<iterator,bool> insert(const KVPair& val) {
+        auto iter = m_container.k_insert(val);
+        return std::make_pair(iterator(iter, nonconst()), m_container.k_exists(iter));
+    }
 
     template<typename ValType, typename std::enable_if<std::is_constructible<KVPair,ValType&&>::value,bool>::type = true>
     std::pair<iterator,bool> insert(ValType&& val)
