@@ -12,7 +12,6 @@
 #include <map>
 #include <memory>
 #include <optional>
-#include <queue>
 #include <set>
 #include <string>
 #include <type_traits>
@@ -980,7 +979,7 @@ public:
 
     inline void deleteLastSector() {
         this->prepareCacheUntil(std::numeric_limits<size_t>::max());
-        assert(this->m_secIdChainCache().size() > 1);
+        assert(this->m_secIdChainCache.size() > 1);
 
         const auto prev =
             m_secIdChainCache.size() > 2
