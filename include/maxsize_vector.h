@@ -1,11 +1,10 @@
 #pragma once
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <iterator>
 #include <utility>
 #include <vector>
-
-#include "./ldc_utils.h"
 
 namespace ldc {
 template <typename T, size_t N, bool appendvector = false>
@@ -61,13 +60,27 @@ private:
             return ans;
         }
 
-        const_iterator_impl& operator+(int n) {
+        const_iterator_impl& operator+=(int n) {
             assert(m_idx + n <= m_vec.size());
             m_idx += n;
+            return *this;
         }
-        const_iterator_impl& operator-(int n) {
+        const_iterator_impl& operator-=(int n) {
             assert(m_idx >= n);
             m_idx -= n;
+            return *this;
+        }
+
+        const_iterator_impl operator+(int n) {
+            auto copy = *this;
+            copy += n;
+            return copy;
+        }
+
+        const_iterator_impl operator-(int n) {
+            auto copy = *this;
+            copy -= n;
+            return copy;
         }
 
         std::ptrdiff_t operator-(const const_iterator_impl& oth) {
@@ -122,6 +135,53 @@ private:
                 static_cast<const const_iterator_impl<reverse>*>(this)
                     ->operator*());
         }
+
+        using XZ = const_iterator_impl<reverse>;
+        iterator_impl& operator++() {
+            XZ::operator++();
+            return *this;
+        }
+
+        iterator_impl& operator--() {
+            XZ::operator--();
+            return *this;
+        }
+
+        iterator_impl operator++(int) {
+            auto ans = *this;
+            this->operator++();
+            return ans;
+        }
+        iterator_impl operator--(int) {
+            auto ans = *this;
+            this->operator--();
+            return ans;
+        }
+
+        iterator_impl& operator+=(int n) {
+            XZ::operator+=(n);
+            return *this;
+        }
+        iterator_impl& operator-=(int n) {
+            XZ::operator-=(n);
+            return *this;
+        }
+
+        iterator_impl operator+(int n) {
+            auto copy = *this;
+            copy += n;
+            return copy;
+        }
+
+        iterator_impl operator-(int n) {
+            auto copy = *this;
+            copy -= n;
+            return copy;
+        }
+
+        std::ptrdiff_t operator-(const iterator_impl& oth) {
+            return XZ::operator-(oth);
+        }
     };
 
 public:
@@ -146,6 +206,8 @@ public:
     inline const T& back() const {
         return const_cast<maxsize_vector*>(this)->back();
     }
+    inline T& front() { return at(0); }
+    inline const T& front() const { return at(0); }
 
     inline void clear() {
         if constexpr (appendvector) {
@@ -204,6 +266,27 @@ public:
         }
     }
 
+    inline void swap(maxsize_vector& oth) {
+        if constexpr (appendvector) {
+            m_appvec.swap(oth.m_appvec);
+        }
+        const auto m = std::min(std::min(m_size, oth.m_size), N);
+        for (size_t i = 0; i < m; i++) {
+            std::swap(at(i), oth.at(i));
+        }
+        for (size_t i = m; i < std::min(m_size, N); i++) {
+            oth.m_array[i].construct_with(std::move(at(i)));
+            ;
+            m_array[i].destroy();
+        }
+        for (size_t i = m; i < std::min(oth.m_size, N); i++) {
+            m_array[i].construct_with(std::move(oth.at(i)));
+            ;
+            oth.m_array[i].destroy();
+        }
+        std::swap(m_size, oth.m_size);
+    }
+
     inline T& operator[](size_t idx) { return this->at(idx); }
     inline const T& operator[](size_t idx) const { return this->at(idx); }
 
@@ -225,6 +308,13 @@ public:
 
     inline bool empty() const { return m_size == 0; }
 
+    template <typename Iter>
+    inline maxsize_vector(Iter begin, Iter end) : m_size(0) {
+        for (; begin != end; ++begin) {
+            this->push_back(*begin);
+        }
+    }
+
     inline maxsize_vector(std::initializer_list<T> vec) : m_size(0) {
         for (auto v : vec) this->push_back(v);
     }
@@ -239,6 +329,79 @@ public:
 
     maxsize_vector(const maxsize_vector& oth) : m_size(0) {
         for (auto& v : oth) this->emplace_back(v);
+    }
+
+    maxsize_vector(const T& v, size_t n) : m_size(0) { resize(v, n); }
+
+    void resize(size_t n) {
+        while (size() > n) {
+            this->pop_back();
+        }
+        while (size() < n) {
+            this->emplace_back();
+        }
+    }
+
+    void resize(size_t n, const T& v) {
+        while (size() > n) {
+            this->pop_back();
+        }
+        while (size() < n) {
+            this->emplace_back(v);
+        }
+    }
+
+    iterator insert(iterator it, const T& v) { return insert(it, 1, v); }
+
+    iterator insert(iterator it, size_t n, const T& v) {
+        if (n == 0) {
+            return it;
+        }
+
+        const auto off = std::distance(begin(), it);
+        const auto z = size();
+        resize(size() + n, v);
+        std::reverse(begin() + z, end());
+        std::reverse(begin() + off, end());
+        std::reverse(begin() + off + n, end());
+        return begin() + off;
+    }
+
+    template <typename It,
+              std::enable_if_t<
+                  std::is_convertible_v<decltype(*std::declval<It>()), T>,
+                  bool> = true>
+    iterator insert(iterator it, It xbegin, It xend) {
+        size_t n = 0;
+        const auto off = std::distance(begin(), it);
+        const auto z = size();
+        for (; xbegin != xend; xbegin++, n++) {
+            emplace_back(*xbegin);
+        }
+
+        std::reverse(begin() + z, end());
+        std::reverse(begin() + off, end());
+        std::reverse(begin() + off + n, end());
+        return begin() + off;
+    }
+
+    iterator erase(const_iterator pos) { return erase(pos, std::next(pos)); }
+    iterator erase(iterator pos) { return erase(pos, std::next(pos)); }
+
+    iterator erase(iterator xbegin, iterator xend) {
+        const auto xoff1 = std::distance(begin(), xbegin);
+        const auto xoff2 = std::distance(begin(), xend);
+        assert(xoff1 <= xoff2);
+        std::reverse(xend, end());
+        std::reverse(xbegin, end());
+        resize(size() - (xoff2 - xoff1));
+        return begin() + xoff1;
+    }
+
+    iterator erase(const_iterator xbegin, const_iterator xend) {
+        const auto zbegin = begin() + std::distance(cbegin(), xbegin);
+        const auto zend = begin() + std::distance(cbegin(), xend);
+        return erase(zbegin, zend);
     }
 
     maxsize_vector& operator=(maxsize_vector&& oth) {
@@ -310,6 +473,10 @@ private:
 
     size_t m_size;
     DT m_array[N];
+    struct dummy_struct {};
     std::conditional_t<appendvector, std::vector<T>, dummy_struct> m_appvec;
 };
+
+template <typename T, size_t N = 10>
+using qarray = maxsize_vector<T, N, true>;
 };  // namespace ldc
