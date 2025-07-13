@@ -11,8 +11,7 @@
                     modernize-use-nullptr,
                     modernize-use-override,
                     # google-build-explicit-make-pair,
-                    google-explicit-constructor,
-                    google-readability-casting'
+                    google-explicit-constructor'
 WarningsAsErrors: ''
 HeaderFilterRegex: ''
 AnalyzeTemporaryDtors: false

@@ -1,9 +1,11 @@
 #include <benchmark/benchmark.h>
-#include "sffs.h"
-#include <set>
+
 #include <iostream>
 #include <random>
+#include <set>
 #include <stdexcept>
+
+#include "sffs.h"
 using namespace SFFS;
 
 BENCHMARK_MAIN();

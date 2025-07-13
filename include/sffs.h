@@ -1,34 +1,34 @@
 #pragma once
 
-#include <stdint.h>
-#include <stddef.h>
 #include <assert.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <string.h>
-#include <string>
-#include <ios>
-#include <memory>
-#include <map>
-#include <set>
-#include <vector>
-#include <limits>
-#include <type_traits>
-#include <array>
-#include <list>
-#include <queue>
-#include <optional>
 
+#include <array>
+#include <ios>
+#include <limits>
+#include <list>
+#include <map>
+#include <memory>
+#include <optional>
+#include <queue>
+#include <set>
+#include <string>
+#include <type_traits>
+#include <vector>
 
 namespace SFFS {
-using addr_t  = size_t;
+using addr_t = size_t;
 
-class BaseException: public std::exception {};
-class RuntimeError:  public BaseException {};
-class OutOfRange:    public BaseException {};
-class OutOfSpace:    public BaseException {};
-class BadFormat:     public BaseException {};
-class FileCorrupt:   public BaseException {};
-class SectorTooHuge: public BaseException {};
-class AlreadyExists: public BaseException {};
+class BaseException : public std::exception {};
+class RuntimeError : public BaseException {};
+class OutOfRange : public BaseException {};
+class OutOfSpace : public BaseException {};
+class BadFormat : public BaseException {};
+class FileCorrupt : public BaseException {};
+class SectorTooHuge : public BaseException {};
+class AlreadyExists : public BaseException {};
 
 namespace Impl {
 template <typename T>
@@ -38,47 +38,73 @@ struct device_traits {
     static size_t v3;
     static const void* v4;
 
-    template<typename U>
-    static uint8_t  test_read(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(static_cast<const U*>(nullptr)->read(v1,v2,v3))>,bool> = true>
+    template <typename U>
+    static uint8_t test_read(...);
+    template <typename U,
+              std::enable_if_t<
+                  std::is_same_v<size_t, decltype(static_cast<const U*>(nullptr)
+                                                      ->read(v1, v2, v3))>,
+                  bool> = true>
     static uint16_t test_read(int);
 
-    template<typename U>
-    static uint8_t  test_write(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(static_cast<U*>(nullptr)->write(v1,v4,v3))>,bool> = true>
+    template <typename U>
+    static uint8_t test_write(...);
+    template <typename U,
+              std::enable_if_t<
+                  std::is_same_v<size_t, decltype(static_cast<U*>(nullptr)
+                                                      ->write(v1, v4, v3))>,
+                  bool> = true>
     static uint16_t test_write(int);
 
-    template<typename U>
-    static uint8_t  test_flush(...);
-    template<typename U,std::enable_if_t<std::is_same_v<void,  decltype(static_cast<U*>(nullptr)->flush())>,bool> = true>
+    template <typename U>
+    static uint8_t test_flush(...);
+    template <
+        typename U,
+        std::enable_if_t<
+            std::is_same_v<void, decltype(static_cast<U*>(nullptr)->flush())>,
+            bool> = true>
     static uint16_t test_flush(int);
 
-    template<typename U>
-    static uint8_t  test_noflush(...);
-    template<typename U,std::enable_if_t<!std::is_same_v<void,decltype(&U::flush)>,bool> = true>
+    template <typename U>
+    static uint8_t test_noflush(...);
+    template <typename U,
+              std::enable_if_t<!std::is_same_v<void, decltype(&U::flush)>,
+                               bool> = true>
     static uint16_t test_noflush(int);
 
-    template<typename U>
-    static uint8_t  test_max_size(...);
-    template<typename U,std::enable_if_t<std::is_same_v<size_t,decltype(static_cast<const U*>(nullptr)->max_size())>,bool> = true>
+    template <typename U>
+    static uint8_t test_max_size(...);
+    template <typename U,
+              std::enable_if_t<
+                  std::is_same_v<size_t, decltype(static_cast<const U*>(nullptr)
+                                                      ->max_size())>,
+                  bool> = true>
     static uint16_t test_max_size(int);
 
-    static constexpr bool has_read     = sizeof(test_read<T>(1))     == sizeof(uint16_t);
-    static constexpr bool has_write    = sizeof(test_write<T>(1))    == sizeof(uint16_t);
-    static constexpr bool has_flush    = sizeof(test_flush<T>(1))    == sizeof(uint16_t);
-    static constexpr bool has_max_size = sizeof(test_max_size<T>(1)) == sizeof(uint16_t);
-    static constexpr bool no_flush     = sizeof(test_noflush<T>(1))  == sizeof(uint8_t );
+    static constexpr bool has_read =
+        sizeof(test_read<T>(1)) == sizeof(uint16_t);
+    static constexpr bool has_write =
+        sizeof(test_write<T>(1)) == sizeof(uint16_t);
+    static constexpr bool has_flush =
+        sizeof(test_flush<T>(1)) == sizeof(uint16_t);
+    static constexpr bool has_max_size =
+        sizeof(test_max_size<T>(1)) == sizeof(uint16_t);
+    static constexpr bool no_flush =
+        sizeof(test_noflush<T>(1)) == sizeof(uint8_t);
 };
 
 template <typename T>
 struct is_block_device {
     using traits = device_traits<T>;
 
-    static constexpr bool value = traits::has_read && traits::has_write && traits::has_max_size && (traits::has_flush || traits::no_flush);
+    static constexpr bool value = traits::has_read && traits::has_write &&
+                                  traits::has_max_size &&
+                                  (traits::has_flush || traits::no_flush);
 };
-}
+}  // namespace Impl
 
-template<typename T, std::enable_if_t<Impl::is_block_device<T>::value,bool> = true>
+template <typename T,
+          std::enable_if_t<Impl::is_block_device<T>::value, bool> = true>
 class BlockView {
 public:
     inline size_t read(addr_t addr, void* buf, size_t n) const {
@@ -95,17 +121,15 @@ public:
 
         return this->m_block.write(addr + m_offset, buf, n);
     }
-    inline size_t max_size() const {
-        return this->m_size;
-    }
+    inline size_t max_size() const { return this->m_size; }
     inline void flush() {
         if constexpr (Impl::device_traits<T>::has_flush) {
             this->m_block.flush();
         }
     }
 
-    inline BlockView(T& block, addr_t offset, size_t size): m_block(block), m_size(size), m_offset(offset)
-    {
+    inline BlockView(T& block, addr_t offset, size_t size)
+        : m_block(block), m_size(size), m_offset(offset) {
         if (m_offset + size > m_block.max_size()) {
             throw OutOfRange();
         }
@@ -117,7 +141,8 @@ private:
     const addr_t m_offset;
 };
 
-template<typename T, std::enable_if_t<Impl::is_block_device<T>::value,bool> = true>
+template <typename T,
+          std::enable_if_t<Impl::is_block_device<T>::value, bool> = true>
 class BlockDeviceExt {
 private:
     T m_block;
@@ -128,34 +153,34 @@ private:
         addr_t m_index;
 
     public:
-        inline ConstByteAccessor(const BlockDeviceExt& wrapper, addr_t addr):
-            m_wrapper(wrapper), m_index(addr) { }
+        inline ConstByteAccessor(const BlockDeviceExt& wrapper, addr_t addr)
+            : m_wrapper(wrapper), m_index(addr) {}
 
         inline explicit operator char() const {
             return m_wrapper.get<char>(m_index);
         }
     };
 
-    class ByteAccessor: public ConstByteAccessor {
+    class ByteAccessor : public ConstByteAccessor {
     public:
-        inline ByteAccessor(BlockDeviceExt& wrapper, addr_t addr):
-            ConstByteAccessor(wrapper, addr) { }
+        inline ByteAccessor(BlockDeviceExt& wrapper, addr_t addr)
+            : ConstByteAccessor(wrapper, addr) {}
 
         inline ByteAccessor& operator=(char byte) & {
-            const_cast<BlockDeviceExt&>(this->m_wrapper).set<char>(this->m_index, byte);
+            const_cast<BlockDeviceExt&>(this->m_wrapper)
+                .set<char>(this->m_index, byte);
             return *this;
         }
 
         inline ByteAccessor& operator=(char byte) && {
-            const_cast<BlockDeviceExt&>(this->m_wrapper).set<char>(this->m_index, byte);
+            const_cast<BlockDeviceExt&>(this->m_wrapper)
+                .set<char>(this->m_index, byte);
             return *this;
         }
     };
 
-
 public:
-    explicit inline BlockDeviceExt(T&& block): m_block(std::move(block)) {
-    }
+    explicit inline BlockDeviceExt(T&& block) : m_block(std::move(block)) {}
 
     inline size_t read(addr_t addr, void* buf, size_t n) const {
         return this->m_block.read(addr, buf, n);
@@ -163,9 +188,7 @@ public:
     inline size_t write(addr_t addr, const void* buf, size_t n) {
         return this->m_block.write(addr, buf, n);
     }
-    inline size_t max_size() const {
-        return this->m_block.max_size();
-    }
+    inline size_t max_size() const { return this->m_block.max_size(); }
     inline void flush() {
         if constexpr (Impl::device_traits<T>::has_flush) {
             this->m_block.flush();
@@ -173,14 +196,16 @@ public:
     }
 
     // assume everything is little-endian FIXME
-    template<typename Int, std::enable_if_t<std::is_integral<Int>::value,bool> = true>
+    template <typename Int,
+              std::enable_if_t<std::is_integral<Int>::value, bool> = true>
     inline Int get(addr_t addr) const {
         Int ans;
         this->read(addr, &ans, sizeof(Int));
         return ans;
     }
 
-    template<typename Int, std::enable_if_t<std::is_integral<Int>::value,bool> = true>
+    template <typename Int,
+              std::enable_if_t<std::is_integral<Int>::value, bool> = true>
     inline void set(addr_t addr, Int val) {
         this->write(addr, &val, sizeof(Int));
     }
@@ -194,10 +219,11 @@ public:
     }
 };
 
-template<typename T, std::enable_if_t<Impl::is_block_device<T>::value,bool> = true>
+template <typename T,
+          std::enable_if_t<Impl::is_block_device<T>::value, bool> = true>
 class BlockDeviceRefWrapper {
 public:
-    explicit inline BlockDeviceRefWrapper(T& block): m_block(block) {}
+    explicit inline BlockDeviceRefWrapper(T& block) : m_block(block) {}
 
     inline size_t read(addr_t addr, void* buf, size_t n) const {
         return this->m_block.read(addr, buf, n);
@@ -205,9 +231,7 @@ public:
     inline size_t write(addr_t addr, const void* buf, size_t n) {
         return this->m_block.write(addr, buf, n);
     }
-    inline size_t max_size() const {
-        return this->m_block.max_size();
-    }
+    inline size_t max_size() const { return this->m_block.max_size(); }
     inline void flush() {
         if constexpr (Impl::device_traits<T>::has_flush) {
             this->m_block.flush();
@@ -221,79 +245,71 @@ private:
 // TODO
 class CacheBlock {
 public:
-    explicit CacheBlock(size_t size):
-        m_cache(new char[size]), m_size(size)
-    {
-    }
+    explicit CacheBlock(size_t size) : m_cache(new char[size]), m_size(size) {}
 
     ~CacheBlock() {
         delete[] this->m_cache;
         this->m_cache = nullptr;
     }
 
-    size_t read (addr_t addr, void* buf, size_t n) const;
+    size_t read(addr_t addr, void* buf, size_t n) const;
     size_t write(addr_t addr, const void* buf, size_t n);
     size_t size() const;
 
 private:
-    char*  m_cache;
+    char* m_cache;
     size_t m_size;
 };
 
 // TODO
-template<typename T, std::enable_if_t<Impl::is_block_device<T>::value,bool> = true>
+template <typename T,
+          std::enable_if_t<Impl::is_block_device<T>::value, bool> = true>
 class CachedBlockDevice {
 public:
-    CachedBlockDevice(T block, size_t sec_size, size_t max_sec, std::vector<addr_t> pinned);
+    CachedBlockDevice(T block, size_t sec_size, size_t max_sec,
+                      std::vector<addr_t> pinned);
 
-    inline size_t read (addr_t addr, void* buf, size_t n) const {
-        return 0;
-    }
-    inline size_t write(addr_t addr, const void* buf, size_t n) {
-        return 0;
-    }
-    inline void   flush() {
-    }
-    inline size_t max_size() const {
-        return m_internal.max_size();
-    }
+    inline size_t read(addr_t addr, void* buf, size_t n) const { return 0; }
+    inline size_t write(addr_t addr, const void* buf, size_t n) { return 0; }
+    inline void flush() {}
+    inline size_t max_size() const { return m_internal.max_size(); }
 
 private:
     T m_internal;
-    std::set<addr_t>            m_dirty;
-    std::list<addr_t>           m_lru;
-    std::set<addr_t>            m_cached;
-    std::set<addr_t>            m_pinned;
-    std::map<addr_t,CacheBlock> m_caches;
+    std::set<addr_t> m_dirty;
+    std::list<addr_t> m_lru;
+    std::set<addr_t> m_cached;
+    std::set<addr_t> m_pinned;
+    std::map<addr_t, CacheBlock> m_caches;
 };
 
-class StatInfo {
-};
+class StatInfo {};
 
 class OpenFileNode {
 private:
-    bool     m_valid;
-    size_t   m_filesize;
+    bool m_valid;
+    size_t m_filesize;
     uint32_t m_secId;
-    size_t   m_refcount;
+    size_t m_refcount;
 };
 
 class FileEntry {
 private:
     std::shared_ptr<OpenFileNode> m_node;
-    size_t                        m_offset;
-    std::ios_base::openmode       m_mode;
+    size_t m_offset;
+    std::ios_base::openmode m_mode;
 };
 
 class DirectoryEntry {
 private:
     uint32_t m_entryid;
-    size_t   m_version;
+    size_t m_version;
 };
 
 class DirectoryEntryIterator {
 public:
-    DirectoryEntryIterator(DirectoryEntry& entry, size_t version, std::vector<uint32_t> entryids);
+    DirectoryEntryIterator(DirectoryEntry& entry, size_t version,
+                           std::vector<uint32_t> entryids);
 
 private:
     DirectoryEntry& m_entry;
@@ -307,19 +323,19 @@ private:
 };
 
 using file_t = std::shared_ptr<FileEntry>;
-using dir_t  = std::shared_ptr<DirectoryEntry>;
+using dir_t = std::shared_ptr<DirectoryEntry>;
 
 enum class ErrorCode {
     noerror = 0,
 };
 
 enum class AllocTableEntry {
-    NOT_USED      = -1,
-    END_OF_CHAIN  = -2,
-    SAT_USED      = -3,
-    MSAT_USED     = -4,
+    NOT_USED = -1,
+    END_OF_CHAIN = -2,
+    SAT_USED = -3,
+    MSAT_USED = -4,
     NotApplicable = -5,
-    MaxRegSector  = -6,
+    MaxRegSector = -6,
 };
 inline bool is_reg_entry(uint32_t id) {
     return id != static_cast<uint32_t>(AllocTableEntry::NOT_USED) &&
@@ -330,22 +346,25 @@ inline bool is_reg_entry(uint32_t id) {
            id != static_cast<uint32_t>(AllocTableEntry::MaxRegSector);
 }
 
-#define CompoundFileSignature { 0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1 }
+#define CompoundFileSignature {0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1}
 
-template<typename T, std::enable_if_t<Impl::is_block_device<T>::value,bool> = true>
+template <typename T,
+          std::enable_if_t<Impl::is_block_device<T>::value, bool> = true>
 class CompoundFileHeaderAccessor {
 public:
-    inline explicit CompoundFileHeaderAccessor(T block_ref): m_block(std::move(block_ref)) {
+    inline explicit CompoundFileHeaderAccessor(T block_ref)
+        : m_block(std::move(block_ref)) {
         if (m_block.max_size() < 512) {
             throw BadFormat();
         }
 
-        unsigned char signature_buf[8] = { 0 };
+        unsigned char signature_buf[8] = {0};
         const unsigned char cf_signature[8] = CompoundFileSignature;
-        if (m_block.read(0, signature_buf, sizeof(signature_buf)) != sizeof(signature_buf)) {
+        if (m_block.read(0, signature_buf, sizeof(signature_buf)) !=
+            sizeof(signature_buf)) {
             throw RuntimeError();
         }
-        for (size_t i=0;i<sizeof(signature_buf);i++) {
+        for (size_t i = 0; i < sizeof(signature_buf); i++) {
             if (signature_buf[i] != cf_signature[i]) {
                 throw BadFormat();
             }
@@ -363,7 +382,7 @@ public:
             throw BadFormat();
         }
 
-        const auto s  = m_block.template get<uint16_t>(30);
+        const auto s = m_block.template get<uint16_t>(30);
         if (s > 25) {
             throw SectorTooHuge();
         }
@@ -388,16 +407,13 @@ public:
     }
 
     inline bool isLittleEndian() const {
-        return m_block.template get<uint8_t>(28) == 0xFE && m_block.template get<uint8_t>(29) == 0xFF;
+        return m_block.template get<uint8_t>(28) == 0xFE &&
+               m_block.template get<uint8_t>(29) == 0xFF;
     }
 
-    inline size_t sizeOfSector() const {
-        return m_sizeOfSector;
-    }
+    inline size_t sizeOfSector() const { return m_sizeOfSector; }
 
-    inline size_t sizeOfShortSector() const {
-        return m_sizeOfShortSector;
-    }
+    inline size_t sizeOfShortSector() const { return m_sizeOfShortSector; }
 
     inline uint32_t getNumsSectorforSAT() const {
         return m_block.template get<uint32_t>(44);
@@ -465,27 +481,33 @@ public:
         m_block.template set<uint32_t>(76 + index * 4, val);
     }
 
-    inline constexpr size_t headerSize() const {
-        return 512;
-    }
+    inline constexpr size_t headerSize() const { return 512; }
 
-    inline static CompoundFileHeaderAccessor format(T& block, uint16_t majorVersion, uint16_t sectorShift, uint16_t shortSectorShift) {
-        return CompoundFileHeaderAccessor(block, majorVersion, sectorShift, shortSectorShift);
+    inline static CompoundFileHeaderAccessor format(T& block,
+                                                    uint16_t majorVersion,
+                                                    uint16_t sectorShift,
+                                                    uint16_t shortSectorShift) {
+        return CompoundFileHeaderAccessor(block, majorVersion, sectorShift,
+                                          shortSectorShift);
     }
 
 private:
-    inline explicit CompoundFileHeaderAccessor(T& block, uint16_t majorVersion, uint16_t sectorShift, uint16_t shortSectorShift): m_block(block) {
+    inline explicit CompoundFileHeaderAccessor(T& block, uint16_t majorVersion,
+                                               uint16_t sectorShift,
+                                               uint16_t shortSectorShift)
+        : m_block(block) {
         if (m_block.max_size() < 512) {
             throw BadFormat();
         }
 
-        const char buf[512] = { 0 };
+        const char buf[512] = {0};
         if (m_block.write(0, buf, sizeof(buf)) != sizeof(buf)) {
             throw RuntimeError();
         }
 
         const unsigned char signature_buf[8] = CompoundFileSignature;
-        if (m_block.write(0, signature_buf, sizeof(signature_buf)) != sizeof(signature_buf)) {
+        if (m_block.write(0, signature_buf, sizeof(signature_buf)) !=
+            sizeof(signature_buf)) {
             throw RuntimeError();
         }
 
@@ -506,11 +528,11 @@ private:
         m_sizeOfSector = 1 << sectorShift;
         m_sizeOfShortSector = 1 << shortSectorShift;
 
-        this->setDirStreamSectorId  (AllocTableEntry::END_OF_CHAIN);
+        this->setDirStreamSectorId(AllocTableEntry::END_OF_CHAIN);
         this->setFirstSectorIdOfSSAT(AllocTableEntry::END_OF_CHAIN);
         this->setFirstSectorIdOfMSAT(AllocTableEntry::END_OF_CHAIN);
 
-        for (size_t i=0;i<109;i++) {
+        for (size_t i = 0; i < 109; i++) {
             this->setHeaderMSAT(i, AllocTableEntry::NOT_USED);
         }
     }
@@ -519,14 +541,19 @@ private:
     size_t m_sizeOfSector, m_sizeOfShortSector;
 };
 
-template<typename T, std::enable_if_t<Impl::is_block_device<T>::value,bool> = true>
+template <typename T,
+          std::enable_if_t<Impl::is_block_device<T>::value, bool> = true>
 class MasterSectorAllocationTable {
 public:
-    inline MasterSectorAllocationTable(CompoundFileHeaderAccessor<T>& header, T block_ref):
-        m_header(header), m_block(std::move(block_ref)), m_lastSecId(static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN)),
-        m_caches(header.getNumsSectorforMSAT() * this->entriesPerBlock() + 109, static_cast<uint32_t>(AllocTableEntry::NOT_USED))
-    {
-        for (size_t i=0;i<109;i++) {
+    inline MasterSectorAllocationTable(CompoundFileHeaderAccessor<T>& header,
+                                       T block_ref)
+        : m_header(header),
+          m_block(std::move(block_ref)),
+          m_lastSecId(static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN)),
+          m_caches(
+              header.getNumsSectorforMSAT() * this->entriesPerBlock() + 109,
+              static_cast<uint32_t>(AllocTableEntry::NOT_USED)) {
+        for (size_t i = 0; i < 109; i++) {
             this->m_caches[i] = header.getHeaderMSAT(i);
         }
 
@@ -535,18 +562,25 @@ public:
             auto secId = header.getFirstSectorIdOfMSAT();
 
             size_t count = 0;
-            for (;secId != static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN);count++){
+            for (;
+                 secId != static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN);
+                 count++) {
                 if (!is_reg_entry(secId)) {
                     throw FileCorrupt();
                 }
                 m_lastSecId = secId;
 
-                for (size_t i=0;i<this->entriesPerBlock();i++) {
-                    auto val = m_block.template get<uint32_t>(m_header.headerSize() + m_header.sizeOfSector() * secId + i * sizeof(uint32_t));
-                    this->m_caches[109 + count * this->entriesPerBlock() + i] = val;
+                for (size_t i = 0; i < this->entriesPerBlock(); i++) {
+                    auto val = m_block.template get<uint32_t>(
+                        m_header.headerSize() +
+                        m_header.sizeOfSector() * secId + i * sizeof(uint32_t));
+                    this->m_caches[109 + count * this->entriesPerBlock() + i] =
+                        val;
                 }
 
-                secId = m_block.template get<uint32_t>(m_header.headerSize() + m_header.sizeOfSector() * secId + this->entriesPerBlock() * sizeof(uint32_t));
+                secId = m_block.template get<uint32_t>(
+                    m_header.headerSize() + m_header.sizeOfSector() * secId +
+                    this->entriesPerBlock() * sizeof(uint32_t));
             }
 
             if (count != numsOfMSATSec) {
@@ -556,8 +590,9 @@ public:
     }
 
     inline std::optional<size_t> firstFreeEntry() const {
-        for (size_t i=0;i<m_caches.size();i++) {
-            if (m_caches[i] == static_cast<uint32_t>(AllocTableEntry::NOT_USED)) {
+        for (size_t i = 0; i < m_caches.size(); i++) {
+            if (m_caches[i] ==
+                static_cast<uint32_t>(AllocTableEntry::NOT_USED)) {
                 return i;
             }
         }
@@ -567,7 +602,8 @@ public:
 
     inline void UseEntry(size_t index, uint32_t secId) {
         assert(this->m_caches.size() > index);
-        assert(this->m_caches[index] == static_cast<uint32_t>(AllocTableEntry::NOT_USED));
+        assert(this->m_caches[index] ==
+               static_cast<uint32_t>(AllocTableEntry::NOT_USED));
         this->m_caches[index] = secId;
         if (index < 109) {
             this->m_header.setHeaderMSAT(index, secId);
@@ -579,7 +615,9 @@ public:
             }
 
             while (index >= this->entriesPerBlock()) {
-                secId = m_block.template get<uint32_t>(m_header.headerSize() + m_header.sizeOfSector() * secId + this->entriesPerBlock() * sizeof(uint32_t));
+                secId = m_block.template get<uint32_t>(
+                    m_header.headerSize() + m_header.sizeOfSector() * secId +
+                    this->entriesPerBlock() * sizeof(uint32_t));
                 index -= this->entriesPerBlock();
 
                 if (is_reg_entry(secId)) {
@@ -587,30 +625,37 @@ public:
                 }
             }
 
-            m_block.template set<uint32_t>(m_header.headerSize() + m_header.sizeOfSector() * secId + index * sizeof(uint32_t));
+            m_block.template set<uint32_t>(m_header.headerSize() +
+                                           m_header.sizeOfSector() * secId +
+                                           index * sizeof(uint32_t));
         }
     }
 
     inline void expand(uint32_t secId) {
-        if (m_lastSecId == static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN)) {
+        if (m_lastSecId ==
+            static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN)) {
             m_header.setFirstSectorIdOfMSAT(secId);
         } else {
             m_block.template set<uint32_t>(
-                    m_header.headerSize() + m_header.sizeOfSector() * m_lastSecId + this->entriesPerBlock() * sizeof(uint32_t),
-                    secId);
+                m_header.headerSize() + m_header.sizeOfSector() * m_lastSecId +
+                    this->entriesPerBlock() * sizeof(uint32_t),
+                secId);
         }
 
-        for (size_t i=0;i<this->entriesPerBlock();i++) {
+        for (size_t i = 0; i < this->entriesPerBlock(); i++) {
             m_block.template set<uint32_t>(
-                    m_header.headerSize() + m_header.sizeOfSector() * secId + i * sizeof(uint32_t),
-                    static_cast<uint32_t>(AllocTableEntry::NOT_USED));
+                m_header.headerSize() + m_header.sizeOfSector() * secId +
+                    i * sizeof(uint32_t),
+                static_cast<uint32_t>(AllocTableEntry::NOT_USED));
         }
         m_block.template set<uint32_t>(
-                m_header.headerSize() + m_header.sizeOfSector() * secId + this->entriesPerBlock() * sizeof(uint32_t),
-                static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
+            m_header.headerSize() + m_header.sizeOfSector() * secId +
+                this->entriesPerBlock() * sizeof(uint32_t),
+            static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
 
         m_lastSecId = secId;
-        m_caches.resize(m_caches.size() + this->entriesPerBlock(), AllocTableEntry::NOT_USED);
+        m_caches.resize(m_caches.size() + this->entriesPerBlock(),
+                        AllocTableEntry::NOT_USED);
         m_header.setNumsSectorforMSAT(m_header.getNumsSectorforMSAT() + 1);
     }
 
@@ -619,33 +664,33 @@ public:
         return m_caches[idx];
     }
 
-    inline size_t size() const {
-        return m_caches.size();
-    }
+    inline size_t size() const { return m_caches.size(); }
 
 private:
     inline uint32_t entriesPerBlock() const {
         return m_header.sizeOfSector() / sizeof(uint32_t) - 1;
     }
 
-    std::vector<uint32_t>          m_caches;
-    uint32_t                       m_lastSecId;
+    std::vector<uint32_t> m_caches;
+    uint32_t m_lastSecId;
     CompoundFileHeaderAccessor<T>& m_header;
-    BlockDeviceExt<T>              m_block;
+    BlockDeviceExt<T> m_block;
 };
 
-template<typename T, std::enable_if_t<Impl::is_block_device<T>::value,bool> = true>
+template <typename T,
+          std::enable_if_t<Impl::is_block_device<T>::value, bool> = true>
 class SectorAllocationTable {
 public:
-    inline SectorAllocationTable(CompoundFileHeaderAccessor<T>& header, T block_ref):
-        m_block(std::move(block_ref)),
-        m_header(header),
-        m_msat(header, block_ref),
-        m_lru_sectorIdBase(static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN)),
-        m_sat_free_count(m_msat.size(), 0)
-    {
+    inline SectorAllocationTable(CompoundFileHeaderAccessor<T>& header,
+                                 T block_ref)
+        : m_block(std::move(block_ref)),
+          m_header(header),
+          m_msat(header, block_ref),
+          m_lru_sectorIdBase(
+              static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN)),
+          m_sat_free_count(m_msat.size(), 0) {
         size_t kspa = 0;
-        for (size_t i=0;i<m_sat_free_count.size();i++) {
+        for (size_t i = 0; i < m_sat_free_count.size(); i++) {
             std::vector<uint32_t> cache;
             size_t nfree = 0;
             this->readNthSATSecIntoVec(i, cache, nfree);
@@ -675,7 +720,8 @@ public:
             assert(is_reg_entry(secId));
             assert(this->getEntry(preSecId) == secId);
             const auto next = this->getEntry(secId);
-            assert(is_reg_entry(next) || next == static_cast<uint32_t>(AllocTableEntry::NOT_USED));
+            assert(is_reg_entry(next) ||
+                   next == static_cast<uint32_t>(AllocTableEntry::NOT_USED));
             this->setEntry(preSecId, next);
         }
         this->setEntry(secId, static_cast<uint32_t>(AllocTableEntry::NOT_USED));
@@ -710,12 +756,15 @@ private:
         const auto tbl_sec = m_msat.get(tbl_idx);
         const auto sec_idx = secId % this->entriesPerBlock();
 
-        if (!m_lru_sectorCaches.empty() && m_lru_sectorIdBase == tbl_idx * this->entriesPerBlock()) {
+        if (!m_lru_sectorCaches.empty() &&
+            m_lru_sectorIdBase == tbl_idx * this->entriesPerBlock()) {
             assert(m_lru_sectorCaches.size() > sec_idx);
             return m_lru_sectorCaches[sec_idx];
         }
 
-        return m_block.template get<uint32_t>(m_header.headerSize() + m_header.sizeOfSector() * tbl_sec + sec_idx * sizeof(uint32_t));
+        return m_block.template get<uint32_t>(
+            m_header.headerSize() + m_header.sizeOfSector() * tbl_sec +
+            sec_idx * sizeof(uint32_t));
     }
 
     inline void setEntry(uint32_t secId, uint32_t val) {
@@ -724,30 +773,38 @@ private:
         const auto tbl_sec = m_msat.get(tbl_idx);
         const auto sec_idx = secId % this->entriesPerBlock();
 
-        if (!m_lru_sectorCaches.empty() && m_lru_sectorIdBase == tbl_idx * this->entriesPerBlock()) {
+        if (!m_lru_sectorCaches.empty() &&
+            m_lru_sectorIdBase == tbl_idx * this->entriesPerBlock()) {
             assert(m_lru_sectorCaches.size() > sec_idx);
             m_lru_sectorCaches[sec_idx] = val;
         }
 
-        m_block.template set<uint32_t>(m_header.headerSize() + m_header.sizeOfSector() * tbl_sec + sec_idx * sizeof(uint32_t), val);
+        m_block.template set<uint32_t>(m_header.headerSize() +
+                                           m_header.sizeOfSector() * tbl_sec +
+                                           sec_idx * sizeof(uint32_t),
+                                       val);
     }
 
-    inline std::optional<size_t> readNthSATSecIntoVec(size_t nth, std::vector<uint32_t>& cache, size_t& nfree) {
+    inline std::optional<size_t> readNthSATSecIntoVec(
+        size_t nth, std::vector<uint32_t>& cache, size_t& nfree) {
         assert(cache.empty());
         assert(nfree == 0);
 
         const auto sec = m_msat.get(nth);
-        uint32_t buf[4096] = { 0 };
+        uint32_t buf[4096] = {0};
         const size_t n = this->entriesPerBlock() * sizeof(uint32_t);
         std::optional<size_t> u = std::nullopt;
         size_t offset = 0;
         while (n > offset) {
             const auto k = std::min(n - offset, sizeof(buf));
-            m_block.read(m_header.headerSize() + m_header.sizeOfSector() * sec + offset, buf, k);
+            m_block.read(
+                m_header.headerSize() + m_header.sizeOfSector() * sec + offset,
+                buf, k);
             offset += k;
 
-            for (size_t j=0;j<(k/sizeof(uint32_t));j++) {
-                if (buf[j] == static_cast<uint32_t>(AllocTableEntry::NOT_USED)) {
+            for (size_t j = 0; j < (k / sizeof(uint32_t)); j++) {
+                if (buf[j] ==
+                    static_cast<uint32_t>(AllocTableEntry::NOT_USED)) {
                     nfree++;
                     u = cache.size();
                 }
@@ -758,12 +815,15 @@ private:
     }
 
     inline uint32_t allocateSector() {
-        for (size_t i=0;i<m_lru_sectorCaches.size();i++) {
-            if (m_lru_sectorCaches[i] == static_cast<uint32_t>(AllocTableEntry::NOT_USED)) {
+        for (size_t i = 0; i < m_lru_sectorCaches.size(); i++) {
+            if (m_lru_sectorCaches[i] ==
+                static_cast<uint32_t>(AllocTableEntry::NOT_USED)) {
                 const auto ans = m_lru_sectorIdBase + i;
-                this->setEntry(ans, static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
-                assert(m_lru_sectorCaches[i] == static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
-                
+                this->setEntry(
+                    ans, static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
+                assert(m_lru_sectorCaches[i] ==
+                       static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
+
                 this->check_limit(ans);
                 const auto idx = ans / this->entriesPerBlock();
                 assert(m_sat_free_count.size() > idx);
@@ -776,20 +836,24 @@ private:
             }
         }
 
-        for (size_t _i=m_sat_free_count.size();_i>0;_i--) {
+        for (size_t _i = m_sat_free_count.size(); _i > 0; _i--) {
             const auto i = _i - 1;
             if (m_sat_free_count[i] > 0) {
                 this->m_lru_sectorCaches.clear();
 
                 size_t nfree = 0;
-                const auto u_opt = this->readNthSATSecIntoVec(i, m_lru_sectorCaches, nfree);
-                assert (u_opt.has_value());
+                const auto u_opt =
+                    this->readNthSATSecIntoVec(i, m_lru_sectorCaches, nfree);
+                assert(u_opt.has_value());
                 const auto u = u_opt.value();
 
-                m_lru_sectorIdBase = i * this->entriesPerBlock();;
+                m_lru_sectorIdBase = i * this->entriesPerBlock();
+                ;
                 const auto ans = m_lru_sectorIdBase + u;
-                this->setEntry(ans, static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
-                assert(m_lru_sectorCaches[u] == static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
+                this->setEntry(
+                    ans, static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
+                assert(m_lru_sectorCaches[u] ==
+                       static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
 
                 m_sat_free_count[i]--;
                 if (m_sat_free_count[i] == 0) {
@@ -811,31 +875,44 @@ private:
             fsat = m_msat.firstFreeEntry();
             assert(fsat.has_value());
             m_msat.UseEntry(fsat.value(), msatSecId + 1);
-            m_lru_sectorCaches.resize(this->entriesPerBlock(), static_cast<uint32_t>(AllocTableEntry::NOT_USED));
+            m_lru_sectorCaches.resize(
+                this->entriesPerBlock(),
+                static_cast<uint32_t>(AllocTableEntry::NOT_USED));
             m_lru_sectorIdBase = msatSecId;
 
-            this->setEntry(msatSecId,     static_cast<uint32_t>(AllocTableEntry::MSAT_USED));
-            this->setEntry(msatSecId + 1, static_cast<uint32_t>(AllocTableEntry::SAT_USED));
-            assert(m_lru_sectorCaches[0] == static_cast<uint32_t>(AllocTableEntry::MSAT_USED));
-            assert(m_lru_sectorCaches[1] == static_cast<uint32_t>(AllocTableEntry::SAT_USED));
+            this->setEntry(msatSecId,
+                           static_cast<uint32_t>(AllocTableEntry::MSAT_USED));
+            this->setEntry(msatSecId + 1,
+                           static_cast<uint32_t>(AllocTableEntry::SAT_USED));
+            assert(m_lru_sectorCaches[0] ==
+                   static_cast<uint32_t>(AllocTableEntry::MSAT_USED));
+            assert(m_lru_sectorCaches[1] ==
+                   static_cast<uint32_t>(AllocTableEntry::SAT_USED));
             this->m_sat_free_count.push_back(this->entriesPerBlock() - 2);
         } else {
             const auto satSecId = m_msat.size() * this->entriesPerBlock();
             m_msat.UseEntry(fsat.value(), satSecId);
-            m_lru_sectorCaches.resize(this->entriesPerBlock(), static_cast<uint32_t>(AllocTableEntry::NOT_USED));
+            m_lru_sectorCaches.resize(
+                this->entriesPerBlock(),
+                static_cast<uint32_t>(AllocTableEntry::NOT_USED));
             m_lru_sectorIdBase = satSecId;
 
-            this->setEntry(satSecId, static_cast<uint32_t>(AllocTableEntry::SAT_USED));
-            assert(m_lru_sectorCaches[0] == static_cast<uint32_t>(AllocTableEntry::SAT_USED));
+            this->setEntry(satSecId,
+                           static_cast<uint32_t>(AllocTableEntry::SAT_USED));
+            assert(m_lru_sectorCaches[0] ==
+                   static_cast<uint32_t>(AllocTableEntry::SAT_USED));
             this->m_sat_free_count.push_back(this->entriesPerBlock() - 1);
         }
 
-        for (size_t i=0;i<m_lru_sectorCaches.size();i++) {
-            if (m_lru_sectorCaches[i] == static_cast<uint32_t>(AllocTableEntry::NOT_USED)) {
+        for (size_t i = 0; i < m_lru_sectorCaches.size(); i++) {
+            if (m_lru_sectorCaches[i] ==
+                static_cast<uint32_t>(AllocTableEntry::NOT_USED)) {
                 const auto ans = m_lru_sectorIdBase + i;
-                this->setEntry(ans, static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
-                assert(m_lru_sectorCaches[i] == static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
-               
+                this->setEntry(
+                    ans, static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
+                assert(m_lru_sectorCaches[i] ==
+                       static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
+
                 this->check_limit(ans);
 
                 const auto idx = ans / this->entriesPerBlock();
@@ -849,61 +926,72 @@ private:
     }
 
     inline void check_limit(uint32_t secId) {
-        if (m_header.sizeOfSector() * (secId + 1) + m_header.sizeOfSector() > m_block.max_size()) {
+        if (m_header.sizeOfSector() * (secId + 1) + m_header.sizeOfSector() >
+            m_block.max_size()) {
             throw OutOfSpace();
         }
     }
 
-    BlockDeviceExt<T>               m_block;
-    CompoundFileHeaderAccessor<T>&  m_header;
-    MasterSectorAllocationTable<T>  m_msat;
+    BlockDeviceExt<T> m_block;
+    CompoundFileHeaderAccessor<T>& m_header;
+    MasterSectorAllocationTable<T> m_msat;
 
     // keep least-recently-used allocated/free sector
-    uint32_t                        m_lru_sectorIdBase;
-    std::vector<uint32_t>           m_lru_sectorCaches;
-    std::vector<size_t>             m_sat_free_count;
+    uint32_t m_lru_sectorIdBase;
+    std::vector<uint32_t> m_lru_sectorCaches;
+    std::vector<size_t> m_sat_free_count;
 };
 
-template<typename T, std::enable_if_t<Impl::is_block_device<T>::value,bool> = true>
+template <typename T,
+          std::enable_if_t<Impl::is_block_device<T>::value, bool> = true>
 class SectorChainStream {
 public:
-    inline SectorChainStream(CompoundFileHeaderAccessor<T>& header, SectorAllocationTable<T>& sat, T block_ref, uint32_t headSecId):
-        m_header(header),
-        m_sat(sat),
-        m_block(block_ref),
-        m_headSecId(headSecId)
-    {
-        assert(is_reg_entry(m_headSecId) || m_headSecId == static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
+    inline SectorChainStream(CompoundFileHeaderAccessor<T>& header,
+                             SectorAllocationTable<T>& sat, T block_ref,
+                             uint32_t headSecId)
+        : m_header(header),
+          m_sat(sat),
+          m_block(block_ref),
+          m_headSecId(headSecId) {
+        assert(is_reg_entry(m_headSecId) ||
+               m_headSecId ==
+                   static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
     }
 
     inline uint32_t getHeadSectorID() const { return m_headSecId; }
 
     inline void deleteStream() {
-        if (m_headSecId == static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN)) {
+        if (m_headSecId ==
+            static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN)) {
             return;
         }
 
         this->prepareCacheUntil(std::numeric_limits<size_t>::max());
         m_secIdChainCache.pop_back();
-        for (auto secId: m_secIdChainCache) {
+        for (auto secId : m_secIdChainCache) {
             assert(is_reg_entry(secId));
-            m_sat.freeInterSector(static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN), secId);
+            m_sat.freeInterSector(
+                static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN), secId);
         }
         m_secIdChainCache.clear();
-        this->m_headSecId = static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN);
+        this->m_headSecId =
+            static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN);
     }
 
     inline void deleteLastSector() {
         this->prepareCacheUntil(std::numeric_limits<size_t>::max());
         assert(this->m_secIdChainCache().size() > 1);
 
-        const auto prev = m_secIdChainCache.size() > 2 
-                             ? m_secIdChainCache[m_secIdChainCache.size() - 3] 
-                             : static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN);
-        m_sat.freeInterSector(prev, m_secIdChainCache[m_secIdChainCache.size() - 2]);
+        const auto prev =
+            m_secIdChainCache.size() > 2
+                ? m_secIdChainCache[m_secIdChainCache.size() - 3]
+                : static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN);
+        m_sat.freeInterSector(prev,
+                              m_secIdChainCache[m_secIdChainCache.size() - 2]);
         m_secIdChainCache.erase(m_secIdChainCache.end() - 2);
         if (m_secIdChainCache.size() == 1) {
-        this->m_headSecId = static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN);
+            this->m_headSecId =
+                static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN);
         }
     }
 
@@ -911,11 +999,14 @@ public:
         this->prepareCacheUntil(std::numeric_limits<size_t>::max());
         if (m_secIdChainCache.size() > 1) {
             m_secIdChainCache.pop_back();
-            const auto id = this->m_sat.allocateNextSector(m_secIdChainCache.back());
+            const auto id =
+                this->m_sat.allocateNextSector(m_secIdChainCache.back());
             m_secIdChainCache.push_back(id);
-            m_secIdChainCache.push_back(static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
+            m_secIdChainCache.push_back(
+                static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
         } else {
-            const auto id = this->m_sat.allocateNextSector(m_secIdChainCache.back());
+            const auto id =
+                this->m_sat.allocateNextSector(m_secIdChainCache.back());
             m_secIdChainCache.insert(m_secIdChainCache.begin(), id);
             m_headSecId = id;
         }
@@ -943,7 +1034,8 @@ public:
             const auto k = std::min(n - nread, ss - offset);
             assert(m_secIdChainCache.size() > secIdx + 1);
             const auto secId = m_secIdChainCache[secIdx];
-            this->m_block.read(m_header.headerSize() + secId * ss + offset, (static_cast<char*>(buf) + nread), k);
+            this->m_block.read(m_header.headerSize() + secId * ss + offset,
+                               (static_cast<char*>(buf) + nread), k);
             nread += k;
         }
     }
@@ -964,7 +1056,8 @@ public:
             const auto k = std::min(n - nwrited, ss - offset);
             assert(m_secIdChainCache.size() > secIdx + 1);
             const auto secId = m_secIdChainCache[secIdx];
-            this->m_block.write(m_header.headerSize() + secId * ss + offset, (static_cast<const char*>(buf) + nwrited), k);
+            this->m_block.write(m_header.headerSize() + secId * ss + offset,
+                                (static_cast<const char*>(buf) + nwrited), k);
             nwrited += k;
         }
     }
@@ -977,10 +1070,8 @@ public:
             begin += s;
         }
     }
- 
-    inline size_t max_size() const {
-        return m_block.max_size();
-    }
+
+    inline size_t max_size() const { return m_block.max_size(); }
 
     SectorChainStream(const SectorChainStream&) = delete;
     SectorChainStream& operator=(const SectorChainStream&) = delete;
@@ -993,19 +1084,23 @@ private:
             m_secIdChainCache.push_back(m_headSecId);
         }
 
-        while (m_secIdChainCache.back() != static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN) &&
-               m_secIdChainCache.size() * this->sectorSize() < limit)
-        {
+        while (m_secIdChainCache.back() !=
+                   static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN) &&
+               m_secIdChainCache.size() * this->sectorSize() < limit) {
             auto next = m_sat.getNextSector(m_secIdChainCache.back());
             if (next.has_value()) {
                 m_secIdChainCache.push_back(next.value());
             } else {
-                m_secIdChainCache.push_back(static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
+                m_secIdChainCache.push_back(
+                    static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
             }
         }
 
-        const auto n = m_secIdChainCache.back() == static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN) ? 
-                           m_secIdChainCache.size() - 1: m_secIdChainCache.size();
+        const auto n =
+            m_secIdChainCache.back() ==
+                    static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN)
+                ? m_secIdChainCache.size() - 1
+                : m_secIdChainCache.size();
         return n * this->sectorSize();
     }
 
@@ -1017,7 +1112,8 @@ private:
 };
 
 #define COMPOUND_FILE_ENTRY_SIZE 128
-template<typename T, std::enable_if_t<Impl::is_block_device<T>::value,bool> = true>
+template <typename T,
+          std::enable_if_t<Impl::is_block_device<T>::value, bool> = true>
 class DirectoryTable {
 public:
     enum class EntryType {
@@ -1029,16 +1125,19 @@ public:
         RootStorage = 5,
     };
 
-    inline DirectoryTable(CompoundFileHeaderAccessor<T>& header, SectorAllocationTable<T>& sat, T block_ref):
-        m_header(header),
-        m_stream(header, sat, std::move(block_ref), header.getDirStreamSectorId())
-    {
+    inline DirectoryTable(CompoundFileHeaderAccessor<T>& header,
+                          SectorAllocationTable<T>& sat, T block_ref)
+        : m_header(header),
+          m_stream(header, sat, std::move(block_ref),
+                   header.getDirStreamSectorId()) {
         if (m_stream.size() == 0) {
             const auto addr = m_stream.appendSector();
             m_stream.fillzeros(addr, static_cast<addr_t>(m_stream.size()));
             m_header.setDirStreamSectorId(m_stream.getHeadSectorID());
             m_free_entries = m_stream.size() / COMPOUND_FILE_ENTRY_SIZE - 1;
-            const std::array<uint16_t, 32> RootEntry = { 0x52, 0x6F, 0x6F, 0x74, 0x20, 0x45, 0x6E, 0x74, 0x72, 0x79, 0x00 };
+            const std::array<uint16_t, 32> RootEntry = {0x52, 0x6F, 0x6F, 0x74,
+                                                        0x20, 0x45, 0x6E, 0x74,
+                                                        0x72, 0x79, 0x00};
             this->setName(0, RootEntry);
             this->setEntryType(0, EntryType::RootStorage);
             this->setBlack(0, true);
@@ -1047,9 +1146,9 @@ public:
         m_free_entries = m_stream.size() / COMPOUND_FILE_ENTRY_SIZE;
         m_usedentries.resize(m_free_entries, false);
 
-        std::list<uint32_t> qnq = { 0 };
-        std::set<uint32_t> seen = { 0 };
-        const auto append = [&] (uint32_t entry) {
+        std::list<uint32_t> qnq = {0};
+        std::set<uint32_t> seen = {0};
+        const auto append = [&](uint32_t entry) {
             if (entry == 0xFFFFFFFF) return;
 
             if (seen.find(entry) != seen.end()) {
@@ -1071,26 +1170,30 @@ public:
             append(this->getRightChild(entry));
 
             const auto type = this->getEntryType(entry);
-            if (type == EntryType::RootStorage || type == EntryType::UserStorage) {
+            if (type == EntryType::RootStorage ||
+                type == EntryType::UserStorage) {
                 append(this->getSubdirectoryEntry(entry));
             }
         }
     }
 
-    inline uint32_t createEntry(uint32_t parentDirEntryId, const std::array<uint16_t,32>& name, EntryType type) {
+    inline uint32_t createEntry(uint32_t parentDirEntryId,
+                                const std::array<uint16_t, 32>& name,
+                                EntryType type) {
         if (m_free_entries == 0) {
             const auto addr = m_stream.appendSector();
             m_stream.fillzeros(addr, static_cast<addr_t>(m_stream.size()));
             const auto n = m_header.sizeOfSector() / COMPOUND_FILE_ENTRY_SIZE;
-            for (size_t i=0;i<n;i++) m_usedentries.push_back(false);
+            for (size_t i = 0; i < n; i++) m_usedentries.push_back(false);
             m_free_entries += n;
         }
 
         const auto ptype = this->getEntryType(parentDirEntryId);
-        assert(ptype == EntryType::RootStorage || ptype == EntryType::UserStorage);
+        assert(ptype == EntryType::RootStorage ||
+               ptype == EntryType::UserStorage);
 
         size_t id = m_usedentries.size();
-        for (;id<m_usedentries.size() && m_usedentries[id];id++);
+        for (; id < m_usedentries.size() && m_usedentries[id]; id++);
 
         this->setName(id, name);
         this->setEntryType(id, type);
@@ -1112,38 +1215,45 @@ public:
     }
 
     inline void fillzeros(uint32_t entryid) {
-        const char buf[COMPOUND_FILE_ENTRY_SIZE] = { 0 };
+        const char buf[COMPOUND_FILE_ENTRY_SIZE] = {0};
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
-        m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE, buf, COMPOUND_FILE_ENTRY_SIZE);
+        m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE, buf,
+                       COMPOUND_FILE_ENTRY_SIZE);
     }
 
-    inline std::array<uint16_t,32> getName(uint32_t entryid) const {
+    inline std::array<uint16_t, 32> getName(uint32_t entryid) const {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
-        std::array<uint16_t,32> ans;
-        const auto n = m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE, ans.data(), sizeof(ans));
+        std::array<uint16_t, 32> ans;
+        const auto n = m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE,
+                                     ans.data(), sizeof(ans));
         return ans;
     }
 
-    inline void setName(uint32_t entryid, const std::array<uint16_t,32>& name){
+    inline void setName(uint32_t entryid,
+                        const std::array<uint16_t, 32>& name) {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
-        m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE, name.data(), sizeof(name));
+        m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE, name.data(),
+                       sizeof(name));
         uint16_t len = 0;
-        for (;len < 32 && name[len]!=0; len++);
-        len = (len + 1)* 2;
-        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 64, &len, sizeof(len));
+        for (; len < 32 && name[len] != 0; len++);
+        len = (len + 1) * 2;
+        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 64, &len,
+                      sizeof(len));
     }
 
     inline uint16_t getNameBufferLength(uint32_t entryid) const {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
         uint16_t ans;
-        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 64, &ans, sizeof(ans));
+        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 64, &ans,
+                      sizeof(ans));
         return ans;
     }
 
     inline EntryType getEntryType(uint32_t entryid) const {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
         uint8_t ans;
-        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 66, &ans, sizeof(ans));
+        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 66, &ans,
+                      sizeof(ans));
         return static_cast<EntryType>(ans);
     }
 
@@ -1156,121 +1266,144 @@ public:
     inline bool isBlack(uint32_t entryid) const {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
         bool ans;
-        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 67, &ans, sizeof(ans));
+        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 67, &ans,
+                      sizeof(ans));
         return ans;
     }
 
     inline void setBlack(uint32_t entryid, bool isBlack) const {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
-        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 66, &isBlack, sizeof(isBlack));
+        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 66, &isBlack,
+                      sizeof(isBlack));
     }
 
     inline uint32_t getLeftChild(uint32_t entryid) const {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
         uint32_t ans;
-        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 68, &ans, sizeof(ans));
+        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 68, &ans,
+                      sizeof(ans));
         return ans;
     }
 
     inline void setLeftChild(uint32_t entryid, uint32_t childId) const {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
-        m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE + 68, &childId, sizeof(childId));
+        m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE + 68, &childId,
+                       sizeof(childId));
     }
 
     inline uint32_t getRightChild(uint32_t entryid) const {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
         uint32_t ans;
-        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 72, &ans, sizeof(ans));
+        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 72, &ans,
+                      sizeof(ans));
         return ans;
     }
 
     inline void setRightChild(uint32_t entryid, uint32_t childId) const {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
-        m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE + 72, &childId, sizeof(childId));
+        m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE + 72, &childId,
+                       sizeof(childId));
     }
 
     inline uint32_t getSubdirectoryEntry(uint32_t entryid) const {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
         uint32_t ans;
-        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 76, &ans, sizeof(ans));
+        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 76, &ans,
+                      sizeof(ans));
         return ans;
     }
 
     inline void setSubdirectoryEntry(uint32_t entryid, uint32_t dirid) const {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
-        m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE + 76, &dirid, sizeof(dirid));
+        m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE + 76, &dirid,
+                       sizeof(dirid));
     }
 
-    inline std::array<char,16> getStreamUID(uint32_t entryid) const {
+    inline std::array<char, 16> getStreamUID(uint32_t entryid) const {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
-        std::array<char,16> ans;
-        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 80, ans.data(), sizeof(ans));
+        std::array<char, 16> ans;
+        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 80, ans.data(),
+                      sizeof(ans));
         return ans;
     }
 
-    inline void setStreamUID(uint32_t entryid, const std::array<char,16>& uid) const {
+    inline void setStreamUID(uint32_t entryid,
+                             const std::array<char, 16>& uid) const {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
-        m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE + 80, uid.data(), sizeof(uid));
+        m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE + 80, uid.data(),
+                       sizeof(uid));
     }
 
     inline uint32_t getUserFlags(uint32_t entryid) const {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
         uint32_t ans;
-        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 96, &ans, sizeof(ans));
+        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 96, &ans,
+                      sizeof(ans));
         return ans;
     }
 
     inline void setUserFlags(uint32_t entryid, uint32_t flags) const {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
-        m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE + 96, &flags, sizeof(flags));
+        m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE + 96, &flags,
+                       sizeof(flags));
     }
 
-    inline std::array<char,8> getCreatedTimestamp(uint32_t entryid) const {
+    inline std::array<char, 8> getCreatedTimestamp(uint32_t entryid) const {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
-        std::array<char,8> ans;
-        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 100, ans.data(), sizeof(ans));
+        std::array<char, 8> ans;
+        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 100, ans.data(),
+                      sizeof(ans));
         return ans;
     }
 
-    inline void setCreatedTimestamp(uint32_t entryid, const std::array<char,8>& tstamp) const {
+    inline void setCreatedTimestamp(uint32_t entryid,
+                                    const std::array<char, 8>& tstamp) const {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
-        m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE + 100, tstamp.data(), sizeof(tstamp));
+        m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE + 100, tstamp.data(),
+                       sizeof(tstamp));
     }
 
-    inline std::array<char,8> getModifiedTimestamp(uint32_t entryid) const {
+    inline std::array<char, 8> getModifiedTimestamp(uint32_t entryid) const {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
-        std::array<char,8> ans;
-        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 108, ans.data(), sizeof(ans));
+        std::array<char, 8> ans;
+        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 108, ans.data(),
+                      sizeof(ans));
         return ans;
     }
 
-    inline void setModifiedTimestamp(uint32_t entryid, const std::array<char,8>& tstamp) const {
+    inline void setModifiedTimestamp(uint32_t entryid,
+                                     const std::array<char, 8>& tstamp) const {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
-        m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE + 108, tstamp.data(), sizeof(tstamp));
+        m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE + 108, tstamp.data(),
+                       sizeof(tstamp));
     }
 
     inline uint32_t getSectorID(uint32_t entryid) const {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
         uint32_t ans;
-        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 116, &ans, sizeof(ans));
+        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 116, &ans,
+                      sizeof(ans));
         return ans;
     }
 
     inline void setSectorID(uint32_t entryid, uint32_t secId) const {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
-        m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE + 116, &secId, sizeof(secId));
+        m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE + 116, &secId,
+                       sizeof(secId));
     }
 
     inline uint32_t getSize(uint32_t entryid) const {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
         uint32_t ans;
-        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 120, &ans, sizeof(ans));
+        m_stream.read(entryid * COMPOUND_FILE_ENTRY_SIZE + 120, &ans,
+                      sizeof(ans));
         return ans;
     }
 
     inline void setSize(uint32_t entryid, uint32_t size) const {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
-        m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE + 120, &size, sizeof(size));
+        m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE + 120, &size,
+                       sizeof(size));
     }
 
 private:
@@ -1278,13 +1411,13 @@ private:
         const auto n1 = this->getName(lhs);
         const auto n2 = this->getName(rhs);
         size_t l1 = 0, l2 = 0;
-        for (;l1<n1.size()&&n1[l1]!=0;l1++);
-        for (;l2<n2.size()&&n2[l2]!=0;l2++);
+        for (; l1 < n1.size() && n1[l1] != 0; l1++);
+        for (; l2 < n2.size() && n2[l2] != 0; l2++);
 
         if (l1 < l2) return -1;
         if (l1 > l2) return 1;
 
-        for (size_t i=0;i<l1;i++) {
+        for (size_t i = 0; i < l1; i++) {
             if (n1[i] < n2[i]) {
                 return -1;
             } else if (n1[i] > n2[i]) {
@@ -1303,77 +1436,73 @@ private:
             this->setBlack(newentry, true);
             return true;
         }
-        std::vector<uint32_t> ancestor = { root };
+        std::vector<uint32_t> ancestor = {root};
     }
 
     CompoundFileHeaderAccessor<T>& m_header;
-    SectorChainStream<T>           m_stream;
-    std::vector<bool>              m_usedentries;
-    size_t                         m_free_entries;
+    SectorChainStream<T> m_stream;
+    std::vector<bool> m_usedentries;
+    size_t m_free_entries;
 };
 
-template<typename T, std::enable_if_t<Impl::is_block_device<T>::value,bool> = true>
+template <typename T,
+          std::enable_if_t<Impl::is_block_device<T>::value, bool> = true>
 class FileSystem {
 private:
     using DeviceType = BlockDeviceExt<T>;
 
 public:
-    explicit FileSystem(T&& block):
-        m_block(std::move(block)),
-        m_header(BlockDeviceRefWrapper<DeviceType>(m_block)),
-        m_sat(m_header, BlockDeviceRefWrapper<DeviceType>(m_block))
-    {
-    }
+    explicit FileSystem(T&& block)
+        : m_block(std::move(block)),
+          m_header(BlockDeviceRefWrapper<DeviceType>(m_block)),
+          m_sat(m_header, BlockDeviceRefWrapper<DeviceType>(m_block)) {}
 
     static FileSystem format(T&& block) {
         // TODO
     }
 
-    inline ErrorCode get_error() const
-    {
-        return this->m_errcode;
-    }
+    inline ErrorCode get_error() const { return this->m_errcode; }
 
     bool mkdir(const FSPath& dirname);
     bool rmdir(const FSPath& dirname);
 
     file_t open(const FSPath& filename, std::ios_base::openmode mode);
-    bool   close(file_t file);
+    bool close(file_t file);
 
-    dir_t  opendir(const FSPath& path);
-    bool   closedir(dir_t dir);
+    dir_t opendir(const FSPath& path);
+    bool closedir(dir_t dir);
 
     bool unlink(const FSPath& file);
     bool rename(file_t file, const std::string& newname);
-    bool rename(dir_t  dir,  const std::string& newname);
+    bool rename(dir_t dir, const std::string& newname);
     bool move(const FSPath& path, const FSPath& newpath);
 
-    size_t read (file_t file, void* buf, size_t n) const;
+    size_t read(file_t file, void* buf, size_t n) const;
     size_t write(file_t file, const void* buf, size_t n);
 
     void truncate(file_t file, size_t new_size);
 
     StatInfo stat(file_t file);
-    StatInfo stat(dir_t  dir);
+    StatInfo stat(dir_t dir);
 
     size_t seek(file_t file, long offset, int origin);
 
 private:
-    DeviceType                                                    m_block;
+    DeviceType m_block;
     CompoundFileHeaderAccessor<BlockDeviceRefWrapper<DeviceType>> m_header;
-    SectorAllocationTable<BlockDeviceRefWrapper<DeviceType>>      m_sat;
+    SectorAllocationTable<BlockDeviceRefWrapper<DeviceType>> m_sat;
 
     ErrorCode m_errcode;
 
-    std::map<uint32_t,std::shared_ptr<OpenFileNode>> m_entryid2node;
-    std::map<uint32_t,dir_t> m_entryid2dir;
+    std::map<uint32_t, std::shared_ptr<OpenFileNode>> m_entryid2node;
+    std::map<uint32_t, dir_t> m_entryid2dir;
 };
 
 class MemorySpace {
 public:
-    inline explicit MemorySpace(size_t size): m_space(size, 0) { }
+    inline explicit MemorySpace(size_t size) : m_space(size, 0) {}
 
-    inline size_t read (addr_t addr, void* buf, size_t n) const {
+    inline size_t read(addr_t addr, void* buf, size_t n) const {
         if (addr + n > this->max_size()) {
             throw OutOfRange();
         }
@@ -1391,11 +1520,9 @@ public:
         return n;
     }
 
-    inline size_t max_size() const {
-        return this->m_space.size();
-    }
+    inline size_t max_size() const { return this->m_space.size(); }
 
 private:
     std::vector<char> m_space;
 };
-}
+}  // namespace SFFS

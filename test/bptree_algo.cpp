@@ -1,47 +1,43 @@
-#include <gtest/gtest.h>
-#include <vector>
-#include <map>
-#include <set>
-#include <random>
-#include <optional>
-#include <variant>
+#include <utest.h>
+
 #include <array>
+#include <optional>
+#include <random>
+#include <set>
+#include <variant>
+
 #include "bptree.h"
 using namespace ldc;
 
-
-template<size_t Order, size_t Order2>
+template <size_t Order, size_t Order2>
 struct TreeNode {
     bool isLeaf;
     struct InteriorNode {
-        std::array<TreeNode*,2*Order> children;
-        std::array<std::optional<int>,2*Order - 1> keys;
+        std::array<TreeNode*, 2 * Order> children;
+        std::array<std::optional<int>, 2 * Order - 1> keys;
         size_t numOfChildren, numOfKeys;
 
-        InteriorNode():
-            numOfChildren(0), numOfKeys(0)
-        {
+        InteriorNode() : numOfChildren(0), numOfKeys(0) {
             std::fill(children.begin(), children.end(), nullptr);
             std::fill(keys.begin(), keys.end(), std::nullopt);
         };
     };
     struct LeafNode {
-        std::array<std::optional<int>,2*Order2 - 1> datas;
+        std::array<std::optional<int>, 2 * Order2 - 1> datas;
         size_t numOfHolders;
         TreeNode *prev, *next;
 
-        LeafNode(): numOfHolders(0), prev(nullptr), next(nullptr)
-        {
+        LeafNode() : numOfHolders(0), prev(nullptr), next(nullptr) {
             std::fill(datas.begin(), datas.end(), std::nullopt);
         }
     };
-    std::variant<InteriorNode,LeafNode> nn;
+    std::variant<InteriorNode, LeafNode> nn;
     TreeNode* parent;
 
-    explicit TreeNode(bool isLeaf):
-        parent(nullptr), isLeaf(isLeaf),
-        nn(isLeaf ? decltype(nn)(LeafNode()) : decltype(nn)(InteriorNode()))
-    {
+    explicit TreeNode(bool isLeaf)
+        : parent(nullptr),
+          isLeaf(isLeaf),
+          nn(isLeaf ? decltype(nn)(LeafNode()) : decltype(nn)(InteriorNode())) {
     }
 
     InteriorNode& interior() {
@@ -67,7 +63,7 @@ struct TreeNode {
     ~TreeNode() {
         if (!this->isLeaf) {
             auto& vn = std::get<InteriorNode>(nn);
-            for (auto child: vn.children) {
+            for (auto child : vn.children) {
                 if (child != nullptr) {
                     delete child;
                 }
@@ -76,9 +72,9 @@ struct TreeNode {
     }
 };
 
-template<size_t Order, size_t Order2, bool VallowEmptyLeaf>
+template <size_t Order, size_t Order2, bool VallowEmptyLeaf>
 struct TreeNodeOps {
-    typedef TreeNode<Order,Order2> *NODE;
+    typedef TreeNode<Order, Order2>* NODE;
     using HOLDER = int;
     using KEY = int;
 
@@ -90,7 +86,7 @@ struct TreeNodeOps {
         assert(nth < node->interior().children.size());
         return node->interior().children[nth];
     }
-    inline void setNthChild (NODE node, size_t nth, NODE n)  {
+    inline void setNthChild(NODE node, size_t nth, NODE n) {
         assert(nth < node->interior().children.size());
         if (n == nullptr) {
             assert(node->interior().numOfChildren > 0);
@@ -143,62 +139,72 @@ struct TreeNodeOps {
         node->leaf().numOfHolders++;
     }
 
-    inline NODE getParent(NODE node) const  {
-        return node->parent;
-    }
-    inline void setParent(NODE node, NODE n)  {
-        node->parent = n;
-    }
+    inline NODE getParent(NODE node) const { return node->parent; }
+    inline void setParent(NODE node, NODE n) { node->parent = n; }
 
-    inline NODE leafGetNext(NODE node) const  {
-        return node->leaf().next;
-    }
-    inline void leafSetNext(NODE node, NODE n)  {
-        node->leaf().next = n;
-    }
-    inline NODE leafGetPrev(NODE node) const  {
-        return node->leaf().prev;
-    }
-    inline void leafSetPrev(NODE node, NODE n)  {
-        node->leaf().prev = n;
-    }
+    inline NODE leafGetNext(NODE node) const { return node->leaf().next; }
+    inline void leafSetNext(NODE node, NODE n) { node->leaf().next = n; }
+    inline NODE leafGetPrev(NODE node) const { return node->leaf().prev; }
+    inline void leafSetPrev(NODE node, NODE n) { node->leaf().prev = n; }
 
     inline size_t leafGetOrder() const { return Order2; }
 
-    inline size_t getNumberOfChildren(NODE node) const { return node->interior().numOfChildren; }
-    inline size_t leafGetNumberOfKeys(NODE node) const { return node->leaf().numOfHolders; }
+    inline size_t getNumberOfChildren(NODE node) const {
+        return node->interior().numOfChildren;
+    }
+    inline size_t leafGetNumberOfKeys(NODE node) const {
+        return node->leaf().numOfHolders;
+    }
 
     inline size_t interiorGetOrder() const { return Order; }
-    inline size_t interiorGetNumberOfKeys(NODE node) const { return node->interior().numOfKeys; }
+    inline size_t interiorGetNumberOfKeys(NODE node) const {
+        return node->interior().numOfKeys;
+    }
 
     inline bool isNullNode(NODE node) const { return node == nullptr; }
     inline NODE getNullNode() const { return nullptr; }
-    inline NODE interiorCreateEmptyNode() { return new TreeNode<Order,Order2>(false); }
-    inline NODE leafCreateEmptyNode() { return new TreeNode<Order,Order2>(true); }
+    inline NODE interiorCreateEmptyNode() {
+        return new TreeNode<Order, Order2>(false);
+    }
+    inline NODE leafCreateEmptyNode() {
+        return new TreeNode<Order, Order2>(true);
+    }
     inline void releaseEmptyNode(NODE&& node) { delete node; }
 
     inline KEY getKey(const HOLDER& n) const { return n; }
 
-    inline bool keyCompareLess(const KEY& lhs, const KEY& rhs) const { return lhs < rhs; }
+    inline bool keyCompareLess(const KEY& lhs, const KEY& rhs) const {
+        return lhs < rhs;
+    }
 
-    inline bool keyCompareEqual(const KEY& lhs, const KEY& rhs) const { return lhs  == rhs; }
+    inline bool keyCompareEqual(const KEY& lhs, const KEY& rhs) const {
+        return lhs == rhs;
+    }
 
-    inline bool nodeCompareEqual(NODE lhs, NODE rhs) const { return lhs == rhs; }
+    inline bool nodeCompareEqual(NODE lhs, NODE rhs) const {
+        return lhs == rhs;
+    }
 };
 
-template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2, bool VallowEmptyLeaf>
-using BASE_T = BPTreeAlgorithmImpl::BPTreeAlgorithm<TreeNodeOps<Order,Order2,VallowEmptyLeaf>,TreeNode<Order,Order2>*,int,int,void,parent_ops>;
+template <size_t Order, bool parent_ops, bool prev_ops, size_t Order2,
+          bool VallowEmptyLeaf>
+using BASE_T = BPTreeAlgorithmImpl::BPTreeAlgorithm<
+    TreeNodeOps<Order, Order2, VallowEmptyLeaf>, TreeNode<Order, Order2>*, int,
+    int, void, parent_ops>;
 
-template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2, bool VallowEmptyLeaf>
-struct BPTREE: public BASE_T<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf> {
-    typedef TreeNode<Order,Order2>* NODE;
+template <size_t Order, bool parent_ops, bool prev_ops, size_t Order2,
+          bool VallowEmptyLeaf>
+struct BPTREE
+    : public BASE_T<Order, parent_ops, prev_ops, Order2, VallowEmptyLeaf> {
+    typedef TreeNode<Order, Order2>* NODE;
 
-    using NN   = std::remove_pointer_t<NODE>;
-    using BASE = BASE_T<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf>;
+    using NN = std::remove_pointer_t<NODE>;
+    using BASE = BASE_T<Order, parent_ops, prev_ops, Order2, VallowEmptyLeaf>;
     using HolderPath = typename BASE::HolderPath;
     NODE root;
 
-    BPTREE(): BASE(TreeNodeOps<Order,Order2,VallowEmptyLeaf>()), root(nullptr) {}
+    BPTREE()
+        : BASE(TreeNodeOps<Order, Order2, VallowEmptyLeaf>()), root(nullptr) {}
 
     bool insert(int val) {
         return this->exists(this->insertHolder(this->root, std::move(val)));
@@ -231,17 +237,11 @@ struct BPTREE: public BASE_T<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf> {
         return ans;
     }
 
-    HolderPath begin() {
-        return BASE::begin(this->root);
-    }
+    HolderPath begin() { return BASE::begin(this->root); }
 
-    void forward(HolderPath& path) {
-        BASE::forward(this->root, path);
-    }
+    void forward(HolderPath& path) { BASE::forward(this->root, path); }
 
-    void backward(HolderPath& path) {
-        BASE::backward(this->root, path);
-    }
+    void backward(HolderPath& path) { BASE::backward(this->root, path); }
 
     bool deleteByKey(int key) {
         if (this->root == nullptr) return false;
@@ -253,51 +253,52 @@ struct BPTREE: public BASE_T<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf> {
         return true;
     }
 
-    void check_consistency() {
-        BASE::check_consistency(this->root);
-    }
+    void check_consistency() { BASE::check_consistency(this->root); }
 
-    template<typename U>
+    template <typename U>
     void initASC(size_t n, U func) {
         assert(root == nullptr);
         root = BASE::initWithAscSequence(n, func);
     }
 
-    ~BPTREE() { if (root) delete root; }
+    ~BPTREE() {
+        if (root) delete root;
+    }
 };
 
-
 static std::default_random_engine generator(0);
-template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2, bool VallowEmptyLeaf>
+template <size_t Order, bool parent_ops, bool prev_ops, size_t Order2,
+          bool VallowEmptyLeaf>
 static void test_BPTREE_insert(size_t n) {
-    std::uniform_int_distribution<int> distribution(-static_cast<int>(n) * 3,n * 3);
-    BPTREE<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf> tree;
+    std::uniform_int_distribution<int> distribution(-static_cast<int>(n) * 3,
+                                                    n * 3);
+    BPTREE<Order, parent_ops, prev_ops, Order2, VallowEmptyLeaf> tree;
     std::set<int> vals;
 
-    for (size_t i=0;i<n;i++) {
+    for (size_t i = 0; i < n; i++) {
         auto val = distribution(generator);
-        
+
         const auto notfound = vals.find(val) == vals.end();
         ASSERT_EQ(tree.insert(val), notfound);
-        if (i % 1000 == 0 || i + 1 ==n)
-            tree.check_consistency();
+        if (i % 1000 == 0 || i + 1 == n) tree.check_consistency();
         vals.insert(val);
     }
 }
 
-template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2, bool VallowEmptyLeaf>
+template <size_t Order, bool parent_ops, bool prev_ops, size_t Order2,
+          bool VallowEmptyLeaf>
 static void test_BPTREE_ascinit(size_t n) {
-    std::uniform_int_distribution<int> distribution(n/2,n*3/2);
+    std::uniform_int_distribution<int> distribution(n / 2, n * 3 / 2);
     size_t t = distribution(generator);
     t++;
-    BPTREE<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf> tree;
+    BPTREE<Order, parent_ops, prev_ops, Order2, VallowEmptyLeaf> tree;
     int val = 0;
     const auto func = [&]() { return val++; };
     tree.initASC(t, func);
     tree.check_consistency();
 
     auto p1 = tree.begin();
-    for (size_t j=0;j<t;j++,tree.forward(p1)) {
+    for (size_t j = 0; j < t; j++, tree.forward(p1)) {
         ASSERT_TRUE(tree.exists(p1));
         auto vs = tree.getHolder(p1);
         ASSERT_EQ(j, vs);
@@ -305,18 +306,20 @@ static void test_BPTREE_ascinit(size_t n) {
     ASSERT_FALSE(tree.exists(p1));
 }
 
-template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2, bool VallowEmptyLeaf>
+template <size_t Order, bool parent_ops, bool prev_ops, size_t Order2,
+          bool VallowEmptyLeaf>
 static void test_BPTREE_find(size_t n) {
-    std::uniform_int_distribution<int> distribution(-static_cast<int>(n) * 3,n * 3);
-    BPTREE<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf> tree;
+    std::uniform_int_distribution<int> distribution(-static_cast<int>(n) * 3,
+                                                    n * 3);
+    BPTREE<Order, parent_ops, prev_ops, Order2, VallowEmptyLeaf> tree;
     std::set<int> vals;
 
-    for (size_t i=0;i<n;i++) {
+    for (size_t i = 0; i < n; i++) {
         auto val = distribution(generator);
         ASSERT_EQ(tree.insert(val), vals.insert(val).second);
     }
 
-    for (size_t i=0;i<n;i++) {
+    for (size_t i = 0; i < n; i++) {
         auto val = distribution(generator);
         auto a1 = tree.find(val);
         auto a2 = vals.find(val);
@@ -328,23 +331,24 @@ static void test_BPTREE_find(size_t n) {
     }
 }
 
-template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2, bool VallowEmptyLeaf>
+template <size_t Order, bool parent_ops, bool prev_ops, size_t Order2,
+          bool VallowEmptyLeaf>
 static void test_BPTREE_delete(size_t n) {
-    std::uniform_int_distribution<int> distribution(-static_cast<int>(n) * 3,n * 3);
-    BPTREE<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf> tree;
+    std::uniform_int_distribution<int> distribution(-static_cast<int>(n) * 3,
+                                                    n * 3);
+    BPTREE<Order, parent_ops, prev_ops, Order2, VallowEmptyLeaf> tree;
     std::set<int> vals;
 
-    for (size_t i=0;i<n;i++) {
+    for (size_t i = 0; i < n; i++) {
         auto val = distribution(generator);
         tree.insert(val);
         vals.insert(val);
     }
 
-    for (size_t i=0;i<n;i++) {
+    for (size_t i = 0; i < n; i++) {
         auto val = distribution(generator);
         auto a1 = tree.deleteByKey(val);
-        if (i % 1000 == 0 || i + 1 ==n)
-            tree.check_consistency();
+        if (i % 1000 == 0 || i + 1 == n) tree.check_consistency();
         auto k = vals.find(val);
         auto a2 = k != vals.end();
         if (a2) vals.erase(k);
@@ -353,13 +357,15 @@ static void test_BPTREE_delete(size_t n) {
     }
 }
 
-template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2, bool VallowEmptyLeaf>
+template <size_t Order, bool parent_ops, bool prev_ops, size_t Order2,
+          bool VallowEmptyLeaf>
 static void test_BPTREE_delete2(size_t n) {
-    std::uniform_int_distribution<int> distribution(-static_cast<int>(n) * 3,n * 3);
-    BPTREE<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf> tree;
+    std::uniform_int_distribution<int> distribution(-static_cast<int>(n) * 3,
+                                                    n * 3);
+    BPTREE<Order, parent_ops, prev_ops, Order2, VallowEmptyLeaf> tree;
     std::set<int> vals;
 
-    for (size_t i=0;i<n;i++) {
+    for (size_t i = 0; i < n; i++) {
         auto val = distribution(generator);
         tree.insert(val);
         vals.insert(val);
@@ -367,28 +373,29 @@ static void test_BPTREE_delete2(size_t n) {
 
     auto beg = vals.begin();
     int i = 0;
-    for (auto val: vals) {
+    for (auto val : vals) {
         auto a1 = tree.deleteByKey(val);
-        if (i % 1000 == 0 || i + 1 ==vals.size())
-            tree.check_consistency();
+        if (i % 1000 == 0 || i + 1 == vals.size()) tree.check_consistency();
         ASSERT_TRUE(a1);
         i++;
     }
 }
 
-template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2, bool VallowEmptyLeaf>
+template <size_t Order, bool parent_ops, bool prev_ops, size_t Order2,
+          bool VallowEmptyLeaf>
 static void test_BPTREE_lower_bound(size_t n) {
-    std::uniform_int_distribution<int> distribution(-static_cast<int>(n) * 3,n * 3);
-    BPTREE<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf> tree;
+    std::uniform_int_distribution<int> distribution(-static_cast<int>(n) * 3,
+                                                    n * 3);
+    BPTREE<Order, parent_ops, prev_ops, Order2, VallowEmptyLeaf> tree;
     std::set<int> vals;
 
-    for (size_t i=0;i<n;i++) {
+    for (size_t i = 0; i < n; i++) {
         auto val = distribution(generator);
         tree.insert(val);
         vals.insert(val);
     }
 
-    for (size_t i=0;i<n;i++) {
+    for (size_t i = 0; i < n; i++) {
         auto val = distribution(generator);
         auto a1 = tree.lower_bound(val);
         auto a2 = vals.lower_bound(val);
@@ -400,19 +407,21 @@ static void test_BPTREE_lower_bound(size_t n) {
     }
 }
 
-template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2, bool VallowEmptyLeaf>
+template <size_t Order, bool parent_ops, bool prev_ops, size_t Order2,
+          bool VallowEmptyLeaf>
 static void test_BPTREE_upper_bound(size_t n) {
-    std::uniform_int_distribution<int> distribution(-static_cast<int>(n) * 3,n * 3);
-    BPTREE<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf> tree;
+    std::uniform_int_distribution<int> distribution(-static_cast<int>(n) * 3,
+                                                    n * 3);
+    BPTREE<Order, parent_ops, prev_ops, Order2, VallowEmptyLeaf> tree;
     std::set<int> vals;
 
-    for (size_t i=0;i<n;i++) {
+    for (size_t i = 0; i < n; i++) {
         auto val = distribution(generator);
         tree.insert(val);
         vals.insert(val);
     }
 
-    for (size_t i=0;i<n;i++) {
+    for (size_t i = 0; i < n; i++) {
         auto val = distribution(generator);
         auto a1 = tree.upper_bound(val);
         auto a2 = vals.upper_bound(val);
@@ -424,24 +433,26 @@ static void test_BPTREE_upper_bound(size_t n) {
     }
 }
 
-template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2, bool VallowEmptyLeaf>
+template <size_t Order, bool parent_ops, bool prev_ops, size_t Order2,
+          bool VallowEmptyLeaf>
 static void test_BPTREE_forward_backward(size_t n) {
-    std::uniform_int_distribution<int> distribution(-static_cast<int>(n) * 3,n * 3);
-    BPTREE<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf> tree;
+    std::uniform_int_distribution<int> distribution(-static_cast<int>(n) * 3,
+                                                    n * 3);
+    BPTREE<Order, parent_ops, prev_ops, Order2, VallowEmptyLeaf> tree;
     std::set<int> vals;
 
-    for (size_t i=0;i<n;i++) {
+    for (size_t i = 0; i < n; i++) {
         auto val = distribution(generator);
         tree.insert(val);
         vals.insert(val);
     }
 
     auto tbeg = tree.begin();
-    auto beg  = vals.begin();
-    for (;beg != vals.end();beg++,tree.forward(tbeg)) {
+    auto beg = vals.begin();
+    for (; beg != vals.end(); beg++, tree.forward(tbeg)) {
         ASSERT_TRUE(tree.exists(tbeg));
         auto val = *beg;
-        auto v2  = tree.getHolder(tbeg);
+        auto v2 = tree.getHolder(tbeg);
         ASSERT_EQ(val, v2);
     }
 
@@ -451,27 +462,29 @@ static void test_BPTREE_forward_backward(size_t n) {
         beg--;
         tree.backward(tbeg);
     }
-    for (;beg != vals.begin();beg--,tree.backward(tbeg)) {
+    for (; beg != vals.begin(); beg--, tree.backward(tbeg)) {
         ASSERT_TRUE(tree.exists(tbeg));
         auto val = *beg;
-        auto v2  = tree.getHolder(tbeg);
+        auto v2 = tree.getHolder(tbeg);
         ASSERT_EQ(val, v2);
     }
     if (n > 0) {
         ASSERT_TRUE(tree.exists(tbeg));
         auto val = *beg;
-        auto v2  = tree.getHolder(tbeg);
+        auto v2 = tree.getHolder(tbeg);
         ASSERT_EQ(val, v2);
     }
 }
 
-template<size_t Order, bool parent_ops, bool prev_ops, size_t Order2, bool VallowEmptyLeaf>
+template <size_t Order, bool parent_ops, bool prev_ops, size_t Order2,
+          bool VallowEmptyLeaf>
 static void test_BPTREE_mixture(size_t n) {
-    std::uniform_int_distribution<int> distribution(-static_cast<int>(n) * 3,n * 3);
-    BPTREE<Order,parent_ops,prev_ops,Order2,VallowEmptyLeaf> tree;
+    std::uniform_int_distribution<int> distribution(-static_cast<int>(n) * 3,
+                                                    n * 3);
+    BPTREE<Order, parent_ops, prev_ops, Order2, VallowEmptyLeaf> tree;
     std::set<int> vals;
 
-    for (size_t i=0;i<n;i++) {
+    for (size_t i = 0; i < n; i++) {
         auto val = distribution(generator);
         tree.insert(val);
         vals.insert(val);
@@ -479,20 +492,19 @@ static void test_BPTREE_mixture(size_t n) {
 
     {
         auto beg = vals.begin();
-        for (size_t i=0;i<n;i++) {
+        for (size_t i = 0; i < n; i++) {
             auto val = distribution(generator);
             const auto found = vals.find(val) != vals.end();
             if (found) vals.erase(vals.find(val));
             auto a1 = tree.deleteByKey(val);
-            if (i % 1000 == 0 || i + 1 ==vals.size())
-                tree.check_consistency();
+            if (i % 1000 == 0 || i + 1 == vals.size()) tree.check_consistency();
             ASSERT_EQ(a1, found);
         }
     }
 
-    for (size_t i=0;i<n;i++) {
+    for (size_t i = 0; i < n; i++) {
         auto val = distribution(generator);
-        
+
         const auto notfound = vals.find(val) == vals.end();
         const auto irss = tree.insert(val);
         if (irss != notfound) {
@@ -503,18 +515,17 @@ static void test_BPTREE_mixture(size_t n) {
             }
         }
         ASSERT_EQ(irss, notfound);
-        if (i % 1000 == 0 || i + 1 ==n)
-            tree.check_consistency();
+        if (i % 1000 == 0 || i + 1 == n) tree.check_consistency();
         vals.insert(val);
     }
 
     {
         auto tbeg = tree.begin();
-        auto beg  = vals.begin();
-        for (;beg != vals.end();beg++,tree.forward(tbeg)) {
+        auto beg = vals.begin();
+        for (; beg != vals.end(); beg++, tree.forward(tbeg)) {
             ASSERT_TRUE(tree.exists(tbeg));
             auto val = *beg;
-            auto v2  = tree.getHolder(tbeg);
+            auto v2 = tree.getHolder(tbeg);
             ASSERT_EQ(val, v2);
         }
 
@@ -524,21 +535,21 @@ static void test_BPTREE_mixture(size_t n) {
             beg--;
             tree.backward(tbeg);
         }
-        for (;beg != vals.begin();beg--,tree.backward(tbeg)) {
+        for (; beg != vals.begin(); beg--, tree.backward(tbeg)) {
             ASSERT_TRUE(tree.exists(tbeg));
             auto val = *beg;
-            auto v2  = tree.getHolder(tbeg);
+            auto v2 = tree.getHolder(tbeg);
             ASSERT_EQ(val, v2);
         }
         if (n > 0) {
             ASSERT_TRUE(tree.exists(tbeg));
             auto val = *beg;
-            auto v2  = tree.getHolder(tbeg);
+            auto v2 = tree.getHolder(tbeg);
             ASSERT_EQ(val, v2);
         }
     }
 
-    for (size_t i=0;i<n;i++) {
+    for (size_t i = 0; i < n; i++) {
         auto val = distribution(generator);
         auto a1 = tree.lower_bound(val);
         auto a2 = vals.lower_bound(val);
@@ -553,7 +564,7 @@ static void test_BPTREE_mixture(size_t n) {
         }
     }
 
-    for (size_t i=0;i<n;i++) {
+    for (size_t i = 0; i < n; i++) {
         auto val = distribution(generator);
         auto a1 = tree.upper_bound(val);
         auto a2 = vals.upper_bound(val);
@@ -565,32 +576,31 @@ static void test_BPTREE_mixture(size_t n) {
     }
 }
 
-#define SETUP_TEST_FUNC_N(func, Order, parent_ops,prev_ops,Order2, allowEL) \
-    func<Order,parent_ops,prev_ops,Order2,allowEL>(0); \
-    func<Order,parent_ops,prev_ops,Order2,allowEL>(1); \
-    func<Order,parent_ops,prev_ops,Order2,allowEL>(2); \
-    func<Order,parent_ops,prev_ops,Order2,allowEL>(3); \
-    func<Order,parent_ops,prev_ops,Order2,allowEL>(4); \
-    func<Order,parent_ops,prev_ops,Order2,allowEL>(5); \
-    func<Order,parent_ops,prev_ops,Order2,allowEL>(10); \
-    func<Order,parent_ops,prev_ops,Order2,allowEL>(100); \
-    func<Order,parent_ops,prev_ops,Order2,allowEL>(1000); \
-    func<Order,parent_ops,prev_ops,Order2,allowEL>(10000); \
-    func<Order,parent_ops,prev_ops,Order2,allowEL>(100000); \
-    func<Order,parent_ops,prev_ops,Order2,allowEL>(1000000); \
+#define SETUP_TEST_FUNC_N(func, Order, parent_ops, prev_ops, Order2, allowEL) \
+    func<Order, parent_ops, prev_ops, Order2, allowEL>(0);                    \
+    func<Order, parent_ops, prev_ops, Order2, allowEL>(1);                    \
+    func<Order, parent_ops, prev_ops, Order2, allowEL>(2);                    \
+    func<Order, parent_ops, prev_ops, Order2, allowEL>(3);                    \
+    func<Order, parent_ops, prev_ops, Order2, allowEL>(4);                    \
+    func<Order, parent_ops, prev_ops, Order2, allowEL>(5);                    \
+    func<Order, parent_ops, prev_ops, Order2, allowEL>(10);                   \
+    func<Order, parent_ops, prev_ops, Order2, allowEL>(100);                  \
+    func<Order, parent_ops, prev_ops, Order2, allowEL>(1000);                 \
+    func<Order, parent_ops, prev_ops, Order2, allowEL>(10000);                \
+    func<Order, parent_ops, prev_ops, Order2, allowEL>(100000);               \
+    func<Order, parent_ops, prev_ops, Order2, allowEL>(1000000);              \
     // func<Order,parent_ops,prev_ops,Order2,allowEL>(10000000); \
     func<Order,parent_ops,prev_ops,Order2,allowEL>(100000000)
 
-#define SETUP_TEST_FUNC(func, parent_ops, allowEmptyLeaf) \
-    SETUP_TEST_FUNC_N(func, 2, parent_ops,false,2*2, allowEmptyLeaf); \
-    SETUP_TEST_FUNC_N(func, 3, parent_ops,false,2*3, allowEmptyLeaf); \
-    SETUP_TEST_FUNC_N(func, 4, parent_ops,false,2*4, allowEmptyLeaf); \
-    SETUP_TEST_FUNC_N(func, 8, parent_ops,false,2*8, allowEmptyLeaf); \
-    SETUP_TEST_FUNC_N(func, 16, parent_ops,false,2*16, allowEmptyLeaf); \
-    SETUP_TEST_FUNC_N(func, 32, parent_ops,false,2*32, allowEmptyLeaf); \
-    SETUP_TEST_FUNC_N(func, 64, parent_ops,false,2*64, allowEmptyLeaf); \
-    SETUP_TEST_FUNC_N(func, 128, parent_ops,false,2*128, allowEmptyLeaf);
-
+#define SETUP_TEST_FUNC(func, parent_ops, allowEmptyLeaf)                   \
+    SETUP_TEST_FUNC_N(func, 2, parent_ops, false, 2 * 2, allowEmptyLeaf);   \
+    SETUP_TEST_FUNC_N(func, 3, parent_ops, false, 2 * 3, allowEmptyLeaf);   \
+    SETUP_TEST_FUNC_N(func, 4, parent_ops, false, 2 * 4, allowEmptyLeaf);   \
+    SETUP_TEST_FUNC_N(func, 8, parent_ops, false, 2 * 8, allowEmptyLeaf);   \
+    SETUP_TEST_FUNC_N(func, 16, parent_ops, false, 2 * 16, allowEmptyLeaf); \
+    SETUP_TEST_FUNC_N(func, 32, parent_ops, false, 2 * 32, allowEmptyLeaf); \
+    SETUP_TEST_FUNC_N(func, 64, parent_ops, false, 2 * 64, allowEmptyLeaf); \
+    SETUP_TEST_FUNC_N(func, 128, parent_ops, false, 2 * 128, allowEmptyLeaf);
 
 TEST(BPTREE_without_parent_ops, copy) {
     SETUP_TEST_FUNC(test_BPTREE_ascinit, false, true);
