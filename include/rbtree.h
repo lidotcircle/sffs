@@ -1207,7 +1207,7 @@ struct TreeNodeOps {
     void setRight(_Node n, _Node r) const { n->m_right = r; }
 
     bool isBlack(_Node n) const { return n->m_black; }
-    void setBlack(_Node n, bool black) const { n->m_black = black; }
+    void setBlack(_Node n, bool black) { n->m_black = black; }
 
     inline _Node getParent(_Node node) const {
         if constexpr (parentsOps) {

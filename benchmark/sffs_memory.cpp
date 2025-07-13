@@ -6,6 +6,6 @@
 #include <stdexcept>
 
 #include "sffs.h"
-using namespace SFFS;
+using namespace ldc::SFFS;
 
 BENCHMARK_MAIN();

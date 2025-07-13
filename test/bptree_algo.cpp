@@ -1,5 +1,6 @@
 #include <utest.h>
 
+#include <algorithm>
 #include <array>
 #include <optional>
 #include <random>

@@ -276,10 +276,12 @@ public:
         }
         for (size_t i = m; i < std::min(m_size, N); i++) {
             oth.m_array[i].construct_with(std::move(at(i)));
+            ;
             m_array[i].destroy();
         }
         for (size_t i = m; i < std::min(oth.m_size, N); i++) {
             m_array[i].construct_with(std::move(oth.at(i)));
+            ;
             oth.m_array[i].destroy();
         }
         std::swap(m_size, oth.m_size);
