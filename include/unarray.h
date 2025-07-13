@@ -1,29 +1,27 @@
 #pragma once
+#include <bitset>
 #include <cassert>
 #include <cstddef>
-#include <bitset>
-
 
 namespace ldc {
-template<typename T, size_t N, bool ASSERT_INVALID=false>
+template <typename T, size_t N, bool ASSERT_INVALID = false>
 class unarray {
 public:
     inline size_t size() const { return this->m_size; }
     inline void clear() {
         if constexpr (ASSERT_INVALID) {
-            for (size_t i=0;i<N;i++) {
+            for (size_t i = 0; i < N; i++) {
                 if (m_ctlbits[i]) {
                     this->destroy(i);
                 }
             }
         } else {
-            for (size_t i=0;i<m_size;i++)
-                this->destroy(i);
+            for (size_t i = 0; i < m_size; i++) this->destroy(i);
         }
     }
 
-    template<typename ... Args>
-    inline void construct(size_t idx, Args&& ... args) {
+    template <typename... Args>
+    inline void construct(size_t idx, Args&&... args) {
         if constexpr (ASSERT_INVALID) assert(idx < N && !m_ctlbits[idx]);
         m_array[idx].construct_with(std::forward<Args>(args)...);
         m_size++;
@@ -37,21 +35,23 @@ public:
         if constexpr (ASSERT_INVALID) m_ctlbits[idx] = false;
     }
 
-    inline T&       operator[](size_t idx)       { return this->at(idx); }
+    inline T& operator[](size_t idx) { return this->at(idx); }
     inline const T& operator[](size_t idx) const { return this->at(idx); }
 
-    inline T&       at(size_t idx)       { return m_array[idx].as(); }
+    inline T& at(size_t idx) { return m_array[idx].as(); }
     inline const T& at(size_t idx) const { return m_array[idx].as(); }
 
     inline bool empty() const { return m_size == 0; }
 
-    inline unarray(): m_size(0) {}
+    inline unarray() : m_size(0) {}
     inline ~unarray() { this->clear(); }
 
 private:
     struct DT {
-        template<typename ... Args>
-        void construct_with(Args&& ... args) { new (m_buf) T(std::forward<Args>(args)...); }
+        template <typename... Args>
+        void construct_with(Args&&... args) {
+            new (m_buf) T(std::forward<Args>(args)...);
+        }
 
         void destroy() { this->as().~T(); }
 
@@ -65,6 +65,6 @@ private:
 
     size_t m_size;
     DT m_array[N];
-    std::conditional_t<ASSERT_INVALID,std::bitset<N>,ET> m_ctlbits;
+    std::conditional_t<ASSERT_INVALID, std::bitset<N>, ET> m_ctlbits;
 };
-};
+};  // namespace ldc

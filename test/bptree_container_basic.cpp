@@ -1,12 +1,8 @@
+#include <utest.h>
+
 #include "bptree_container.h"
-#include <gtest/gtest.h>
-#include <random>
-#include <vector>
-#include <set>
-#include <algorithm>
 using namespace std;
 using namespace ldc;
-
 
 TEST(set, basic) {
     bptset<int> m;
@@ -19,7 +15,7 @@ TEST(set, basic) {
 }
 
 TEST(map, basic) {
-    bptmap<int,int> m;
+    bptmap<int, int> m;
     ASSERT_EQ(m.begin(), m.begin());
     ASSERT_EQ(m.begin(), m.end());
     m[10] = 0;
@@ -31,4 +27,3 @@ TEST(map, basic) {
     m.find(20);
     m.lower_bound(20);
 }
-

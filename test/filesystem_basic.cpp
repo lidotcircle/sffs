@@ -1,15 +1,13 @@
-#include <gtest/gtest.h>
-#include <vector>
-#include <map>
+#include <utest.h>
+
 #include "sffs.h"
 using namespace ldc::SFFS;
 
-
-template<typename T>
-static void test_fs(FileSystem<T>& fs) 
-{
+template <typename T>
+static void test_fs(FileSystem<T>& fs) {
     ASSERT_TRUE(fs.mkdir({"hello"}));
-    auto fn = fs.open({"hello", "world"}, fileopenmode::CREATE | fileopenmode::READ );
+    auto fn =
+        fs.open({"hello", "world"}, fileopenmode::CREATE | fileopenmode::READ);
     const auto hellostat = fs.stat({"hello"});
     const auto wwstat = fs.stat({"ww"});
     const auto rootstat = fs.stat({});
@@ -32,7 +30,7 @@ static void test_fs(FileSystem<T>& fs)
     {
         auto fd = fn.value();
         std::string bbx;
-        for (size_t i=0;i<10000;i++) {
+        for (size_t i = 0; i < 10000; i++) {
             const auto buf = std::to_string(i);
             fs.write(fd, buf.c_str(), buf.size());
             bbx += buf;
@@ -58,11 +56,13 @@ static void test_fs(FileSystem<T>& fs)
         ASSERT_TRUE(fs.unlink({"hello", "world"}));
         const auto un = fs.stat({"hello", "world"});
         ASSERT_FALSE(un.has_value());
-        ASSERT_FALSE(fs.open({"hello", "world"}, fileopenmode::READ).has_value());
+        ASSERT_FALSE(
+            fs.open({"hello", "world"}, fileopenmode::READ).has_value());
     }
 
     {
-        auto fn = fs.open({"hello", "world"}, fileopenmode::CREATE | fileopenmode::READ );
+        auto fn = fs.open({"hello", "world"},
+                          fileopenmode::CREATE | fileopenmode::READ);
         ASSERT_TRUE(fn.has_value());
         ASSERT_EQ(fs.write(fn.value(), "nope", 4), 4);
         ASSERT_FALSE(fs.move({"hello", "world"}, {"nope"}));
@@ -78,22 +78,21 @@ static void test_fs(FileSystem<T>& fs)
         ASSERT_TRUE(fs.closedir(fs.opendir({"hello"}).value()));
     }
 
-/*     for (size_t i=0;i<1024*2;i++) {
-        if (i % 16 == 0) {
-            printf("0x%.4zX: ", i);
-        }
-        unsigned char val;
-        fs.block().read(i, &val, 1);
-        std::printf("0x%.2X ", val);
+    /*     for (size_t i=0;i<1024*2;i++) {
+            if (i % 16 == 0) {
+                printf("0x%.4zX: ", i);
+            }
+            unsigned char val;
+            fs.block().read(i, &val, 1);
+            std::printf("0x%.2X ", val);
 
-        if ((i + 1) % 16 == 0) {
-            std::cout << std::endl;
-        }
-    } */
+            if ((i + 1) % 16 == 0) {
+                std::cout << std::endl;
+            }
+        } */
 }
 
-TEST(filesystem, memory_basic)
-{
+TEST(filesystem, memory_basic) {
     auto ms = MemorySpace(1024 * 1024 * 10);
     auto fs = formatFileSystem(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
     test_fs(fs);
@@ -101,8 +100,7 @@ TEST(filesystem, memory_basic)
     auto ff2 = openFileSystem(BlockDeviceRefWrapper<MemorySpace>(ms));
 }
 
-TEST(filesystem, file_basic)
-{
+TEST(filesystem, file_basic) {
     auto ms = FileWrapper("", "wr+");
     auto fs = formatFileSystem(BlockDeviceRefWrapper<FileWrapper>(ms), 3, 9, 6);
     test_fs(fs);

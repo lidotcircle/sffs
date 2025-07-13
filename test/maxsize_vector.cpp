@@ -1,22 +1,19 @@
-#include <gtest/gtest.h>
-#include <vector>
-#include <map>
-#include <set>
-#include <random>
-#include <optional>
-#include <vector>
 #include "maxsize_vector.h"
-using namespace ldc;
 
+#include <utest.h>
+
+#include <random>
+#include <vector>
+using namespace ldc;
 
 std::default_random_engine generator;
 
-template<typename VEC1, typename VEC2, typename VALGEN>
+template <typename VEC1, typename VEC2, typename VALGEN>
 static void vectortest(size_t n, VALGEN valgen) {
     VEC1 vec1, vec1_a;
     VEC2 vec2, vec2_a;
 
-    for (size_t i=0;i<n;i++) {
+    for (size_t i = 0; i < n; i++) {
         auto val = valgen();
         vec1.push_back(val);
         vec2.push_back(val);
@@ -34,10 +31,10 @@ static void vectortest(size_t n, VALGEN valgen) {
         ASSERT_EQ(vec1.size(), vec2.size());
         auto v1b = vec1.begin();
         auto v2b = vec2.begin();
-        for (;v1b!=vec1.end();v1b++,v2b++) {
+        for (; v1b != vec1.end(); v1b++, v2b++) {
             ASSERT_EQ(*v1b, *v2b);
         }
-        ASSERT_TRUE(v2b==vec2.end());
+        ASSERT_TRUE(v2b == vec2.end());
     }
 
     {
@@ -76,7 +73,7 @@ static void vectortest(size_t n, VALGEN valgen) {
     }
 
     {
-        for (size_t i=0;i<n;i++) {
+        for (size_t i = 0; i < n; i++) {
             vec2.pop_back();
             vec1.pop_back();
         }
@@ -85,16 +82,20 @@ static void vectortest(size_t n, VALGEN valgen) {
     ASSERT_TRUE(vec2.empty());
 }
 
-
-
 TEST(maxsize_vector, general) {
     std::uniform_int_distribution<int> distribution(-30000000, 30000000);
 
-#define testn(n1, n2) \
-    vectortest<std::vector<int>,maxsize_vector<int,n1>>(n2, [&](){return distribution(generator);}); \
-    vectortest<std::vector<std::shared_ptr<int>>,maxsize_vector<std::shared_ptr<int>,n1>>(n2, [&](){return std::make_shared<int>(distribution(generator));}); \
-    vectortest<std::vector<int>,maxsize_vector<int,n1>>(n1, [&](){return distribution(generator);}); \
-    vectortest<std::vector<std::shared_ptr<int>>,maxsize_vector<std::shared_ptr<int>,n1>>(n1, [&](){return std::make_shared<int>(distribution(generator));});
+#define testn(n1, n2)                                                          \
+    vectortest<std::vector<int>, maxsize_vector<int, n1>>(                     \
+        n2, [&]() { return distribution(generator); });                        \
+    vectortest<std::vector<std::shared_ptr<int>>,                              \
+               maxsize_vector<std::shared_ptr<int>, n1>>(                      \
+        n2, [&]() { return std::make_shared<int>(distribution(generator)); }); \
+    vectortest<std::vector<int>, maxsize_vector<int, n1>>(                     \
+        n1, [&]() { return distribution(generator); });                        \
+    vectortest<std::vector<std::shared_ptr<int>>,                              \
+               maxsize_vector<std::shared_ptr<int>, n1>>(                      \
+        n1, [&]() { return std::make_shared<int>(distribution(generator)); });
 
     testn(1, 1);
     testn(2, 1);

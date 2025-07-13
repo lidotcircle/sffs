@@ -7,6 +7,6 @@ foreach (bm_file IN LISTS BM_FILES)
     string(CONCAT execname "benchmark_" ${filenamewe})
 
     add_executable(${execname} ${bm_file})
-    set_property(TARGET ${execname} PROPERTY CXX_STANDARD ${CXX_VERSION})
+    set_property(TARGET ${execname} PROPERTY CXX_STANDARD 20)
     target_link_libraries(${execname} PRIVATE benchmark::benchmark sffs)
 endforeach()
