@@ -1,5 +1,4 @@
 enable_testing()
-include(GoogleTest)
 file(GLOB TEST_FILES_CPP "${CMAKE_CURRENT_LIST_DIR}/*.cpp")
 file(GLOB TEST_FILES_CX "${CMAKE_CURRENT_LIST_DIR}/*.cx")
 file(GLOB TEST_FILES "${CMAKE_CURRENT_LIST_DIR}/*.c")
