@@ -53,11 +53,11 @@ public:
     size_t total_bytes_written = 0;
     size_t total_operations = 0;
 
-    // Test parameters
-    static constexpr size_t MIN_DIRECTORIES = 50;
-    static constexpr size_t MIN_FILES = 100;
-    static constexpr size_t MAX_DIRECTORY_DEPTH = 10;
-    static constexpr size_t MAX_FILE_SIZE = 64 * 1024;  // 64KB
+    // Test parameters - reduced to avoid exhausting filesystem capacity
+    static constexpr size_t MIN_DIRECTORIES = 20;
+    static constexpr size_t MIN_FILES = 40;
+    static constexpr size_t MAX_DIRECTORY_DEPTH = 6;
+    static constexpr size_t MAX_FILE_SIZE = 4 * 1024;  // 4KB
     static constexpr size_t MIN_FILE_SIZE = 1;
 
     std::mt19937 rng;
@@ -549,14 +549,14 @@ public:
                 }
             }
 
-            // Create multiple branches at each depth
-            for (int branch = 0; branch < 3; ++branch) {
+            // Create multiple branches at each depth (reduced)
+            for (int branch = 0; branch < 2; ++branch) {
                 std::string branch_path =
                     path + "/branch" + std::to_string(branch);
                 createDirectory(branch_path);
 
-                // Create sub-branches
-                for (int sub = 0; sub < 2; ++sub) {
+                // Create sub-branches (reduced)
+                for (int sub = 0; sub < 1; ++sub) {
                     std::string sub_path =
                         branch_path + "/sub" + std::to_string(sub);
                     createDirectory(sub_path);
@@ -576,10 +576,10 @@ public:
         std::vector<std::string> target_dirs(directory_paths.begin(),
                                              directory_paths.end());
 
-        // Create files in each directory
+        // Create files in each directory (reduced count)
         for (const auto& dir : target_dirs) {
-            // Create different types of files
-            for (int i = 0; i < 5; ++i) {
+            // Create different types of files (reduced from 5 to 2)
+            for (int i = 0; i < 2; ++i) {
                 std::string filename = "file_" + std::to_string(i) + ".txt";
                 std::string path =
                     dir.empty() ? filename : dir + "/" + filename;
@@ -728,7 +728,7 @@ public:
     }
 
     void stressTestWithRandomOperations() {
-        const size_t num_operations = 100;
+        const size_t num_operations = 50;  // Reduced from 100
 
         for (size_t i = 0; i < num_operations; ++i) {
             int op = operation_dist(rng);

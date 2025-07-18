@@ -644,7 +644,7 @@ public:
         if (secId >= m_msat.size() * this->entriesPerBlock()) {
             return;
         }
-        
+
         if (preSecId == static_cast<uint32_t>(AllocTableEntry::NOT_USED)) {
             const auto next = this->getEntry(secId);
             assert(next == static_cast<uint32_t>(AllocTableEntry::NOT_USED));
@@ -653,7 +653,8 @@ public:
             if (!is_reg_entry(secId)) {
                 return;
             }
-            // Check if the sector chain is consistent, if not, skip the operation
+            // Check if the sector chain is consistent, if not, skip the
+            // operation
             if (this->getEntry(preSecId) != secId) {
                 return;
             }
@@ -811,7 +812,6 @@ private:
                 const auto u = u_opt.value();
 
                 m_lru_sectorIdBase = i * this->entriesPerBlock();
-                ;
                 const auto ans = m_lru_sectorIdBase + u;
                 this->setEntry(
                     ans, static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
@@ -891,6 +891,7 @@ private:
 
                 const auto idx = ans / this->entriesPerBlock();
                 assert(m_sat_free_count.size() > idx);
+                m_sat_free_count.at(idx)--;
                 assert(m_sat_free_count[idx] > 1);
                 return ans;
             }
@@ -1304,7 +1305,7 @@ public:
                         const std::array<uint16_t, 32>& name) {
         assert(entryid * COMPOUND_FILE_ENTRY_SIZE < m_stream.size());
         m_stream.write(entryid * COMPOUND_FILE_ENTRY_SIZE, name.data(),
-                       name.size());
+                       sizeof(name));
         uint16_t len = 0;
         for (; len < 32 && name[len] != 0; len++);
         len = (len + 1) * 2;
@@ -2316,7 +2317,8 @@ public:
                 this->decRef(dirname);
                 return false;
             }
-            // Directory is empty but has lingering references - allow removal anyway
+            // Directory is empty but has lingering references - allow removal
+            // anyway
         }
 
         auto pp = dirname;
