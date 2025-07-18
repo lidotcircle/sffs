@@ -1948,7 +1948,15 @@ private:
         }
 
         inline size_t read(addr_t addr, void* buf, size_t bufsize) const {
-            if (addr + bufsize > m_filesize) throw OutOfRange();
+            if (addr + bufsize > m_filesize) {
+                if (addr > m_filesize) {
+                    throw OutOfRange();
+                }
+                bufsize = m_filesize - addr;
+                if (bufsize == 0) {
+                    return 0;
+                }
+            }
 
             if (this->isShort()) {
                 return this->shortStream().read(addr, buf, bufsize);
@@ -1963,8 +1971,11 @@ private:
                     this->shortStream().deleteStream();
                 } else {
                     this->normalStream().deleteStream();
+                    m_stream = m_fs.OpenShortStream(
+                        static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
                 }
                 m_filesize = 0;
+                m_fs.m_dirtable.setSize(m_entryid, m_filesize);
                 return;
             }
 
@@ -2018,11 +2029,23 @@ private:
         inline size_t size() const { return m_filesize; }
 
     private:
-        auto& normalStream() { return std::get<0>(m_stream); }
-        auto& shortStream() { return std::get<1>(m_stream); }
+        auto& normalStream() {
+            assert(!isShort());
+            return std::get<0>(m_stream);
+        }
+        auto& shortStream() {
+            assert(isShort());
+            return std::get<1>(m_stream);
+        }
 
-        const auto& normalStream() const { return std::get<0>(m_stream); }
-        const auto& shortStream() const { return std::get<1>(m_stream); }
+        const auto& normalStream() const {
+            assert(!isShort());
+            return std::get<0>(m_stream);
+        }
+        const auto& shortStream() const {
+            assert(isShort());
+            return std::get<1>(m_stream);
+        }
 
         bool isShort() const {
             return std::holds_alternative<
@@ -2121,26 +2144,11 @@ private:
                 m_openedDirectories.erase(m_openedDirectories.find(p));
             }
         }
-
-        if (p.empty()) return;
-        p.pop_back();
-        for (; !p.empty(); p.pop_back()) {
-            m_openedDirectories.at(p).m_ref--;
-            if (m_openedDirectories.at(p).m_ref == 0) {
-                m_openedDirectories.erase(m_openedDirectories.find(p));
-            }
-        }
-        // Only decrement root directory once
-        if (m_openedDirectories.count(p)) {
-            m_openedDirectories.at(p).m_ref--;
-            if (m_openedDirectories.at(p).m_ref == 0) {
-                m_openedDirectories.erase(m_openedDirectories.find(p));
-            }
-        }
     }
 
     inline std::array<uint16_t, 32> buildName(const std::string& str) const {
         std::array<uint16_t, 32> ans = {0};
+        ans.fill(0);
         for (size_t i = 0; i < str.size() && i < ans.size(); i++) {
             ans[i] = str[i];
         }
@@ -2163,6 +2171,8 @@ private:
         }
         auto ptr_parentDir = &m_openedDirectories.at(p);
         ptr_parentDir->m_ref++;
+        std::vector<OpenedDirectory*> dirs;
+        dirs.emplace_back(ptr_parentDir);
 
         for (size_t i = 0; i < path.size(); i++) {
             p.push_back(path[i]);
@@ -2176,7 +2186,8 @@ private:
                     if (m_dirtable.getEntryType(child_id) !=
                         EntryType::UserStorage) {
                         p.pop_back();
-                        this->decRef(p);
+                        std::for_each(dirs.begin(), dirs.end(),
+                                      [&](auto e) { decRef(e->m_path); });
                         return false;
                     }
 
@@ -2184,14 +2195,19 @@ private:
                         std::make_pair(p, OpenedDirectory(p, child_id)));
                 } else {
                     p.pop_back();
-                    this->decRef(p);
+                    std::for_each(dirs.begin(), dirs.end(),
+                                  [&](auto e) { decRef(e->m_path); });
                     return false;
                 }
             }
 
             ptr_parentDir = &m_openedDirectories.at(p);
+            dirs.emplace_back(ptr_parentDir);
         }
 
+        for (size_t i = 0; i + 1 < dirs.size(); i++) {
+            decRef(dirs.at(i)->m_path);
+        }
         return true;
     }
 
