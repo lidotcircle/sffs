@@ -11,7 +11,9 @@
 #include <list>
 #include <map>
 #include <optional>
+#include <ostream>
 #include <set>
+#include <sstream>
 #include <string>
 #include <type_traits>
 #include <variant>
@@ -1105,6 +1107,23 @@ enum class EntryType {
     RootStorage = 5,
 };
 
+inline std::array<uint16_t, 32> cfb_buildName(const std::string& str) {
+    std::array<uint16_t, 32> ans = {0};
+    ans.fill(0);
+    for (size_t i = 0; i < str.size() && i < ans.size(); i++) {
+        ans[i] = str[i];
+    }
+    return ans;
+}
+
+inline std::string cfb_name2str(const std::array<uint16_t, 32>& str) {
+    std::string ans;
+    for (size_t i = 0; i < str.size() && str[i] != 0; i++) {
+        ans += static_cast<char>(str[i]);
+    }
+    return ans;
+}
+
 #define COMPOUND_FILE_ENTRY_SIZE 128
 template <typename T,
           std::enable_if_t<Impl::is_block_device<T>::value, bool> = true>
@@ -1171,6 +1190,94 @@ public:
                 append(this->getSubdirectoryEntry(entry));
             }
         }
+    }
+
+    struct Node {
+        bool isDir() const { return m_node.has_value(); }
+
+        auto& asDir() const { return m_node.value(); }
+
+        auto moveOutDir() { return std::move(m_node.value()); }
+
+        auto entryid() const { return m_entryid; }
+
+        static std::unique_ptr<Node> createDir(
+            uint32_t id, std::string name,
+            std::vector<std::unique_ptr<Node>> node) {
+            return std::make_unique<Node>(Node(id, name, std::move(node)));
+        }
+
+        static std::unique_ptr<Node> createFile(uint32_t node,
+                                                std::string name) {
+            return std::make_unique<Node>(Node(node, name));
+        }
+
+        void format(std::ostream& oss, int level) const {
+            oss << std::string(level * 2, ' ');
+            oss << m_name << "[" << m_entryid << "]" << (isDir() ? "-" : "")
+                << std::endl;
+            if (isDir()) {
+                for (auto& n : asDir()) {
+                    n->format(oss, level + 1);
+                }
+            }
+        }
+
+        std::string asString() const {
+            std::ostringstream oss;
+            format(oss, 0);
+            return oss.str();
+        }
+
+    private:
+        Node(uint32_t e, std::string n, std::vector<std::unique_ptr<Node>> c)
+            : m_entryid(e), m_name(n), m_node(std::move(c)) {}
+
+        Node(uint32_t e, std::string n) : m_entryid(e), m_name(n) {}
+
+        uint32_t m_entryid;
+        std::string m_name;
+        std::optional<std::vector<std::unique_ptr<Node>>> m_node;
+    };
+    std::unique_ptr<Node> DirectoryHierarchy() const {
+        const std::function<std::unique_ptr<Node>(uint32_t)> genNode =
+            [&](uint32_t entry) -> std::unique_ptr<Node> {
+            const auto etype = this->getEntryType(entry);
+            if (etype != EntryType::RootStorage &&
+                etype != EntryType::UserStorage) {
+                return Node::createFile(entry, cfb_name2str(getName(entry)));
+            }
+
+            std::vector<uint32_t> subs;
+            const auto root = this->getSubdirectoryEntry(entry);
+            for (auto iter = m_algo.begin(root); m_algo.exists(iter);
+                 m_algo.forward(root, iter)) {
+                subs.push_back(m_algo.getNode(iter));
+            }
+
+            std::vector<std::unique_ptr<Node>> children;
+            std::transform(subs.begin(), subs.end(),
+                           std::back_inserter(children),
+                           [&](uint32_t id) { return genNode(id); });
+            return Node::createDir(entry, cfb_name2str(getName(entry)),
+                                   std::move(children));
+        };
+
+        return genNode(0);
+    }
+
+    inline std::vector<uint32_t> UsedEntriesFromTraverse() const {
+        const auto nodes = DirectoryHierarchy()->moveOutDir();
+        std::vector<uint32_t> ans;
+        ans.emplace_back(0);
+        const std::function<void(const Node*)> visitor = [&](const Node* node) {
+            ans.emplace_back(node->entryid());
+            if (node->isDir()) {
+                std::for_each(node->asDir().begin(), node->asDir().end(),
+                              [&](auto m) { visitor(m.get()); });
+            }
+        };
+        return ans;
     }
 
     inline std::optional<uint32_t> createEntry(
@@ -1269,6 +1376,17 @@ public:
             ans.push_back(m_algo.getNode(iter));
         }
 
+        return ans;
+    }
+
+    inline std::vector<std::pair<uint32_t, std::string>> getChildrenNames(
+        uint32_t parentId) const {
+        std::vector<std::pair<uint32_t, std::string>> ans;
+        const auto children = getChildren(parentId);
+        std::transform(children.begin(), children.end(),
+                       std::back_inserter(ans), [&](uint32_t id) {
+                           return std::make_pair(id, cfb_name2str(getName(id)));
+                       });
         return ans;
     }
 
@@ -2146,23 +2264,6 @@ private:
         }
     }
 
-    inline std::array<uint16_t, 32> buildName(const std::string& str) const {
-        std::array<uint16_t, 32> ans = {0};
-        ans.fill(0);
-        for (size_t i = 0; i < str.size() && i < ans.size(); i++) {
-            ans[i] = str[i];
-        }
-        return ans;
-    }
-
-    inline std::string name2str(const std::array<uint16_t, 32>& str) const {
-        std::string ans;
-        for (size_t i = 0; i < str.size() && str[i] != 0; i++) {
-            ans += static_cast<char>(str[i]);
-        }
-        return ans;
-    }
-
     inline bool openDirectory(const FSPath& path) {
         FSPath p;
         if (m_openedDirectories.count(p) == 0) {
@@ -2180,7 +2281,7 @@ private:
                 m_openedDirectories.at(p).m_ref++;
             } else {
                 const auto child = m_dirtable.searchChild(
-                    ptr_parentDir->m_entryid, this->buildName(path[i]));
+                    ptr_parentDir->m_entryid, cfb_buildName(path[i]));
                 if (child.has_value()) {
                     const auto child_id = child.value();
                     if (m_dirtable.getEntryType(child_id) !=
@@ -2225,7 +2326,7 @@ private:
 
         const auto& parentdir = m_openedDirectories.at(dir);
         const auto child = m_dirtable.searchChild(parentdir.m_entryid,
-                                                  this->buildName(basename));
+                                                  cfb_buildName(basename));
         if (child.has_value()) {
             const auto child_id = child.value();
             if (m_dirtable.getEntryType(child_id) != EntryType::UserStream) {
@@ -2290,10 +2391,15 @@ public:
         auto pp = dirname;
         pp.pop_back();
         if (!this->openDirectory(pp)) return false;
+        if (this->openFile(dirname)) {
+            decRef(dirname);
+            m_errcode = ErrorCode::already_exists;
+            return false;
+        }
 
         const auto& parentDir = m_openedDirectories.at(pp);
         const auto entryid = m_dirtable.createEntry(
-            parentDir.m_entryid, this->buildName(dirname.back()),
+            parentDir.m_entryid, cfb_buildName(dirname.back()),
             EntryType::UserStorage);
         this->decRef(pp);
         if (!entryid.has_value()) {
@@ -2362,7 +2468,7 @@ public:
             assert(m_errcode == ErrorCode::not_found);
             if (mode & fileopenmode::CREATE) {
                 m_dirtable
-                    .createEntry(parentDir.m_entryid, this->buildName(basename),
+                    .createEntry(parentDir.m_entryid, cfb_buildName(basename),
                                  EntryType::UserStream)
                     .value();
                 const auto result = this->openFile(pp, basename);
@@ -2400,11 +2506,11 @@ public:
 
         auto& mm = _this->m_openedDirectories.at(dir);
         const auto dirid = mm.m_entryid;
-        const auto childrenId = m_dirtable.getChildren(dirid);
+        const auto childrenId = m_dirtable.getChildrenNames(dirid);
         std::vector<StatInfo> ans;
-        for (const auto id : childrenId) {
+        for (const auto [id, name] : childrenId) {
             auto path = dir;
-            path.push_back(this->name2str(m_dirtable.getName(id)));
+            path.push_back(name);
             ans.push_back(this->entry2stat(id, path));
         }
 
@@ -2482,7 +2588,7 @@ public:
 
         const auto nu =
             m_dirtable.searchChild(m_openedDirectories.at(newpp).m_entryid,
-                                   this->buildName(newpath.back()));
+                                   cfb_buildName(newpath.back()));
         if (nu.has_value()) {
             m_errcode = ErrorCode::already_exists;
             this->decRef(newpp);
@@ -2498,7 +2604,7 @@ public:
         }
 
         const auto ku = m_dirtable.searchChild(
-            m_openedDirectories.at(pp).m_entryid, this->buildName(path.back()));
+            m_openedDirectories.at(pp).m_entryid, cfb_buildName(path.back()));
         if (!ku.has_value()) {
             m_errcode = ErrorCode::not_found;
             this->decRef(pp);
@@ -2510,7 +2616,7 @@ public:
             m_dirtable
                 .deleteEntry(m_openedDirectories.at(pp).m_entryid, ku.value())
                 .value();
-        m_dirtable.setName(nd, this->buildName(newpath.back()));
+        m_dirtable.setName(nd, cfb_buildName(newpath.back()));
         m_dirtable.insertEntry(m_openedDirectories.at(newpp).m_entryid, nd)
             .value();
         this->decRef(pp);
@@ -2603,7 +2709,7 @@ public:
         }
 
         const auto nu = m_dirtable.searchChild(
-            m_openedDirectories.at(pp).m_entryid, this->buildName(path.back()));
+            m_openedDirectories.at(pp).m_entryid, cfb_buildName(path.back()));
         if (!nu.has_value()) {
             m_errcode = ErrorCode::not_found;
             _this->decRef(pp);
@@ -2773,6 +2879,10 @@ public:
         this->close(src_fd.value());
         this->close(dst_fd.value());
         return true;
+    }
+
+    std::string DirectoryHierarchy() const {
+        return m_dirtable.DirectoryHierarchy()->asString();
     }
 
     const auto& block() const { return m_block; }

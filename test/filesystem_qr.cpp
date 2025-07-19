@@ -2,7 +2,6 @@
 #include <utest.h>
 
 #include <algorithm>
-#include <chrono>
 #include <iostream>
 #include <random>
 #include <sstream>
@@ -77,8 +76,8 @@ public:
         existing_paths.insert("");
         directory_paths.insert("");
 
-        // Initialize random number generators
-        rng.seed(std::chrono::system_clock::now().time_since_epoch().count());
+        static size_t setupCount = 0;
+        rng.seed(setupCount++);
         size_dist =
             std::uniform_int_distribution<size_t>(MIN_FILE_SIZE, MAX_FILE_SIZE);
         depth_dist = std::uniform_int_distribution<int>(1, MAX_DIRECTORY_DEPTH);
