@@ -236,7 +236,7 @@ public:
             std::string child_path = path.empty()
                                          ? entry.m_path.back()
                                          : path + "/" + entry.m_path.back();
-            EXPECT_TRUE(existing_paths.count(child_path));
+            ASSERT_TRUE(existing_paths.count(child_path));
 
             if (entry.m_type == EntryType::UserStorage) {
                 EXPECT_TRUE(directory_paths.count(child_path));
@@ -625,7 +625,8 @@ public:
 
             // Test truncate
             auto components = pathToVector(path);
-            auto fd = fs->open(components, fileopenmode::WRITE);
+            auto fd = fs->open(components,
+                               fileopenmode::WRITE | fileopenmode::APPEND);
             if (fd.has_value()) {
                 size_t new_size = file_sizes[path] / 2;
                 fs->truncate(fd.value(), new_size);
@@ -736,13 +737,13 @@ public:
 
             if (op < 20) {
                 // Create file
-                std::string path = "stress_file_" + std::to_string(i) + ".txt";
+                std::string path = "sfile_" + std::to_string(i) + ".txt";
                 std::string content = generateRandomContent(size_dist(rng));
                 createFile(path, content);
 
             } else if (op < 35) {
                 // Create directory
-                std::string path = "stress_dir_" + std::to_string(i);
+                std::string path = "sdir_" + std::to_string(i);
                 createDirectory(path);
 
             } else if (op < 50 && !file_paths.empty()) {
@@ -770,7 +771,7 @@ public:
                                                file_paths.end());
                 std::uniform_int_distribution<> file_dist(0, files.size() - 1);
                 std::string src = files[file_dist(rng)];
-                std::string dst = src + ".stress_copy_" + std::to_string(i);
+                std::string dst = src + ".sc_" + std::to_string(i);
                 copyFile(src, dst);
 
             } else if (op < 80 && !file_paths.empty()) {
@@ -779,7 +780,7 @@ public:
                                                file_paths.end());
                 std::uniform_int_distribution<> file_dist(0, files.size() - 1);
                 std::string src = files[file_dist(rng)];
-                std::string dst = src + ".stress_moved_" + std::to_string(i);
+                std::string dst = src + ".sm_" + std::to_string(i);
                 moveFileOrDirectory(src, dst);
 
             } else if (op < 90 && !file_paths.empty()) {

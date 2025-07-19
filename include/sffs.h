@@ -862,11 +862,11 @@ private:
             m_lru_sectorCaches = std::vector<uint32_t>(
                 this->entriesPerBlock(),
                 static_cast<uint32_t>(AllocTableEntry::NOT_USED));
-            m_lru_sectorIdBase = satSecId;
+            m_lru_sectorIdBase = msatSecId;
             initSATSector(satSecId);
             this->setEntry(msatSecId,
                            static_cast<uint32_t>(AllocTableEntry::MSAT_USED));
-            this->setEntry(msatSecId + 1,
+            this->setEntry(satSecId,
                            static_cast<uint32_t>(AllocTableEntry::SAT_USED));
             assert(m_lru_sectorCaches[0] ==
                    static_cast<uint32_t>(AllocTableEntry::MSAT_USED));
