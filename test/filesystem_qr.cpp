@@ -210,8 +210,8 @@ public:
             actual_content.resize(expected_content.size());
             size_t bytes_read = fs->read(fd.value(), actual_content.data(),
                                          actual_content.size());
-            EXPECT_EQ(bytes_read, expected_content.size());
-            EXPECT_EQ(actual_content, expected_content);
+            ASSERT_EQ(bytes_read, expected_content.size());
+            ASSERT_EQ(actual_content, expected_content);
             fs->close(fd.value());
         }
     }
@@ -221,13 +221,15 @@ public:
 
         // Count expected children
         size_t expected_count = 0;
+        std::vector<std::string> subs;
         for (const auto& existing_path : existing_paths) {
-            if (getParentPath(existing_path) == path) {
+            if (existing_path != path && getParentPath(existing_path) == path) {
                 expected_count++;
+                subs.emplace_back(existing_path);
             }
         }
 
-        EXPECT_EQ(entries.size(), expected_count);
+        ASSERT_EQ(entries.size(), expected_count);
 
         // Verify each entry
         for (const auto& entry : entries) {

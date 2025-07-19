@@ -1,6 +1,10 @@
 #include <utest.h>
 
+#include <algorithm>
+#include <functional>
 #include <iostream>
+#include <random>
+
 #include "sffs.h"
 using namespace ldc::SFFS;
 
@@ -91,6 +95,8 @@ static void test_fs(FileSystem<T>& fs) {
                 std::cout << std::endl;
             }
         } */
+
+    std::cout << fs.DirectoryHierarchy();
 }
 
 template <typename T>
@@ -389,6 +395,459 @@ static void test_large_file_operations(FileSystem<T>& fs) {
     ASSERT_TRUE(fs.close(fd.value()));
     ASSERT_TRUE(fs.unlink({"large", "largefile"}));
     ASSERT_TRUE(fs.rmdir({"large"}));
+}
+
+struct Node {
+    std::string name;
+    bool is_directory;
+    std::vector<Node> children;
+    std::vector<uint8_t> data;
+
+    Node(std::string name, bool is_directory)
+        : name(name), is_directory(is_directory) {}
+
+    Node& add_child(Node child) {
+        assert(is_directory);
+        children.push_back(std::move(child));
+        return *this;
+    }
+
+    Node& add_data(std::string data) {
+        assert(!is_directory);
+        this->data = std::vector<uint8_t>(data.begin(), data.end());
+        return *this;
+    }
+
+    static Node create_directory(std::string name) { return Node(name, true); }
+
+    static Node create_file(std::string name) { return Node(name, false); }
+};
+
+template <typename T>
+static void test_consistency(FileSystem<T>& fs, std::vector<Node> nodes) {
+    // Helper function to create filesystem structure from nodes
+    std::function<void(const std::vector<Node>&,
+                       const std::vector<std::string>&)>
+        create_structure;
+    create_structure = [&](const std::vector<Node>& nodes,
+                           const std::vector<std::string>& current_path) {
+        for (const auto& node : nodes) {
+            auto node_path = current_path;
+            node_path.push_back(node.name);
+
+            if (node.is_directory) {
+                ASSERT_TRUE(fs.mkdir(node_path));
+                // Recursively create children
+                create_structure(node.children, node_path);
+            } else {
+                // Create file
+                auto fd = fs.open(node_path, fileopenmode::CREATE |
+                                                 fileopenmode::WRITE |
+                                                 fileopenmode::READ);
+                ASSERT_TRUE(fd.has_value());
+
+                // Write data if present
+                if (!node.data.empty()) {
+                    ASSERT_EQ(fs.write(fd.value(), node.data.data(),
+                                       node.data.size()),
+                              node.data.size());
+                }
+
+                ASSERT_TRUE(fs.close(fd.value()));
+            }
+        }
+    };
+
+    // Helper function to verify filesystem structure matches nodes
+    std::function<void(const std::vector<Node>&,
+                       const std::vector<std::string>&)>
+        verify_structure;
+    verify_structure = [&](const std::vector<Node>& nodes,
+                           const std::vector<std::string>& current_path) {
+        // Get directory listing for current path
+        auto entries = fs.listdir(current_path);
+
+        // Check that we have the expected number of entries
+        ASSERT_EQ(entries.size(), nodes.size());
+
+        // Sort entries by name for consistent comparison
+        std::sort(entries.begin(), entries.end(),
+                  [](const auto& a, const auto& b) {
+                      return a.m_path.back() < b.m_path.back();
+                  });
+
+        // Sort nodes by name for consistent comparison
+        auto sorted_nodes = nodes;
+        std::sort(sorted_nodes.begin(), sorted_nodes.end(),
+                  [](const auto& a, const auto& b) { return a.name < b.name; });
+
+        for (size_t i = 0; i < sorted_nodes.size(); i++) {
+            const auto& node = sorted_nodes[i];
+            const auto& entry = entries[i];
+
+            // Check name matches
+            ASSERT_EQ(entry.m_path.back(), node.name);
+
+            // Check path matches
+            auto expected_path = current_path;
+            expected_path.push_back(node.name);
+            ASSERT_EQ(entry.m_path, expected_path);
+
+            if (node.is_directory) {
+                // Verify it's a directory
+                ASSERT_EQ(entry.m_type, EntryType::UserStorage);
+                ASSERT_TRUE(fs.is_directory(entry.m_path));
+                ASSERT_FALSE(fs.is_file(entry.m_path));
+
+                // Recursively verify children
+                verify_structure(node.children, entry.m_path);
+            } else {
+                // Verify it's a file
+                ASSERT_EQ(entry.m_type, EntryType::UserStream);
+                ASSERT_TRUE(fs.is_file(entry.m_path));
+                ASSERT_FALSE(fs.is_directory(entry.m_path));
+
+                // Check file size
+                ASSERT_EQ(entry.m_size, node.data.size());
+                ASSERT_EQ(fs.filesize(entry.m_path).value(), node.data.size());
+
+                // Verify file contents if data exists
+                if (!node.data.empty()) {
+                    auto fd = fs.open(entry.m_path, fileopenmode::READ);
+                    ASSERT_TRUE(fd.has_value());
+
+                    std::vector<uint8_t> read_data(node.data.size());
+                    ASSERT_EQ(
+                        fs.read(fd.value(), read_data.data(), read_data.size()),
+                        read_data.size());
+
+                    ASSERT_EQ(read_data, node.data);
+
+                    ASSERT_TRUE(fs.close(fd.value()));
+                }
+            }
+        }
+    };
+
+    // Create the filesystem structure
+    create_structure(nodes, {});
+
+    std::cout << fs.DirectoryHierarchy();
+
+    // Verify the filesystem structure matches the nodes
+    verify_structure(nodes, {});
+}
+
+static std::vector<Node> test_case1 = {
+    Node::create_directory("dir1")
+        .add_child(Node::create_directory("dir11"))
+        .add_child(Node::create_file("file111").add_data("hello world"))
+        .add_child(
+            Node::create_file("file112").add_data(std::string(1024, 'a'))),
+    Node::create_directory("dir2")
+        .add_child(Node::create_directory("dir21"))
+        .add_child(Node::create_file("file211")),
+    Node::create_file("file1").add_data("hello world"),
+    Node::create_file("file2"),
+    Node::create_file("file3"),
+};
+
+// Test case 2: Deep directory nesting
+static std::vector<Node> test_case2 = {
+    Node::create_directory("level1").add_child(
+        Node::create_directory("level2").add_child(
+            Node::create_directory("level3").add_child(
+                Node::create_directory("level4").add_child(
+                    Node::create_directory("level5").add_child(
+                        Node::create_file("deep_file")
+                            .add_data("buried treasure")))))),
+    Node::create_file("root_file").add_data("surface level"),
+};
+
+// Test case 3: Many files in single directory
+static std::vector<Node> test_case3 = {
+    Node::create_directory("many_files")
+        .add_child(Node::create_file("file_01").add_data("data1"))
+        .add_child(Node::create_file("file_02").add_data("data2"))
+        .add_child(Node::create_file("file_03").add_data("data3"))
+        .add_child(Node::create_file("file_04").add_data("data4"))
+        .add_child(Node::create_file("file_05").add_data("data5"))
+        .add_child(Node::create_file("file_06").add_data("data6"))
+        .add_child(Node::create_file("file_07").add_data("data7"))
+        .add_child(Node::create_file("file_08").add_data("data8"))
+        .add_child(Node::create_file("file_09").add_data("data9"))
+        .add_child(Node::create_file("file_10").add_data("data10")),
+};
+
+// Test case 4: Large files with different sizes
+static std::vector<Node> test_case4 = {
+    Node::create_directory("large_files")
+        .add_child(Node::create_file("small").add_data(std::string(100, 'S')))
+        .add_child(Node::create_file("medium").add_data(std::string(1000, 'M')))
+        .add_child(Node::create_file("large").add_data(std::string(10000, 'L')))
+        .add_child(Node::create_file("huge").add_data(std::string(50000, 'H'))),
+};
+
+// Test case 5: Empty directories and files
+static std::vector<Node> test_case5 = {
+    Node::create_directory("empty_test")
+        .add_child(Node::create_directory("empty_dir1"))
+        .add_child(Node::create_directory("empty_dir2"))
+        .add_child(Node::create_file("empty_file1"))
+        .add_child(Node::create_file("empty_file2"))
+        .add_child(Node::create_directory("nested_empty")
+                       .add_child(Node::create_directory("sub_empty1"))
+                       .add_child(Node::create_directory("sub_empty2"))),
+};
+
+// Test case 6: Mixed content with special patterns
+static std::vector<Node> test_case6 = {
+    Node::create_directory("mixed_content")
+        .add_child(Node::create_file("binary_data")
+                       .add_data(std::string{'\x00', '\x01', '\x02', '\x03',
+                                             '\xFF', '\xFE', '\xFD'}))
+        .add_child(Node::create_file("text_data")
+                       .add_data("Hello\nWorld\nWith\nNewlines"))
+        .add_child(Node::create_file("repeated")
+                       .add_data("ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789"))
+        .add_child(Node::create_directory("sub").add_child(
+            Node::create_file("unicode").add_data(
+                "Testing special chars: éñü"))),
+};
+
+// Test case 7: Complex nested structure with multiple levels
+static std::vector<Node> test_case7 = {
+    Node::create_directory("complex")
+        .add_child(
+            Node::create_directory("branch1")
+                .add_child(Node::create_directory("leaf1a").add_child(
+                    Node::create_file("data1a").add_data("branch1-leaf1a")))
+                .add_child(Node::create_directory("leaf1b")
+                               .add_child(Node::create_file("data1b").add_data(
+                                   "branch1-leaf1b"))
+                               .add_child(Node::create_file("extra1b").add_data(
+                                   "extra"))))
+        .add_child(Node::create_directory("branch2")
+                       .add_child(Node::create_directory("leaf2a"))
+                       .add_child(Node::create_file("direct2").add_data(
+                           "direct in branch2")))
+        .add_child(
+            Node::create_file("root_complex").add_data("root level data")),
+};
+
+// Test case 8: Files with maximum name length (31 chars)
+static std::vector<Node> test_case8 = {
+    Node::create_directory("max_names")
+        .add_child(Node::create_file("file_with_very_long_name_31ch")
+                       .add_data("max length name"))
+        .add_child(
+            Node::create_directory("dir_with_very_long_name_31chr")
+                .add_child(Node::create_file("another_max_length_name_31c")
+                               .add_data("nested max"))),
+};
+
+// Test case 9: Alternating files and directories
+static std::vector<Node> test_case9 = {
+    Node::create_file("f1").add_data("file1"),
+    Node::create_directory("d1")
+        .add_child(Node::create_file("f2").add_data("file2"))
+        .add_child(Node::create_directory("d2")
+                       .add_child(Node::create_file("f3").add_data("file3"))
+                       .add_child(Node::create_directory("d3").add_child(
+                           Node::create_file("f4").add_data("file4")))),
+    Node::create_file("f5").add_data("file5"),
+    Node::create_directory("d4"),
+    Node::create_file("f6").add_data("file6"),
+};
+
+// Test case 10: Stress test with many nested levels and files
+static std::vector<Node> test_case10 = {
+    Node::create_directory("stress")
+        .add_child(
+            Node::create_directory("level_a")
+                .add_child(Node::create_file("data_a1").add_data(
+                    std::string(512, 'A')))
+                .add_child(Node::create_file("data_a2").add_data(
+                    std::string(1024, 'a')))
+                .add_child(
+                    Node::create_directory("level_b")
+                        .add_child(Node::create_file("data_b1").add_data(
+                            std::string(256, 'B')))
+                        .add_child(Node::create_file("data_b2").add_data(
+                            std::string(768, 'b')))
+                        .add_child(
+                            Node::create_directory("level_c")
+                                .add_child(Node::create_file("data_c1")
+                                               .add_data(std::string(128, 'C')))
+                                .add_child(Node::create_file("data_c2")
+                                               .add_data(std::string(384, 'c')))
+                                .add_child(
+                                    Node::create_file("data_c3").add_data(
+                                        std::string(640, 'x'))))))
+        .add_child(
+            Node::create_directory("parallel")
+                .add_child(Node::create_file("p1").add_data("parallel1"))
+                .add_child(Node::create_file("p2").add_data("parallel2"))
+                .add_child(Node::create_file("p3").add_data("parallel3"))),
+};
+
+// Test case 11: Edge case with single character names
+static std::vector<Node> test_case11 = {
+    Node::create_directory("a")
+        .add_child(Node::create_directory("b")
+                       .add_child(Node::create_file("c").add_data("c"))
+                       .add_child(Node::create_file("d").add_data("dd"))
+                       .add_child(Node::create_file("e").add_data("eee")))
+        .add_child(Node::create_file("f").add_data("ffff")),
+    Node::create_file("g").add_data("ggggg"),
+    Node::create_directory("h"),
+};
+
+static std::vector<Node> test_case12 = {
+    Node::create_directory("dir1")
+        .add_child(Node::create_directory("dir11"))
+        .add_child(Node::create_file("file111").add_data("hello world"))
+        .add_child(
+            Node::create_file("file112").add_data(std::string(1024, 'a'))),
+    Node::create_directory("dir2").add_child(
+        Node::create_directory("dir21").add_child(
+            Node::create_directory("dir211").add_child(
+                Node::create_directory("dir2111")
+                    .add_child(
+                        Node::create_file("file21111").add_data("hello world"))
+                    .add_child(Node::create_directory("dir21112")
+                                   .add_child(Node::create_file("file211121")
+                                                  .add_data("hello world"))
+                                   .add_child(Node::create_file("file211122")
+                                                  .add_data("hello world")))))),
+    Node::create_file("file1").add_data("hello world"),
+};
+
+TEST(filesystem, consistency_case1) {
+    auto ms = MemorySpace(1024 * 1024 * 10);
+    auto fs = formatFileSystem(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
+    test_consistency(fs, test_case1);
+}
+
+TEST(filesystem, consistency_case2) {
+    auto ms = MemorySpace(1024 * 1024 * 10);
+    auto fs = formatFileSystem(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
+    test_consistency(fs, test_case2);
+}
+
+TEST(filesystem, consistency_case3) {
+    auto ms = MemorySpace(1024 * 1024 * 10);
+    auto fs = formatFileSystem(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
+    test_consistency(fs, test_case3);
+}
+
+TEST(filesystem, consistency_case4) {
+    auto ms = MemorySpace(1024 * 1024 * 10);
+    auto fs = formatFileSystem(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
+    test_consistency(fs, test_case4);
+}
+
+TEST(filesystem, consistency_case5) {
+    auto ms = MemorySpace(1024 * 1024 * 10);
+    auto fs = formatFileSystem(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
+    test_consistency(fs, test_case5);
+}
+
+TEST(filesystem, consistency_case6) {
+    auto ms = MemorySpace(1024 * 1024 * 10);
+    auto fs = formatFileSystem(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
+    test_consistency(fs, test_case6);
+}
+
+TEST(filesystem, consistency_case7) {
+    auto ms = MemorySpace(1024 * 1024 * 10);
+    auto fs = formatFileSystem(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
+    test_consistency(fs, test_case7);
+}
+
+TEST(filesystem, consistency_case8) {
+    auto ms = MemorySpace(1024 * 1024 * 10);
+    auto fs = formatFileSystem(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
+    test_consistency(fs, test_case8);
+}
+
+TEST(filesystem, consistency_case9) {
+    auto ms = MemorySpace(1024 * 1024 * 10);
+    auto fs = formatFileSystem(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
+    test_consistency(fs, test_case9);
+}
+
+TEST(filesystem, consistency_case10) {
+    auto ms = MemorySpace(1024 * 1024 * 10);
+    auto fs = formatFileSystem(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
+    test_consistency(fs, test_case10);
+}
+
+TEST(filesystem, consistency_case11) {
+    auto ms = MemorySpace(1024 * 1024 * 10);
+    auto fs = formatFileSystem(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
+    test_consistency(fs, test_case11);
+}
+
+TEST(filesystem, consistency_case12) {
+    auto ms = MemorySpace(1024 * 1024 * 10);
+    auto fs = formatFileSystem(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
+    test_consistency(fs, test_case12);
+}
+
+static std::string generate_random_string(size_t length) {
+    static const char alphanum[] =
+        "0123456789"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz";
+    std::string s(length, 0);
+    std::default_random_engine rng(0);
+    std::uniform_int_distribution<int> dist(0, sizeof(alphanum) - 1);
+    for (size_t i = 0; i < length; i++) {
+        s[i] = alphanum[dist(rng)];
+    }
+    return s;
+}
+
+TEST(filesystem, write_read_consistency) {
+    for (size_t i = 1; i < 100; i++) {
+        auto ms = MemorySpace(1024 * 1024 * 100);
+        auto fs =
+            formatFileSystem(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
+        std::default_random_engine rng(0);
+        std::uniform_int_distribution<int> dist(0, 10000 * i);
+        std::vector<std::string> contents;
+        for (size_t j = 0; j < 1000; j++) {
+            const auto filesize = dist(rng);
+            auto data = generate_random_string(filesize);
+            auto path = "file" + std::to_string(j);
+            auto fd = fs.open({path}, fileopenmode::WRITE | fileopenmode::READ |
+                                          fileopenmode::CREATE);
+            ASSERT_TRUE(fd.has_value());
+            fs.write(fd.value(), data.data(), data.size());
+            fs.close(fd.value());
+            contents.push_back(data);
+
+            auto fd2 = fs.open({path}, fileopenmode::READ);
+            ASSERT_TRUE(fd2.has_value());
+            std::vector<uint8_t> data2(contents[j].size());
+            ASSERT_EQ(fs.read(fd2.value(), data2.data(), data2.size()),
+                      data2.size());
+            ASSERT_EQ(std::string(data2.begin(), data2.end()), contents[j]);
+            fs.close(fd2.value());
+        }
+
+        for (size_t j = 0; j < 1000; j++) {
+            auto path = "file" + std::to_string(j);
+            auto fd = fs.open({path}, fileopenmode::READ);
+            ASSERT_TRUE(fd.has_value());
+            std::vector<uint8_t> data(contents[j].size());
+            ASSERT_EQ(fs.read(fd.value(), data.data(), data.size()),
+                      data.size());
+            ASSERT_EQ(std::string(data.begin(), data.end()), contents[j]);
+            fs.close(fd.value());
+        }
+    }
 }
 
 TEST(filesystem, memory_basic) {

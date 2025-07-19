@@ -1311,20 +1311,20 @@ public:
         this->setSectorID(id,
                           static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN));
         this->setSize(id, 0);
-        m_usedentries[id] = true;
-        m_free_entries--;
 
         return this->insertEntry(parentDirEntryId, id);
     }
 
     inline std::optional<uint32_t> insertEntry(uint32_t parentDirEntryId,
                                                uint32_t childEntryId) {
+        assert(!m_usedentries[childEntryId]);
+        assert(m_free_entries > 0);
         if (!insertIntoDirectory(parentDirEntryId, childEntryId)) {
-            m_free_entries++;
-            m_usedentries[childEntryId] = false;
             return std::nullopt;
         }
 
+        m_usedentries[childEntryId] = true;
+        m_free_entries--;
         return childEntryId;
     }
 
