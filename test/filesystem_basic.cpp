@@ -811,7 +811,7 @@ static std::string generate_random_string(size_t length) {
 
 TEST(filesystem, write_read_consistency) {
     for (size_t i = 1; i < 100; i++) {
-        auto ms = MemorySpace(1024 * 1024 * 100);
+        auto ms = MemorySpace(1024 * 1024 * 2000);
         auto fs =
             formatFileSystem(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
         std::default_random_engine rng(0);
