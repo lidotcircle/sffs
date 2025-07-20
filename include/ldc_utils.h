@@ -144,7 +144,7 @@ private:
  * !!! be cautious about lifetime of return value
  */
 template <typename F>
-deferred_call<F> defer(F&& f) {
+[[nodiscard]] deferred_call<F> defer(F&& f) {
     return deferred_call<F>(std::forward<F>(f));
 }
 

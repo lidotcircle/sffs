@@ -687,6 +687,14 @@ public:
         return m_header.getNumsSectorforSAT() * this->entriesPerBlock();
     }
 
+    inline size_t usedsize() const {
+        size_t ans = 0;
+        for (size_t i = 0; i < m_sat_free_count.size(); i++) {
+            ans += entriesPerBlock() - m_sat_free_count[i];
+        }
+        return ans;
+    }
+
 private:
     inline uint32_t entriesPerBlock() const {
         return m_header.sizeOfSector() / sizeof(uint32_t);
@@ -1192,7 +1200,9 @@ public:
         }
     }
 
-    struct Node {
+    struct EntryNode {
+        bool isRoot() const { return m_node.has_value() && m_entryid == 0; }
+
         bool isDir() const { return m_node.has_value(); }
 
         auto& asDir() const { return m_node.value(); }
@@ -1201,15 +1211,16 @@ public:
 
         auto entryid() const { return m_entryid; }
 
-        static std::unique_ptr<Node> createDir(
+        static std::unique_ptr<EntryNode> createDir(
             uint32_t id, std::string name,
-            std::vector<std::unique_ptr<Node>> node) {
-            return std::make_unique<Node>(Node(id, name, std::move(node)));
+            std::vector<std::unique_ptr<EntryNode>> node) {
+            return std::make_unique<EntryNode>(
+                EntryNode(id, name, std::move(node)));
         }
 
-        static std::unique_ptr<Node> createFile(uint32_t node,
-                                                std::string name) {
-            return std::make_unique<Node>(Node(node, name));
+        static std::unique_ptr<EntryNode> createFile(uint32_t node,
+                                                     std::string name) {
+            return std::make_unique<EntryNode>(EntryNode(node, name));
         }
 
         void format(std::ostream& oss, int level) const {
@@ -1229,23 +1240,31 @@ public:
             return oss.str();
         }
 
+        auto& name() const { return m_name; }
+
     private:
-        Node(uint32_t e, std::string n, std::vector<std::unique_ptr<Node>> c)
+        EntryNode(uint32_t e, std::string n,
+                  std::vector<std::unique_ptr<EntryNode>> c)
             : m_entryid(e), m_name(n), m_node(std::move(c)) {}
 
-        Node(uint32_t e, std::string n) : m_entryid(e), m_name(n) {}
+        EntryNode(uint32_t e, std::string n) : m_entryid(e), m_name(n) {}
 
         uint32_t m_entryid;
         std::string m_name;
-        std::optional<std::vector<std::unique_ptr<Node>>> m_node;
+        std::optional<std::vector<std::unique_ptr<EntryNode>>> m_node;
     };
-    std::unique_ptr<Node> DirectoryHierarchy() const {
-        const std::function<std::unique_ptr<Node>(uint32_t)> genNode =
-            [&](uint32_t entry) -> std::unique_ptr<Node> {
+    std::unique_ptr<EntryNode> DirectoryHierarchy() const {
+        return RecursivelyList(0);
+    }
+
+    std::unique_ptr<EntryNode> RecursivelyList(uint32_t entryid) const {
+        const std::function<std::unique_ptr<EntryNode>(uint32_t)> genNode =
+            [&](uint32_t entry) -> std::unique_ptr<EntryNode> {
             const auto etype = this->getEntryType(entry);
             if (etype != EntryType::RootStorage &&
                 etype != EntryType::UserStorage) {
-                return Node::createFile(entry, cfb_name2str(getName(entry)));
+                return EntryNode::createFile(entry,
+                                             cfb_name2str(getName(entry)));
             }
 
             std::vector<uint32_t> subs;
@@ -1255,28 +1274,29 @@ public:
                 subs.push_back(m_algo.getNode(iter));
             }
 
-            std::vector<std::unique_ptr<Node>> children;
+            std::vector<std::unique_ptr<EntryNode>> children;
             std::transform(subs.begin(), subs.end(),
                            std::back_inserter(children),
                            [&](uint32_t id) { return genNode(id); });
-            return Node::createDir(entry, cfb_name2str(getName(entry)),
-                                   std::move(children));
+            return EntryNode::createDir(entry, cfb_name2str(getName(entry)),
+                                        std::move(children));
         };
 
-        return genNode(0);
+        return genNode(entryid);
     }
 
     inline std::vector<uint32_t> UsedEntriesFromTraverse() const {
         const auto nodes = DirectoryHierarchy()->moveOutDir();
         std::vector<uint32_t> ans;
         ans.emplace_back(0);
-        const std::function<void(const Node*)> visitor = [&](const Node* node) {
-            ans.emplace_back(node->entryid());
-            if (node->isDir()) {
-                std::for_each(node->asDir().begin(), node->asDir().end(),
-                              [&](auto m) { visitor(m.get()); });
-            }
-        };
+        const std::function<void(const EntryNode*)> visitor =
+            [&](const EntryNode* node) {
+                ans.emplace_back(node->entryid());
+                if (node->isDir()) {
+                    std::for_each(node->asDir().begin(), node->asDir().end(),
+                                  [&](auto m) { visitor(m.get()); });
+                }
+            };
         return ans;
     }
 
@@ -2183,6 +2203,7 @@ private:
         FSPath m_path;
         EntryType m_type;
         size_t m_size;
+        uint32_t m_entryid;
     };
 
     struct OpenedFile {
@@ -2250,6 +2271,7 @@ private:
     inline void decRef(const FSPath& path) {
         auto p = path;
         if (m_openedFiles.count(p)) {
+            assert(m_openedFiles.at(p).m_ref > 0);
             m_openedFiles.at(p).m_ref--;
             if (m_openedFiles.at(p).m_ref == 0) {
                 m_openedFiles.erase(m_openedFiles.find(p));
@@ -2257,6 +2279,7 @@ private:
         }
 
         if (m_openedDirectories.count(p)) {
+            assert(m_openedDirectories.at(p).m_ref > 0);
             m_openedDirectories.at(p).m_ref--;
             if (m_openedDirectories.at(p).m_ref == 0) {
                 m_openedDirectories.erase(m_openedDirectories.find(p));
@@ -2277,9 +2300,7 @@ private:
 
         for (size_t i = 0; i < path.size(); i++) {
             p.push_back(path[i]);
-            if (m_openedDirectories.count(p) > 0) {
-                m_openedDirectories.at(p).m_ref++;
-            } else {
+            if (m_openedDirectories.count(p) == 0) {
                 const auto child = m_dirtable.searchChild(
                     ptr_parentDir->m_entryid, cfb_buildName(path[i]));
                 if (child.has_value()) {
@@ -2303,6 +2324,7 @@ private:
             }
 
             ptr_parentDir = &m_openedDirectories.at(p);
+            ptr_parentDir->m_ref++;
             dirs.emplace_back(ptr_parentDir);
         }
 
@@ -2352,6 +2374,7 @@ private:
         path.pop_back();
 
         if (!this->openDirectory(path)) return false;
+        const auto guard = defer([&]() { decRef(path); });
 
         return openFile(path, basename);
     }
@@ -2360,7 +2383,7 @@ private:
         const auto type =
             static_cast<EntryType>(m_dirtable.getEntryType(entryid));
         size_t size = m_dirtable.getSize(entryid);
-        return StatInfo{path, type, size};
+        return StatInfo{path, type, size, entryid};
     }
 
 public:
@@ -2391,6 +2414,7 @@ public:
         auto pp = dirname;
         pp.pop_back();
         if (!this->openDirectory(pp)) return false;
+        const auto ppguard = defer([&]() { decRef(pp); });
         if (this->openFile(dirname)) {
             decRef(dirname);
             m_errcode = ErrorCode::already_exists;
@@ -2401,7 +2425,6 @@ public:
         const auto entryid = m_dirtable.createEntry(
             parentDir.m_entryid, cfb_buildName(dirname.back()),
             EntryType::UserStorage);
-        this->decRef(pp);
         if (!entryid.has_value()) {
             this->m_errcode = ErrorCode::already_exists;
             return false;
@@ -2441,6 +2464,11 @@ public:
 
         auto pp = dirname;
         pp.pop_back();
+        if (!openDirectory(pp)) {
+            m_errcode = ErrorCode::not_found;
+            return false;
+        }
+        const auto ppguard = defer([&]() { decRef(pp); });
         const auto& uu = m_openedDirectories.at(pp);
         m_dirtable.deleteEntry(uu.m_entryid, dir.m_entryid).value();
         this->decRef(dirname);
@@ -2457,11 +2485,11 @@ public:
         pp.pop_back();
 
         if (!this->openDirectory(pp)) return std::nullopt;
+        const auto ppguard = defer([&]() { this->decRef(pp); });
 
         const auto& parentDir = m_openedDirectories.at(pp);
         if (!this->openFile(pp, basename)) {
             if (m_errcode == ErrorCode::nonfile_already_exists) {
-                this->decRef(pp);
                 return std::nullopt;
             }
 
@@ -2474,7 +2502,6 @@ public:
                 const auto result = this->openFile(pp, basename);
                 assert(result);
             } else {
-                this->decRef(pp);
                 return std::nullopt;
             }
         }
@@ -2534,7 +2561,7 @@ public:
             return false;
         }
 
-        auto dirEntry = this->m_dirEntires[dir];
+        auto dirEntry = this->m_dirEntires.at(dir);
         const auto path = dirEntry.m_dir->m_path;
         this->decRef(path);
         return true;
@@ -2543,20 +2570,24 @@ public:
     bool unlink(const FSPath& filename) {
         assert(!filename.empty());
         if (!this->openFile(filename)) return false;
+        const auto fnguard = defer([&]() { decRef(filename); });
 
         auto& file = m_openedFiles.at(filename);
         if (file.m_ref > 1) {
             m_errcode = ErrorCode::file_opened;
-            this->decRef(filename);
             return false;
         }
 
         auto pp = filename;
         pp.pop_back();
+        if (!openDirectory(pp)) {
+            m_errcode = ErrorCode::not_found;
+            return false;
+        }
+        const auto ppguard = defer([&]() { decRef(pp); });
         const auto& uu = m_openedDirectories.at(pp);
         file.m_stream.truncate(0);
         m_dirtable.deleteEntry(uu.m_entryid, file.m_stream.entryid()).value();
-        this->decRef(filename);
         return true;
     }
 
@@ -2707,17 +2738,16 @@ public:
             m_errcode = ErrorCode::invalid_path;
             return std::nullopt;
         }
+        const auto ppguard = defer([&]() { _this->decRef(pp); });
 
         const auto nu = m_dirtable.searchChild(
             m_openedDirectories.at(pp).m_entryid, cfb_buildName(path.back()));
         if (!nu.has_value()) {
             m_errcode = ErrorCode::not_found;
-            _this->decRef(pp);
             return std::nullopt;
         }
 
         const auto result = this->entry2stat(nu.value(), path);
-        _this->decRef(pp);
         return result;
     }
 
@@ -2778,6 +2808,59 @@ public:
         auto st = this->stat(path);
         return st.has_value() && (st->m_type == EntryType::UserStorage ||
                                   st->m_type == EntryType::RootStorage);
+    }
+
+    size_t blocksize() const { return m_header.sizeOfSector(); }
+    size_t usedBlocks() const { return m_sat.usedsize(); }
+
+    std::optional<size_t> recursively_remove(const FSPath& path) {
+        const auto s = stat(path);
+        if (!s.has_value()) {
+            return std::nullopt;
+        }
+
+        const auto n = m_dirtable.RecursivelyList(s.value().m_entryid);
+        std::vector<std::pair<FSPath, bool>> ids;
+
+        using NType = std::decay_t<decltype(*n)>;
+        const std::function<void(const FSPath&, const NType*)> visitor =
+            [&](const FSPath& parent, const NType* n) {
+                auto pp = parent;
+                if (n->isRoot()) {
+                    assert(pp.empty());
+                } else {
+                    pp.emplace_back(n->name());
+                    ids.emplace_back(pp, n->isDir());
+                }
+                if (n->isDir()) {
+                    for (auto& c : n->asDir()) {
+                        visitor(pp, c.get());
+                    }
+                }
+            };
+        visitor(path, n.get());
+        std::reverse(ids.begin(), ids.end());
+
+        for (auto& [p, isdir] : ids) {
+            if (m_openedFiles.count(p) || m_openedDirectories.count(p)) {
+                m_errcode = ErrorCode::file_opened;
+                return std::nullopt;
+            }
+        }
+
+        for (auto& [p, isdir] : ids) {
+            if (isdir) {
+                if (!rmdir(p)) {
+                    return std::nullopt;
+                }
+            } else {
+                if (!unlink(p)) {
+                    return std::nullopt;
+                }
+            }
+        }
+
+        return ids.size();
     }
 
     /**

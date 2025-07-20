@@ -532,9 +532,17 @@ static void test_consistency(FileSystem<T>& fs, std::vector<Node> nodes) {
     // Create the filesystem structure
     create_structure(nodes, {});
 
-    std::cout << fs.DirectoryHierarchy();
+    std::cout << fs.DirectoryHierarchy() << std::endl;
+    std::cout << "used blocks: " << fs.usedBlocks() << std::endl;
 
     // Verify the filesystem structure matches the nodes
+    verify_structure(nodes, {});
+
+    ASSERT_TRUE(fs.recursively_remove({}).has_value());
+    create_structure(nodes, {});
+    std::cout << "redo: " << std::endl;
+    std::cout << fs.DirectoryHierarchy() << std::endl;
+    std::cout << "used blocks: " << fs.usedBlocks() << std::endl;
     verify_structure(nodes, {});
 }
 
