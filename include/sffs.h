@@ -77,6 +77,7 @@ struct device_traits {
                                          size_t(addr_t, const void*, size_t));
     LDC_CLASS_MEMBER_TEST_VALUE_AUTONAME(T, , flush, void());
     LDC_CLASS_MEMBER_TEST_VALUE_AUTONAME(T, const&, maxsize, size_t());
+    LDC_CLASS_MEMBER_TEST_VALUE_AUTONAME(T, const&, clone, std::optional<T>());
 };
 
 template <typename T, bool complain = false>
@@ -184,6 +185,15 @@ public:
         }
     }
 
+    inline std::optional<BlockDeviceExt> clone() const {
+        if constexpr (Impl::device_traits<T>::has_clone) {
+            auto v = m_block.clone();
+            if (v.has_value()) {
+                return BlockDeviceExt(std::move(v.value()));
+            }
+        }
+        return std::nullopt;
+    }
     // assume everything is little-endian FIXME
     template <typename Int,
               std::enable_if_t<std::is_integral<Int>::value, bool> = true>
@@ -226,6 +236,8 @@ public:
             this->m_block->flush();
         }
     }
+
+    inline std::optional<BlockDeviceRefWrapper> clone() const { return *this; }
 
 private:
     T* m_block;
@@ -535,6 +547,7 @@ public:
             if (m_caches[i - 1] !=
                 static_cast<uint32_t>(AllocTableEntry::NOT_USED)) {
                 m_usedsize = i;
+                break;
             }
         }
     }
@@ -1233,6 +1246,38 @@ public:
         }
     }
 
+    bool tryPopLastUnusedSector() {
+        if (m_stream.size() == 0) {
+            return false;
+        }
+        bool used = false;
+
+        const auto n = m_header.sizeOfSector() / COMPOUND_FILE_ENTRY_SIZE;
+        for (size_t i = m_usedentries.size();
+             i > 0 && i + n > m_usedentries.size(); i--) {
+            if (m_usedentries[i - 1]) {
+                used = true;
+                break;
+            }
+        }
+
+        if (!used) {
+            m_stream.deleteLastSector();
+            assert(m_usedentries.size() >= n && m_free_entries >= n);
+            m_usedentries.resize(m_usedentries.size() - n);
+            m_free_entries -= n;
+        }
+
+        return !used;
+    }
+
+    size_t clean() {
+        size_t ans = 0;
+        for (; tryPopLastUnusedSector(); ans++) {
+        }
+        return ans;
+    }
+
     struct EntryNode {
         bool isRoot() const { return m_node.has_value() && m_entryid == 0; }
 
@@ -1760,6 +1805,17 @@ public:
         return ans;
     }
 
+    void reduceTo(uint32_t maxIndex) {
+        assert(maxIndex <= m_size + m_header.sizeOfShortSector() - 1);
+        while (m_stream.size() > maxIndex - 1 + m_header.sizeOfSector()) {
+            m_stream.deleteLastSector();
+        }
+        const auto mx = std::min(m_size, maxIndex);
+        if (mx != m_size) {
+            m_dirtable.setShortStreamSize(m_size);
+        }
+    }
+
     inline size_t maxsize() const { return m_stream.maxsize(); }
 
 private:
@@ -1803,6 +1859,48 @@ public:
         const auto s2 = m_stream.size();
         if (s1 < s2)
             m_header.setNumsSectorforSSAT(s2 / m_header.sizeOfShortSector());
+    }
+
+    bool tryPopLastUnusedSector() {
+        if (m_stream.size() == 0) {
+            return false;
+        }
+        bool used = false;
+
+        const auto n = m_header.sizeOfSector() / sizeof(uint32_t);
+        for (size_t i = m_stream.size() / sizeof(uint32_t);
+             i > 0 && i + n > m_stream.size() / sizeof(uint32_t); i--) {
+            if (this->get(i - 1) !=
+                static_cast<uint32_t>(AllocTableEntry::NOT_USED)) {
+                used = true;
+                break;
+            }
+        }
+
+        if (!used) {
+            m_stream.deleteLastSector();
+        }
+
+        return !used;
+    }
+
+    size_t clean() {
+        size_t ans = 0;
+        for (; tryPopLastUnusedSector(); ans++) {
+        }
+        return ans;
+    }
+
+    uint32_t maxUsedShortSectorId() const {
+        const auto end = m_stream.size() / sizeof(uint32_t);
+        uint32_t maxid = std::numeric_limits<uint32_t>::min();
+        for (uint32_t i = 0; i < end; i++) {
+            if (this->get(i) !=
+                static_cast<uint32_t>(AllocTableEntry::NOT_USED)) {
+                maxid = i;
+            }
+        }
+        return maxid;
     }
 
     // FIXME brute-force search
@@ -3002,6 +3100,14 @@ public:
     }
 
     const auto& block() const { return m_block; }
+
+    void clean() {
+        m_dirtable.clean();
+        m_ssat.clean();
+        const auto m =
+            (m_ssat.maxUsedShortSectorId() + 1) * m_header.sizeOfShortSector();
+        m_sstream.reduceTo(m - 1);
+    }
 };
 
 template <typename T,
@@ -3088,7 +3194,16 @@ public:
 
     inline size_t maxsize() const { return this->m_space.size(); }
 
+    std::optional<MemorySpace> clone() const { return *this; }
+
 private:
     std::vector<char> m_space;
 };
+
+static_assert(Impl::device_traits<MemorySpace>::has_clone);
+static_assert(Impl::device_traits<MemorySpace>::has_read);
+static_assert(Impl::device_traits<MemorySpace>::has_write);
+static_assert(Impl::device_traits<MemorySpace>::has_maxsize);
+static_assert(!Impl::device_traits<MemorySpace>::has_flush);
+
 }  // namespace ldc::SFFS

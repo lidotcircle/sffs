@@ -539,8 +539,21 @@ static void test_consistency(FileSystem<T>& fs, std::vector<Node> nodes) {
 
     // Verify the filesystem structure matches the nodes
     verify_structure(nodes, {});
+    {
+        auto blockOpt = fs.block().clone();
+        ASSERT_TRUE(blockOpt.has_value());
+        auto kfs = openFileSystem(std::move(blockOpt.value()));
+        ASSERT_EQ(fs.DirectoryHierarchy(), kfs.DirectoryHierarchy());
+    }
 
     ASSERT_TRUE(fs.recursively_remove({}).has_value());
+    fs.clean();
+    {
+        auto blockOpt = fs.block().clone();
+        ASSERT_TRUE(blockOpt.has_value());
+        auto kfs = openFileSystem(std::move(blockOpt.value()));
+        ASSERT_EQ(fs.DirectoryHierarchy(), kfs.DirectoryHierarchy());
+    }
     if (before_size > 100) {
         ASSERT_LT(fs.usedBlocks(), before_size);
     }
@@ -551,6 +564,12 @@ static void test_consistency(FileSystem<T>& fs, std::vector<Node> nodes) {
     ASSERT_EQ(before_hierarchy, fs.DirectoryHierarchy());
     ASSERT_EQ(before_size, fs.usedBlocks());
     verify_structure(nodes, {});
+    {
+        auto blockOpt = fs.block().clone();
+        ASSERT_TRUE(blockOpt.has_value());
+        auto kfs = openFileSystem(std::move(blockOpt.value()));
+        ASSERT_EQ(fs.DirectoryHierarchy(), kfs.DirectoryHierarchy());
+    }
 }
 
 static std::vector<Node> test_case1 = {
