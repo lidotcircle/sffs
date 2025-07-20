@@ -25,14 +25,48 @@
 namespace ldc::SFFS {
 using addr_t = size_t;
 
-class BaseException : public std::exception {};
-class RuntimeError : public BaseException {};
-class OutOfRange : public BaseException {};
-class OutOfSpace : public BaseException {};
-class BadFormat : public BaseException {};
-class FileCorrupt : public BaseException {};
-class SectorTooHuge : public BaseException {};
-class AlreadyExists : public BaseException {};
+class BaseException : public std::exception {
+public:
+    explicit BaseException(const std::string& message) : m_message(message) {}
+    BaseException() : m_message("sffs exception") {}
+    const char* what() const noexcept override { return m_message.c_str(); }
+
+private:
+    std::string m_message;
+};
+
+class RuntimeError : public BaseException {
+public:
+    explicit RuntimeError(const std::string& message)
+        : BaseException(message) {}
+    RuntimeError() : BaseException("sffs runtime error") {}
+};
+class OutOfRange : public BaseException {
+public:
+    explicit OutOfRange(const std::string& message) : BaseException(message) {}
+    OutOfRange() : BaseException("sffs out of range") {}
+};
+class OutOfSpace : public BaseException {
+public:
+    explicit OutOfSpace(const std::string& message) : BaseException(message) {}
+    OutOfSpace() : BaseException("sffs out of space") {}
+};
+class SectorTooHuge : public BaseException {
+public:
+    explicit SectorTooHuge(const std::string& message)
+        : BaseException(message) {}
+    SectorTooHuge() : BaseException("sffs sector too huge") {}
+};
+class BadFormat : public BaseException {
+public:
+    explicit BadFormat(const std::string& message) : BaseException(message) {}
+    BadFormat() : BaseException("sffs bad format") {}
+};
+class FileCorrupt : public BaseException {
+public:
+    explicit FileCorrupt(const std::string& message) : BaseException(message) {}
+    FileCorrupt() : BaseException("sffs file corrupt") {}
+};
 
 namespace Impl {
 template <typename T>
@@ -637,23 +671,22 @@ public:
         return secId;
     }
 
-    inline void freeInterSector(uint32_t preSecId, uint32_t secId) {
+    inline void freeInterSector(std::optional<uint32_t> preSecId,
+                                uint32_t secId) {
         // Skip freeing if sector ID is out of bounds
+        assert(secId < m_msat.size() * this->entriesPerBlock());
         if (secId >= m_msat.size() * this->entriesPerBlock()) {
             return;
         }
 
-        if (preSecId == static_cast<uint32_t>(AllocTableEntry::NOT_USED)) {
-            const auto next = this->getEntry(secId);
-            assert(next == static_cast<uint32_t>(AllocTableEntry::NOT_USED));
-        } else {
+        if (preSecId.has_value()) {
             // Check if secId is a regular entry, if not, skip the operation
             if (!is_reg_entry(secId)) {
                 return;
             }
             // Check if the sector chain is consistent, if not, skip the
             // operation
-            if (this->getEntry(preSecId) != secId) {
+            if (this->getEntry(preSecId.value()) != secId) {
                 return;
             }
             const auto next = this->getEntry(secId);
@@ -663,10 +696,11 @@ public:
                 next != static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN)) {
                 return;
             }
-            this->setEntry(preSecId, next);
+            this->setEntry(preSecId.value(), next);
         }
         this->setEntry(secId, static_cast<uint32_t>(AllocTableEntry::NOT_USED));
         const auto idx = secId / this->entriesPerBlock();
+        assert(idx < m_sat_free_count.size());
         if (idx < m_sat_free_count.size()) {
             m_sat_free_count[idx]++;
         }
@@ -951,8 +985,7 @@ public:
         m_secIdChainCache.pop_back();
         for (auto secId : m_secIdChainCache) {
             assert(is_reg_entry(secId));
-            m_sat.freeInterSector(
-                static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN), secId);
+            m_sat.freeInterSector(std::nullopt, secId);
         }
         m_secIdChainCache.clear();
         this->m_headSecId =
@@ -963,11 +996,11 @@ public:
         this->prepareCacheUntil(std::numeric_limits<size_t>::max());
         assert(this->m_secIdChainCache.size() > 1);
 
-        const auto prev =
-            m_secIdChainCache.size() > 2
-                ? m_secIdChainCache[m_secIdChainCache.size() - 3]
-                : static_cast<uint32_t>(AllocTableEntry::END_OF_CHAIN);
-        m_sat.freeInterSector(prev,
+        std::optional<uint32_t> prevOpt;
+        if (m_secIdChainCache.size() > 2) {
+            prevOpt = m_secIdChainCache[m_secIdChainCache.size() - 3];
+        }
+        m_sat.freeInterSector(prevOpt,
                               m_secIdChainCache[m_secIdChainCache.size() - 2]);
         m_secIdChainCache.erase(m_secIdChainCache.end() - 2);
         if (m_secIdChainCache.size() == 1) {

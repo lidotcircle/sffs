@@ -532,6 +532,8 @@ static void test_consistency(FileSystem<T>& fs, std::vector<Node> nodes) {
     // Create the filesystem structure
     create_structure(nodes, {});
 
+    const auto before_hierarchy = fs.DirectoryHierarchy();
+    const auto before_size = fs.usedBlocks();
     std::cout << fs.DirectoryHierarchy() << std::endl;
     std::cout << "used blocks: " << fs.usedBlocks() << std::endl;
 
@@ -539,10 +541,15 @@ static void test_consistency(FileSystem<T>& fs, std::vector<Node> nodes) {
     verify_structure(nodes, {});
 
     ASSERT_TRUE(fs.recursively_remove({}).has_value());
+    if (before_size > 100) {
+        ASSERT_LT(fs.usedBlocks(), before_size);
+    }
     create_structure(nodes, {});
     std::cout << "redo: " << std::endl;
     std::cout << fs.DirectoryHierarchy() << std::endl;
     std::cout << "used blocks: " << fs.usedBlocks() << std::endl;
+    ASSERT_EQ(before_hierarchy, fs.DirectoryHierarchy());
+    ASSERT_EQ(before_size, fs.usedBlocks());
     verify_structure(nodes, {});
 }
 
@@ -815,6 +822,139 @@ static std::string generate_random_string(size_t length) {
         s[i] = alphanum[dist(rng)];
     }
     return s;
+}
+
+// generate a random structure with avg_depth depth and avg_children children
+static std::vector<Node> generate_random_structure(size_t avg_depth,
+                                                   size_t avg_children,
+                                                   size_t max_filesize) {
+    std::default_random_engine rng(42);  // Fixed seed for reproducibility
+    std::uniform_int_distribution<int> children_dist(0, avg_children * 2);
+    std::uniform_int_distribution<int> depth_dist(0, avg_depth * 2);
+    std::uniform_int_distribution<int> type_dist(0,
+                                                 1);  // 0 = file, 1 = directory
+    std::uniform_int_distribution<int> name_len_dist(
+        3, 20);  // Name length 3-20 chars
+    std::uniform_int_distribution<int> data_size_dist(0, max_filesize);
+
+    // Helper function to generate random name (max 31 chars)
+    auto generate_name = [&](const std::string& prefix = "") -> std::string {
+        size_t len = name_len_dist(rng);
+        if (!prefix.empty()) {
+            len = std::min(len, size_t(31 - prefix.length()));
+        }
+        std::string name = prefix;
+        static const char chars[] = "abcdefghijklmnopqrstuvwxyz0123456789";
+        std::uniform_int_distribution<int> char_dist(0, sizeof(chars) - 2);
+
+        for (size_t i = 0; i < len; i++) {
+            name += chars[char_dist(rng)];
+        }
+        return name.substr(0, 31);  // Ensure max 31 chars
+    };
+
+    // Recursive helper to generate structure
+    std::function<std::vector<Node>(size_t, size_t)> generate_level;
+    generate_level = [&](size_t current_depth,
+                         size_t max_depth) -> std::vector<Node> {
+        std::vector<Node> nodes;
+
+        if (current_depth >= max_depth) {
+            return nodes;  // Stop recursion
+        }
+
+        size_t num_children = children_dist(rng);
+        if (num_children == 0) {
+            num_children = 1;  // Ensure at least one child
+        }
+
+        for (size_t i = 0; i < num_children; i++) {
+            bool is_directory =
+                (current_depth < max_depth - 1) && (type_dist(rng) == 1);
+
+            if (is_directory) {
+                std::string dir_name = generate_name("dir");
+                Node dir_node = Node::create_directory(dir_name);
+
+                // Recursively generate children for this directory
+                size_t child_depth = depth_dist(rng);
+                if (child_depth > 0) {
+                    auto children = generate_level(
+                        current_depth + 1,
+                        std::min(current_depth + child_depth + 1, max_depth));
+                    for (auto& child : children) {
+                        dir_node.add_child(std::move(child));
+                    }
+                }
+                nodes.push_back(std::move(dir_node));
+            } else {
+                // Create file
+                std::string file_name = generate_name("file");
+                Node file_node = Node::create_file(file_name);
+
+                // Generate random data for file
+                size_t data_size = data_size_dist(rng);
+                if (data_size > 0) {
+                    std::string data = generate_random_string(data_size);
+                    file_node.add_data(data);
+                }
+                nodes.push_back(std::move(file_node));
+            }
+        }
+
+        return nodes;
+    };
+
+    // Generate root level structure
+    return generate_level(0, avg_depth);
+}
+
+TEST(filesystem, random_structure_small) {
+    auto ms = MemorySpace(1024 * 1024 * 10);
+    auto fs = formatFileSystem(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
+    auto random_nodes =
+        generate_random_structure(3, 2, 5000);  // Small structure
+    test_consistency(fs, random_nodes);
+}
+
+TEST(filesystem, random_structure_medium) {
+    auto ms = MemorySpace(1024 * 1024 * 50);
+    auto fs = formatFileSystem(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
+    auto random_nodes =
+        generate_random_structure(5, 4, 50000);  // Medium structure
+    test_consistency(fs, random_nodes);
+}
+
+TEST(filesystem, random_structure_deep) {
+    auto ms = MemorySpace(1024 * 1024 * 20);
+    auto fs = formatFileSystem(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
+    auto random_nodes =
+        generate_random_structure(8, 2, 500000);  // Deep but narrow
+    test_consistency(fs, random_nodes);
+}
+
+TEST(filesystem, random_structure_wide) {
+    auto ms = MemorySpace(1024 * 1024 * 100);
+    auto fs = formatFileSystem(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
+    auto random_nodes =
+        generate_random_structure(3, 8, 500000);  // Shallow but wide
+    test_consistency(fs, random_nodes);
+}
+
+TEST(filesystem, random_structure_wide_x1) {
+    auto ms = MemorySpace(1024 * 1024 * 1048);
+    auto fs = formatFileSystem(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
+    auto random_nodes =
+        generate_random_structure(5, 7, 30000);  // Shallow but wide
+    test_consistency(fs, random_nodes);
+}
+
+TEST(filesystem, random_structure_wide_x) {
+    auto ms = MemorySpace(1024 * 1024 * 1048);
+    auto fs = formatFileSystem(BlockDeviceRefWrapper<MemorySpace>(ms), 3, 9, 6);
+    auto random_nodes =
+        generate_random_structure(8, 9, 100000);  // Shallow but wide
+    test_consistency(fs, random_nodes);
 }
 
 TEST(filesystem, write_read_consistency) {
