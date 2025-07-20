@@ -526,11 +526,13 @@ public:
                 }
                 m_lastSecId = secId;
 
+                size_t kidx = 109;
                 for (size_t i = 0; i < this->entriesPerBlock(); i++) {
                     auto val = m_block.template get<uint32_t>(
                         m_header.headerSize() +
                         m_header.sizeOfSector() * secId + i * sizeof(uint32_t));
-                    this->m_caches.push_back(val);
+                    assert(kidx < m_caches.size());
+                    m_caches[kidx++] = val;
                 }
 
                 secId = m_block.template get<uint32_t>(
@@ -768,6 +770,7 @@ private:
     }
 
     inline void setEntry(uint32_t secId, uint32_t val) {
+        assert(secId != val);
         // Silently ignore out-of-bounds writes instead of asserting
         if (secId >= m_msat.size() * this->entriesPerBlock()) {
             return;
