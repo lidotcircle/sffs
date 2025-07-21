@@ -560,15 +560,15 @@ public:
      * @param index for specifying MSAT entry, it should be a NOT_USED entry
      * @param secId SAT sector id
      */
-    inline std::optional<size_t> MarkSATBlock(uint32_t secId) {
+    inline std::optional<size_t> MarkSATBlock(uint32_t satSecId) {
         std::optional<size_t> index_opt;
         if (m_usedsize >= m_caches.size()) return std::nullopt;
 
         auto index = m_usedsize;
-        this->m_caches[index] = secId;
+        this->m_caches[index] = satSecId;
         m_usedsize++;
         if (index < 109) {
-            this->m_header.setHeaderMSAT(index, secId);
+            this->m_header.setHeaderMSAT(index, satSecId);
         } else {
             index -= 109;
             auto secId = this->m_header.getFirstSectorIdOfMSAT();
@@ -590,7 +590,7 @@ public:
             m_block.template set<uint32_t>(m_header.headerSize() +
                                                m_header.sizeOfSector() * secId +
                                                index * sizeof(uint32_t),
-                                           secId);
+                                           satSecId);
         }
 
         return index;
