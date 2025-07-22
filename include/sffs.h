@@ -220,6 +220,344 @@ public:
 
 template <typename T,
           std::enable_if_t<Impl::is_block_device<T>::value, bool> = true>
+class StringAllocator {
+private:
+    struct AllocatorHeader {
+        uint32_t magic;      // magic number to identify initialized allocator
+        addr_t first_block;  // address of first block in circular list
+        size_t total_size;   // total size of allocator space
+    };
+
+    struct BlockHeader {
+        size_t size;   // size of this block (including header)
+        bool is_free;  // true if this block is free
+        addr_t prev;   // address of previous block
+        addr_t next;   // address of next block
+    };
+
+    struct AllocatedBlock {
+        BlockHeader header;
+        size_t ref_count;   // how many times this string is referenced
+        size_t str_length;  // length of the string
+        // followed by string content
+    };
+
+    static constexpr uint32_t ALLOCATOR_MAGIC =
+        0x53544141;  // "STAA" (String Allocator)
+    static constexpr size_t ALLOCATOR_HEADER_SIZE = sizeof(AllocatorHeader);
+    static constexpr size_t HEADER_SIZE = sizeof(BlockHeader);
+    static constexpr size_t ALLOC_HEADER_SIZE = sizeof(AllocatedBlock);
+    static constexpr size_t MIN_BLOCK_SIZE =
+        ALLOC_HEADER_SIZE + 8;  // minimum allocation
+
+public:
+    explicit StringAllocator(T&& block) : m_block(std::move(block)) {
+        initialize();
+    }
+
+    // store a string and return the address of the string.
+    // if the string is already stored, return the address,
+    // otherwise allocate a new address and store the string.
+    addr_t store(const std::string& str) {
+        // Check if string already exists
+        auto existing_addr = findString(str);
+        if (existing_addr.has_value()) {
+            addr_t addr = existing_addr.value();
+            // Increment reference count
+            AllocatedBlock alloc_block;
+            m_block.read(addr, &alloc_block, ALLOC_HEADER_SIZE);
+            alloc_block.ref_count++;
+            m_block.write(addr, &alloc_block, ALLOC_HEADER_SIZE);
+            return addr;
+        }
+
+        // Allocate new block
+        size_t needed_size = ALLOC_HEADER_SIZE + str.length();
+        addr_t addr = allocate(needed_size);
+        if (addr == 0) {
+            throw OutOfSpace();
+        }
+
+        // Write allocated block header
+        AllocatedBlock alloc_block;
+        alloc_block.header.size = needed_size;
+        alloc_block.header.is_free = false;
+        alloc_block.ref_count = 1;
+        alloc_block.str_length = str.length();
+
+        m_block.write(addr, &alloc_block, ALLOC_HEADER_SIZE);
+
+        // Write string content
+        if (str.length() > 0) {
+            m_block.write(addr + ALLOC_HEADER_SIZE, str.data(), str.length());
+        }
+
+        return addr;
+    }
+
+    // return the number of times the string is stored
+    size_t count(const std::string& str) {
+        auto addr = findString(str);
+        if (!addr.has_value()) {
+            return 0;
+        }
+
+        AllocatedBlock alloc_block;
+        m_block.read(addr.value(), &alloc_block, ALLOC_HEADER_SIZE);
+        return alloc_block.ref_count;
+    }
+
+    // return the address of the string, or nullopt if the string is not stored
+    std::optional<addr_t> locationOf(const std::string& str) {
+        return findString(str);
+    }
+
+    // free the string at the address, the address must be valid
+    void free(addr_t addr) {
+        AllocatedBlock alloc_block;
+        m_block.read(addr, &alloc_block, ALLOC_HEADER_SIZE);
+
+        if (alloc_block.header.is_free) {
+            throw RuntimeError("Attempting to free already freed block");
+        }
+
+        // Decrement reference count
+        alloc_block.ref_count--;
+
+        if (alloc_block.ref_count > 0) {
+            // Still has references, just update count
+            m_block.write(addr, &alloc_block, ALLOC_HEADER_SIZE);
+            return;
+        }
+
+        // No more references, actually free the block
+        // Mark block as free
+        alloc_block.header.is_free = true;
+        m_block.write(addr, &alloc_block.header, HEADER_SIZE);
+
+        // Coalesce with adjacent free blocks
+        coalesce_free_blocks(addr);
+    }
+
+private:
+    BlockDeviceExt<T> m_block;
+
+    // Read/write allocator header
+    AllocatorHeader readAllocatorHeader() const {
+        AllocatorHeader header;
+        m_block.read(0, &header, ALLOCATOR_HEADER_SIZE);
+        return header;
+    }
+
+    void writeAllocatorHeader(const AllocatorHeader& header) {
+        m_block.write(0, &header, ALLOCATOR_HEADER_SIZE);
+    }
+
+    addr_t getFirstBlock() const { return readAllocatorHeader().first_block; }
+
+    void setFirstBlock(addr_t addr) {
+        AllocatorHeader header = readAllocatorHeader();
+        header.first_block = addr;
+        writeAllocatorHeader(header);
+    }
+
+    // Find string in allocated blocks
+    std::optional<addr_t> findString(const std::string& str) const {
+        addr_t first_block = getFirstBlock();
+        if (first_block == 0) return std::nullopt;
+
+        addr_t current = first_block;
+        do {
+            BlockHeader header;
+            m_block.read(current, &header, HEADER_SIZE);
+
+            if (!header.is_free) {
+                // Read allocated block header
+                AllocatedBlock alloc_block;
+                m_block.read(current, &alloc_block, ALLOC_HEADER_SIZE);
+
+                // Check if string matches
+                if (alloc_block.str_length == str.length()) {
+                    std::string stored_str;
+                    if (alloc_block.str_length > 0) {
+                        stored_str.resize(alloc_block.str_length);
+                        m_block.read(current + ALLOC_HEADER_SIZE,
+                                     stored_str.data(), alloc_block.str_length);
+                    }
+
+                    if (stored_str == str) {
+                        return current;
+                    }
+                }
+            }
+
+            current = header.next;
+        } while (current != first_block);
+
+        return std::nullopt;
+    }
+
+    void initialize() {
+        if (m_block.maxsize() < MIN_BLOCK_SIZE + ALLOCATOR_HEADER_SIZE) {
+            throw OutOfSpace("Block device too small for StringAllocator");
+        }
+
+        // Check if already initialized
+        AllocatorHeader header;
+        m_block.read(0, &header, ALLOCATOR_HEADER_SIZE);
+
+        if (header.magic == ALLOCATOR_MAGIC) {
+            // Already initialized, nothing to do
+            return;
+        }
+
+        // Initialize new allocator
+        header.magic = ALLOCATOR_MAGIC;
+        header.first_block = ALLOCATOR_HEADER_SIZE;
+        header.total_size = m_block.maxsize();
+        writeAllocatorHeader(header);
+
+        // Create initial free block spanning remaining space
+        addr_t block_start = ALLOCATOR_HEADER_SIZE;
+        size_t block_size = m_block.maxsize() - ALLOCATOR_HEADER_SIZE;
+
+        BlockHeader initial_header;
+        initial_header.size = block_size;
+        initial_header.is_free = true;
+        initial_header.prev = block_start;  // points to itself (circular)
+        initial_header.next = block_start;  // points to itself (circular)
+
+        m_block.write(block_start, &initial_header, HEADER_SIZE);
+    }
+
+    addr_t allocate(size_t size) {
+        // Align size to ensure proper alignment
+        size = (size + 7) & ~7;  // 8-byte alignment
+
+        if (size < MIN_BLOCK_SIZE) {
+            size = MIN_BLOCK_SIZE;
+        }
+
+        // Find first fit
+        addr_t first_block = getFirstBlock();
+        addr_t current = first_block;
+        do {
+            BlockHeader header;
+            m_block.read(current, &header, HEADER_SIZE);
+
+            if (header.is_free && header.size >= size) {
+                // Found suitable block
+                if (header.size > size + MIN_BLOCK_SIZE) {
+                    // Split the block
+                    split_block(current, size);
+                }
+
+                // Mark as allocated
+                header.is_free = false;
+                m_block.write(current, &header, HEADER_SIZE);
+
+                return current;
+            }
+
+            current = header.next;
+        } while (current != first_block);
+
+        return 0;  // No suitable block found
+    }
+
+    void split_block(addr_t addr, size_t size) {
+        BlockHeader header;
+        m_block.read(addr, &header, HEADER_SIZE);
+
+        if (header.size <= size + MIN_BLOCK_SIZE) {
+            return;  // Not worth splitting
+        }
+
+        addr_t new_block_addr = addr + size;
+        size_t new_block_size = header.size - size;
+
+        // Create new free block
+        BlockHeader new_header;
+        new_header.size = new_block_size;
+        new_header.is_free = true;
+        new_header.prev = addr;
+        new_header.next = header.next;
+
+        m_block.write(new_block_addr, &new_header, HEADER_SIZE);
+
+        // Update current block
+        header.size = size;
+        header.next = new_block_addr;
+        m_block.write(addr, &header, HEADER_SIZE);
+
+        // Update next block's prev pointer
+        if (new_header.next != addr) {  // not circular to self
+            BlockHeader next_header;
+            m_block.read(new_header.next, &next_header, HEADER_SIZE);
+            next_header.prev = new_block_addr;
+            m_block.write(new_header.next, &next_header, HEADER_SIZE);
+        }
+    }
+
+    void coalesce_free_blocks(addr_t addr) {
+        BlockHeader header;
+        m_block.read(addr, &header, HEADER_SIZE);
+
+        // Coalesce with next block if it's free
+        if (header.next != addr) {  // not circular to self
+            BlockHeader next_header;
+            m_block.read(header.next, &next_header, HEADER_SIZE);
+
+            if (next_header.is_free && header.next == addr + header.size) {
+                // Merge with next block
+                header.size += next_header.size;
+                header.next = next_header.next;
+
+                // Update next-next block's prev pointer
+                if (next_header.next != header.next) {
+                    BlockHeader next_next_header;
+                    m_block.read(next_header.next, &next_next_header,
+                                 HEADER_SIZE);
+                    next_next_header.prev = addr;
+                    m_block.write(next_header.next, &next_next_header,
+                                  HEADER_SIZE);
+                }
+
+                m_block.write(addr, &header, HEADER_SIZE);
+            }
+        }
+
+        // Coalesce with previous block if it's free
+        if (header.prev != addr) {  // not circular to self
+            BlockHeader prev_header;
+            m_block.read(header.prev, &prev_header, HEADER_SIZE);
+
+            if (prev_header.is_free && header.prev + prev_header.size == addr) {
+                // Merge with previous block
+                prev_header.size += header.size;
+                prev_header.next = header.next;
+
+                // Update next block's prev pointer
+                if (header.next != header.prev) {
+                    BlockHeader next_header;
+                    m_block.read(header.next, &next_header, HEADER_SIZE);
+                    next_header.prev = header.prev;
+                    m_block.write(header.next, &next_header, HEADER_SIZE);
+                }
+
+                m_block.write(header.prev, &prev_header, HEADER_SIZE);
+
+                // Update first_block if needed
+                if (getFirstBlock() == addr) {
+                    setFirstBlock(header.prev);
+                }
+            }
+        }
+    }
+};
+
+template <typename T,
+          std::enable_if_t<Impl::is_block_device<T>::value, bool> = true>
 class BlockDeviceRefWrapper {
 public:
     explicit inline BlockDeviceRefWrapper(T& block) : m_block(&block) {}
@@ -241,6 +579,86 @@ public:
 
 private:
     T* m_block;
+};
+
+template <typename T,
+          std::enable_if_t<Impl::is_block_device<T>::value, bool> = true>
+class BlockStrideView {
+public:
+    BlockStrideView(T& block, size_t stride, size_t singleBlockSize,
+                    addr_t baseOffset)
+        : m_block(block),
+          m_stride(stride),
+          m_singleBlockSize(singleBlockSize),
+          m_baseOffset(baseOffset) {}
+
+    size_t read(addr_t addr, void* buf, size_t n) const {
+        auto blockOffset = addr / m_singleBlockSize;
+        auto inOffset = addr % m_singleBlockSize;
+        size_t readn = 0;
+        while (readn < n) {
+            const auto u = std::min(m_singleBlockSize - inOffset, n - readn);
+            const auto m =
+                m_block.read(m_baseOffset + blockOffset * m_stride + inOffset,
+                             static_cast<char*>(buf) + readn, u);
+            readn += m;
+            if (m != u) {
+                return readn;
+            }
+
+            if (readn < n) {
+                blockOffset++;
+                inOffset = 0;
+            }
+        }
+
+        return readn;
+    }
+
+    size_t write(addr_t addr, const void* buf, size_t n) {
+        auto blockOffset = addr / m_singleBlockSize;
+        auto inOffset = addr % m_singleBlockSize;
+        size_t writen = 0;
+        while (writen < n) {
+            const auto u = std::min(m_singleBlockSize - inOffset, n - writen);
+            const auto m =
+                m_block.write(m_baseOffset + blockOffset * m_stride + inOffset,
+                              static_cast<const char*>(buf) + writen, u);
+            writen += m;
+            if (m != u) {
+                return writen;
+            }
+
+            if (writen < n) {
+                blockOffset++;
+                inOffset = 0;
+            }
+        }
+
+        return writen;
+    }
+
+    size_t maxsize() const {
+        if (m_block.maxsize() <= m_baseOffset) {
+            return 0;
+        }
+        const auto M = m_block.maxsize();
+        if (M - m_baseOffset <= m_singleBlockSize) {
+            return m_block.maxsize() - m_baseOffset;
+        }
+        const auto n = (M - m_baseOffset) / m_stride;
+        const auto s =
+            std::min(m_singleBlockSize, (M - m_baseOffset) % m_stride);
+        return n * m_singleBlockSize + s;
+    }
+
+    void flush() { m_block.flush(); }
+
+private:
+    BlockDeviceRefWrapper<T> m_block;
+    size_t m_stride;
+    size_t m_singleBlockSize;
+    size_t m_baseOffset;
 };
 
 // TODO
@@ -3198,6 +3616,8 @@ public:
     inline size_t maxsize() const { return this->m_space.size(); }
 
     std::optional<MemorySpace> clone() const { return *this; }
+
+    auto& data() const { return m_space; }
 
 private:
     std::vector<char> m_space;
