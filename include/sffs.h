@@ -251,6 +251,44 @@ private:
         ALLOC_HEADER_SIZE + 8;  // minimum allocation
 
 public:
+    struct SpaceUsageInfo {
+        size_t total_capacity;        // Total available space
+        size_t used_space;            // Space used by allocated blocks
+        size_t free_space;            // Space available in free blocks
+        size_t overhead_space;        // Space used by allocator headers
+        size_t num_allocated_blocks;  // Number of allocated blocks
+        size_t num_free_blocks;       // Number of free blocks
+        size_t largest_free_block;    // Size of largest contiguous free block
+        size_t smallest_free_block;   // Size of smallest free block (or 0 if no
+                                      // free blocks)
+        size_t total_blocks;          // Total number of blocks
+        double fragmentation_ratio;   // free_space / largest_free_block (1.0 =
+                                      // no fragmentation)
+        size_t average_allocated_size;  // Average size of allocated blocks (or
+                                        // 0 if none)
+        size_t total_strings;           // Total number of stored strings
+        size_t total_string_refs;       // Total reference count of all strings
+
+        std::string to_string() const {
+            std::stringstream ss;
+            ss << "Total capacity: " << total_capacity << std::endl;
+            ss << "Used space: " << used_space << std::endl;
+            ss << "Free space: " << free_space << std::endl;
+            ss << "Overhead space: " << overhead_space << std::endl;
+            ss << "Number of allocated blocks: " << num_allocated_blocks
+               << std::endl;
+            ss << "Number of free blocks: " << num_free_blocks << std::endl;
+            ss << "Largest free block: " << largest_free_block << std::endl;
+            ss << "Smallest free block: " << smallest_free_block << std::endl;
+            ss << "Total blocks: " << total_blocks << std::endl;
+            ss << "Fragmentation ratio: " << fragmentation_ratio << std::endl;
+            ss << "Average allocated size: " << average_allocated_size
+               << std::endl;
+            ss << "Total strings: " << total_strings << std::endl;
+            ss << "Total string refs: " << total_string_refs << std::endl;
+            return ss.str();
+        }
+    };
     explicit StringAllocator(T&& block) : m_block(std::move(block)) {
         initialize();
     }
@@ -278,10 +316,16 @@ public:
             throw OutOfSpace();
         }
 
-        // Write allocated block header
+        // Read the current block header after allocation to get the correct
+        // size and pointers
+        BlockHeader current_header;
+        m_block.read(addr, &current_header, HEADER_SIZE);
+
+        // Write allocated block header, preserving the allocated size and
+        // linked list structure
         AllocatedBlock alloc_block;
-        alloc_block.header.size = needed_size;
-        alloc_block.header.is_free = false;
+        alloc_block.header =
+            current_header;  // Use the current header which has correct size
         alloc_block.ref_count = 1;
         alloc_block.str_length = str.length();
 
@@ -307,7 +351,7 @@ public:
         return alloc_block.ref_count;
     }
 
-    // return the address of the string, or nullopt if the string is not stored
+    // return the location of the string
     std::optional<addr_t> locationOf(const std::string& str) {
         return findString(str);
     }
@@ -331,12 +375,93 @@ public:
         }
 
         // No more references, actually free the block
-        // Mark block as free
-        alloc_block.header.is_free = true;
-        m_block.write(addr, &alloc_block.header, HEADER_SIZE);
+        // Create a clean free block header
+        BlockHeader free_header;
+        free_header.size = alloc_block.header.size;
+        free_header.is_free = true;
+        free_header.prev = alloc_block.header.prev;
+        free_header.next = alloc_block.header.next;
+
+        // Write the clean header and clear the rest of the allocated block area
+        m_block.write(addr, &free_header, HEADER_SIZE);
+
+        // Clear the extra allocated block data to avoid confusion
+        const size_t clear_size = alloc_block.header.size - HEADER_SIZE;
+        if (clear_size > 0) {
+            std::vector<char> zeros(clear_size, 0);
+            m_block.write(addr + HEADER_SIZE, zeros.data(), clear_size);
+        }
 
         // Coalesce with adjacent free blocks
         coalesce_free_blocks(addr);
+    }
+
+    SpaceUsageInfo getSpaceUsage() const {
+        SpaceUsageInfo info = {};
+
+        info.total_capacity = m_block.maxsize();
+        info.overhead_space = ALLOCATOR_HEADER_SIZE;
+
+        addr_t first_block = getFirstBlock();
+        if (first_block == 0) {
+            // No blocks allocated yet
+            info.free_space = info.total_capacity - info.overhead_space;
+            info.largest_free_block = info.free_space;
+            info.smallest_free_block = 0;
+            info.fragmentation_ratio = 1.0;
+            return info;
+        }
+
+        addr_t current = first_block;
+        info.smallest_free_block = SIZE_MAX;  // Initialize to max value
+
+        do {
+            BlockHeader header;
+            m_block.read(current, &header, HEADER_SIZE);
+
+            info.total_blocks++;
+
+            if (header.is_free) {
+                info.num_free_blocks++;
+                info.free_space += header.size;
+
+                if (header.size > info.largest_free_block) {
+                    info.largest_free_block = header.size;
+                }
+                if (header.size < info.smallest_free_block) {
+                    info.smallest_free_block = header.size;
+                }
+            } else {
+                info.num_allocated_blocks++;
+                info.used_space += header.size;
+
+                // Read allocated block to get string info
+                AllocatedBlock alloc_block;
+                m_block.read(current, &alloc_block, ALLOC_HEADER_SIZE);
+                info.total_strings++;
+                info.total_string_refs += alloc_block.ref_count;
+            }
+
+            current = header.next;
+        } while (current != first_block);
+
+        // Finalize calculations
+        if (info.num_free_blocks == 0) {
+            info.smallest_free_block = 0;
+            info.fragmentation_ratio = 0.0;
+        } else {
+            info.fragmentation_ratio =
+                info.largest_free_block > 0
+                    ? (double)info.free_space / info.largest_free_block
+                    : 0.0;
+        }
+
+        info.average_allocated_size =
+            info.num_allocated_blocks > 0
+                ? info.used_space / info.num_allocated_blocks
+                : 0;
+
+        return info;
     }
 
 private:
@@ -364,7 +489,9 @@ private:
     // Find string in allocated blocks
     std::optional<addr_t> findString(const std::string& str) const {
         addr_t first_block = getFirstBlock();
-        if (first_block == 0) return std::nullopt;
+        if (first_block == 0) {
+            return std::nullopt;
+        }
 
         addr_t current = first_block;
         do {
@@ -450,6 +577,9 @@ private:
                 if (header.size > size + MIN_BLOCK_SIZE) {
                     // Split the block
                     split_block(current, size);
+
+                    // Re-read header after split
+                    m_block.read(current, &header, HEADER_SIZE);
                 }
 
                 // Mark as allocated
@@ -490,6 +620,10 @@ private:
         header.next = new_block_addr;
         m_block.write(addr, &header, HEADER_SIZE);
 
+        // Verify the write worked
+        BlockHeader verify_header;
+        m_block.read(addr, &verify_header, HEADER_SIZE);
+
         // Update next block's prev pointer
         if (new_header.next != addr) {  // not circular to self
             BlockHeader next_header;
@@ -514,7 +648,7 @@ private:
                 header.next = next_header.next;
 
                 // Update next-next block's prev pointer
-                if (next_header.next != header.next) {
+                if (next_header.next != addr) {
                     BlockHeader next_next_header;
                     m_block.read(next_header.next, &next_next_header,
                                  HEADER_SIZE);
