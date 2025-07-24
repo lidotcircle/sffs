@@ -299,7 +299,7 @@ public:
 
     GnContainerIteratorMem operator--(int) {
         auto ans = *this;
-        this->operator++();
+        this->operator--();
         return ans;
     }
 };
