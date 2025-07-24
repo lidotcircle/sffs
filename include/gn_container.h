@@ -162,7 +162,8 @@ public:
 
     GnContainerIterator& operator++() {
         if constexpr (reverse) {
-            if (m_iter == container().k_begin()) {
+            if (container().k_compareHolderPath(m_iter,
+                                                container().k_begin()) == 0) {
                 m_iter = container().k_end();
             } else {
                 container().k_backward(m_iter);
@@ -436,10 +437,10 @@ public:
     inline reverse_iterator rbegin() {
         auto u = m_container.k_end();
         if (this->empty()) {
-            return reverse_iterator(nonconst(), u);
+            return reverse_iterator(u, nonconst());
         } else {
             m_container.k_backward(u);
-            return reverse_iterator(nonconst(), u);
+            return reverse_iterator(u, nonconst());
         }
     }
     inline reverse_iterator rend() {

@@ -427,7 +427,7 @@ class BPTreeAlgorithm {
 public:
     using traits = treeop_traits<_T, _Node, _Holder, _Key, _Value>;
     static constexpr bool parents_ops =
-        traits::has_getParent && traits::has_getParent && enableParent;
+        traits::has_getParent && traits::has_setParent && enableParent;
     static constexpr bool ref_accessor = traits::has_getNthHolderRef;
 
     using NodePath = std::conditional_t<
@@ -744,13 +744,10 @@ private:
             m_ops.interiorSetNthKey(parent, nodeIdx, std::move(middle_key));
             m_ops.setNthChild(parent, nodeIdx + 1, newNode);
             if constexpr (parents_ops) {
-                m_ops.setParent(newNode, root);
+                m_ops.setParent(newNode, parent);
             }
         }
 
-        if constexpr (parents_ops) {
-            m_ops.setParent(newNode, parent);
-        }
         const auto next = m_ops.leafGetNext(node);
         m_ops.leafSetNext(node, newNode);
         m_ops.leafSetNext(newNode, next);
