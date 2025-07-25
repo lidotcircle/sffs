@@ -419,7 +419,7 @@ private:
         m_ops.setLeft(p, nq);
         if constexpr (parents_ops) {
             m_ops.setParent(p, node);
-            if (nq != nullptr) {
+            if (!m_ops.isNullNode(nq)) {
                 m_ops.setParent(nq, p);
             }
             m_ops.setParent(node, pp);

@@ -2,8 +2,6 @@
 #include <assert.h>
 
 #include <algorithm>
-#include <cstdint>
-#include <type_traits>
 
 #define LDC_CLASS_MEMBER_TEST(QUALIFIERS, MEMBER, PROTO)                    \
     struct LDC_CLASS_MEMBER_TEST_##MEMBER {                                 \

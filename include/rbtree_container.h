@@ -39,7 +39,7 @@ public:
 public:
     using iterator = typename base_t::iterator;
     using const_iterator = typename base_t::const_iterator;
-    using reverse_iterator = typename base_t::reverse_const_iterator;
+    using reverse_iterator = typename base_t::reverse_iterator;
     using reverse_const_iterator = typename base_t::reverse_const_iterator;
 
     RBTree_generic_container()
@@ -65,7 +65,7 @@ private:
 public:
     using iterator = typename base_t::iterator;
     using const_iterator = typename base_t::const_iterator;
-    using reverse_iterator = typename base_t::reverse_const_iterator;
+    using reverse_iterator = typename base_t::reverse_iterator;
     using reverse_const_iterator = typename base_t::reverse_const_iterator;
 
     RBTree_generic_set() = default;
@@ -88,7 +88,7 @@ private:
 public:
     using iterator = typename base_t::iterator;
     using const_iterator = typename base_t::const_iterator;
-    using reverse_iterator = typename base_t::reverse_const_iterator;
+    using reverse_iterator = typename base_t::reverse_iterator;
     using reverse_const_iterator = typename base_t::reverse_const_iterator;
 
     RBTree_generic_map() = default;

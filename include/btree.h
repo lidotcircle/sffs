@@ -1,7 +1,6 @@
 #pragma once
 #include <cassert>
 #include <cstddef>
-#include <cstdint>
 #include <functional>
 #include <memory>
 #include <queue>
@@ -868,6 +867,10 @@ public:
                 break;
             }
 
+            // likely FIXME
+            if (m_ops.isLeaf(node)) {
+                break;
+            }
             node = m_ops.getNthChild(node, kn);
             node_index = kn;
         }
