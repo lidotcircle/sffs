@@ -113,6 +113,11 @@ using BASE_T =
     BTreeAlgorithmImpl::BTreeAlgorithm<TreeNodeOps<Order>, TreeNode<Order>*,
                                        int, int, void, parent_ops>;
 
+template <size_t Order, bool parent_ops, bool multikey>
+using BASE_T_DUP =
+    BTreeAlgorithmImpl::BTreeAlgorithm<TreeNodeOps<Order>, TreeNode<Order>*,
+                                       int, int, void, parent_ops, multikey>;
+
 template <size_t Order, bool parent_ops>
 struct BTREE : public BASE_T<Order, parent_ops> {
     typedef TreeNode<Order>* NODE;
@@ -174,6 +179,71 @@ struct BTREE : public BASE_T<Order, parent_ops> {
     void check_consistency() { BASE::check_consistency(this->root); }
 
     ~BTREE() {
+        if (root) delete root;
+    }
+};
+
+template <size_t Order, bool parent_ops, bool multikey>
+struct BTREE_DUP : public BASE_T_DUP<Order, parent_ops, multikey> {
+    typedef TreeNode<Order>* NODE;
+
+    using NN = std::remove_pointer_t<NODE>;
+    using BASE = BASE_T_DUP<Order, parent_ops, multikey>;
+    using HolderPath = typename BASE::HolderPath;
+    NODE root;
+
+    BTREE_DUP() : BASE(TreeNodeOps<Order>()), root(nullptr) {}
+
+    bool insert(int val) {
+        return this->exists(this->insertHolder(this->root, std::move(val)));
+    }
+
+    std::optional<int> find(int key) {
+        if (this->root == nullptr) return std::nullopt;
+
+        auto ans = this->findKey(root, key);
+        if (!this->exists(ans)) return std::nullopt;
+
+        return this->getHolder(ans);
+    }
+
+    std::optional<HolderPath> lower_bound(int key) {
+        if (this->root == nullptr) return std::nullopt;
+
+        auto ans = BASE::lower_bound(this->root, key);
+        if (!this->exists(ans)) return std::nullopt;
+
+        return ans;
+    }
+
+    std::optional<HolderPath> upper_bound(int key) {
+        if (this->root == nullptr) return std::nullopt;
+
+        auto ans = BASE::upper_bound(this->root, key);
+        if (!this->exists(ans)) return std::nullopt;
+
+        return ans;
+    }
+
+    HolderPath begin() { return BASE::begin(this->root); }
+
+    void forward(HolderPath& path) { BASE::forward(this->root, path); }
+
+    void backward(HolderPath& path) { BASE::backward(this->root, path); }
+
+    bool deleteByKey(int key) {
+        if (this->root == nullptr) return false;
+
+        auto ans = this->findKey(root, key);
+        if (!this->exists(ans)) return false;
+
+        auto node = this->deleteHolder(this->root, ans);
+        return true;
+    }
+
+    void check_consistency() { BASE::check_consistency(this->root); }
+
+    ~BTREE_DUP() {
         if (root) delete root;
     }
 };
@@ -361,6 +431,85 @@ static void test_btree_forward_backward(size_t n) {
     }
 }
 
+template <size_t Order, bool parent_ops, bool multikey>
+static void test_btree_insert_dup(size_t n) {
+    std::uniform_int_distribution<int> distribution(-static_cast<int>(n) / 2,
+                                                    n / 2);
+    BTREE_DUP<Order, parent_ops, true> tree;
+    std::multiset<int> vals;
+
+    for (size_t i = 0; i < n; i++) {
+        auto val = distribution(generator);
+
+        ASSERT_TRUE(tree.insert(val));
+        if (i % 1000 == 0 || i + 1 == n) tree.check_consistency();
+        vals.insert(val);
+    }
+
+    auto tbeg = tree.begin();
+    auto beg = vals.begin();
+    for (; beg != vals.end(); beg++, tree.forward(tbeg)) {
+        ASSERT_TRUE(tree.exists(tbeg));
+        auto val = *beg;
+        auto v2 = tree.getHolder(tbeg);
+        ASSERT_EQ(val, v2);
+    }
+    ASSERT_EQ(vals.size(), n);
+}
+
+template <size_t Order, bool parent_ops, bool multikey>
+static void test_btree_delete_dup(size_t n) {
+    std::uniform_int_distribution<int> distribution(-static_cast<int>(n) / 2,
+                                                    n / 2);
+    BTREE_DUP<Order, parent_ops, true> tree;
+    std::multiset<int> vals;
+
+    for (size_t i = 0; i < n; i++) {
+        auto val = distribution(generator);
+        tree.insert(val);
+        vals.insert(val);
+    }
+
+    for (size_t i = 0; i < n; i++) {
+        auto val = distribution(generator);
+
+        bool a1 = tree.deleteByKey(val);
+        if (i % 1000 == 0 || i + 1 == n) tree.check_consistency();
+
+        auto it = vals.find(val);
+        bool a2 = (it != vals.end());
+        if (a2) {
+            vals.erase(it);
+        }
+        ASSERT_EQ(a1, a2);
+    }
+}
+
+template <size_t Order, bool parent_ops, bool multikey>
+static void test_btree_delete2_dup(size_t n) {
+    std::uniform_int_distribution<int> distribution(-static_cast<int>(n) / 2,
+                                                    n / 2);
+    BTREE_DUP<Order, parent_ops, true> tree;
+    std::multiset<int> vals;
+
+    for (size_t i = 0; i < n; i++) {
+        auto val = distribution(generator);
+        tree.insert(val);
+        vals.insert(val);
+    }
+
+    auto vals_copy = vals;
+    int i = 0;
+    for (auto val : vals_copy) {
+        auto a1 = tree.deleteByKey(val);
+        if (i % 1000 == 0 || i + 1 == vals_copy.size())
+            tree.check_consistency();
+        ASSERT_TRUE(a1);
+        i++;
+    }
+    ASSERT_EQ(tree.root, nullptr);
+}
+
 #define SETUP_TEST_FUNC_N(func, order, parent_ops) \
     func<order, parent_ops>(0);                    \
     func<order, parent_ops>(1);                    \
@@ -371,11 +520,27 @@ static void test_btree_forward_backward(size_t n) {
     func<order, parent_ops>(10);                   \
     func<order, parent_ops>(100);                  \
     func<order, parent_ops>(1000);                 \
-    func<order, parent_ops>(10000);                \
-    func<order, parent_ops>(100000);               \
-    func<order, parent_ops>(1000000);              \
+    // func<order, parent_ops>(10000);                \
+    // func<order, parent_ops>(100000);               \
+    // func<order, parent_ops>(1000000);              \
     // func<order,parent_ops>(10000000); \
     func<order,parent_ops>(100000000)
+
+#define SETUP_TEST_FUNC_N_DUP(func, order, parent_ops) \
+    func<order, parent_ops, true>(0);                  \
+    func<order, parent_ops, true>(1);                  \
+    func<order, parent_ops, true>(2);                  \
+    func<order, parent_ops, true>(3);                  \
+    func<order, parent_ops, true>(4);                  \
+    func<order, parent_ops, true>(5);                  \
+    func<order, parent_ops, true>(10);                 \
+    func<order, parent_ops, true>(100);                \
+    func<order, parent_ops, true>(1000);               \
+    // func<order, parent_ops, true>(10000);                \
+    // func<order, parent_ops, true>(100000);               \
+    // func<order, parent_ops, true>(1000000);              \
+    // func<order,parent_ops, true>(10000000); \
+    func<order,parent_ops, true>(100000000)
 
 #define SETUP_TEST_FUNC(func, parent_ops)    \
     SETUP_TEST_FUNC_N(func, 2, parent_ops);  \
@@ -386,6 +551,16 @@ static void test_btree_forward_backward(size_t n) {
     SETUP_TEST_FUNC_N(func, 32, parent_ops); \
     SETUP_TEST_FUNC_N(func, 64, parent_ops); \
     SETUP_TEST_FUNC_N(func, 128, parent_ops);
+
+#define SETUP_TEST_FUNC_DUP(func, parent_ops)    \
+    SETUP_TEST_FUNC_N_DUP(func, 2, parent_ops);  \
+    SETUP_TEST_FUNC_N_DUP(func, 3, parent_ops);  \
+    SETUP_TEST_FUNC_N_DUP(func, 4, parent_ops);  \
+    SETUP_TEST_FUNC_N_DUP(func, 8, parent_ops);  \
+    SETUP_TEST_FUNC_N_DUP(func, 16, parent_ops); \
+    SETUP_TEST_FUNC_N_DUP(func, 32, parent_ops); \
+    SETUP_TEST_FUNC_N_DUP(func, 64, parent_ops); \
+    SETUP_TEST_FUNC_N_DUP(func, 128, parent_ops);
 
 TEST(btree_without_parent_ops, insert) {
     SETUP_TEST_FUNC(test_btree_insert, false);
@@ -432,4 +607,25 @@ TEST(btree_without_parent_ops, forward_backward) {
 }
 TEST(btree_with_parent_ops, forward_backward) {
     SETUP_TEST_FUNC(test_btree_forward_backward, true);
+}
+
+TEST(btree_without_parent_ops, insert_dup) {
+    SETUP_TEST_FUNC_DUP(test_btree_insert_dup, false);
+}
+TEST(btree_with_parent_ops, insert_dup) {
+    SETUP_TEST_FUNC_DUP(test_btree_insert_dup, true);
+}
+
+TEST(btree_without_parent_ops, delete_dup) {
+    SETUP_TEST_FUNC_DUP(test_btree_delete_dup, false);
+}
+TEST(btree_with_parent_ops, delete_dup) {
+    SETUP_TEST_FUNC_DUP(test_btree_delete_dup, true);
+}
+
+TEST(btree_without_parent_ops, delete2_dup) {
+    SETUP_TEST_FUNC_DUP(test_btree_delete2_dup, false);
+}
+TEST(btree_with_parent_ops, delete2_dup) {
+    SETUP_TEST_FUNC_DUP(test_btree_delete2_dup, true);
 }

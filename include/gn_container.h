@@ -1,11 +1,11 @@
 #pragma once
-#include <assert.h>
-
 #include <algorithm>
+#include <cassert>
 #include <limits>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "./ldc_utils.h"
 
@@ -527,6 +527,23 @@ public:
     }
 
     std::pair<iterator, bool> insert(const KVPair& val) {
+        // Only check for duplicates in non-multikey containers
+        if constexpr (!_Container::is_multi) {
+            if constexpr (std::is_same_v<_Value, void>) {
+                // For sets, the value is the key
+                auto it = find(val);
+                if (it != end()) {
+                    return {it, false};
+                }
+            } else {
+                // For maps, extract the key from the pair
+                auto it = find(val.first);
+                if (it != end()) {
+                    return {it, false};
+                }
+            }
+        }
+
         auto iter = m_container.k_insert(val);
         return std::make_pair(iterator(iter, nonconst()),
                               m_container.k_exists(iter));
@@ -537,6 +554,23 @@ public:
         typename std::enable_if<std::is_constructible<KVPair, ValType&&>::value,
                                 bool>::type = true>
     std::pair<iterator, bool> insert(ValType&& val) {
+        // Only check for duplicates in non-multikey containers
+        if constexpr (!_Container::is_multi) {
+            if constexpr (std::is_same_v<_Value, void>) {
+                // For sets, the value is the key
+                auto it = find(val);
+                if (it != end()) {
+                    return {it, false};
+                }
+            } else {
+                // For maps, extract the key from the pair
+                auto it = find(val.first);
+                if (it != end()) {
+                    return {it, false};
+                }
+            }
+        }
+
         auto iter = m_container.k_insert(std::move(val));
         return std::make_pair(iterator(iter, nonconst()),
                               m_container.k_exists(iter));
@@ -616,20 +650,61 @@ public:
             throw std::logic_error("invalid range");
         }
 
-        iterator ans = this->end();
-        for (; first != this->cend() && first != last;) {
-            ans = this->erase(first);
-            first = const_iterator(ans);
+        if (first == last) {
+            return iterator(first.iter(), nonconst());
         }
-        return ans;
+
+        // Collect keys to erase to avoid iterator invalidation
+        std::vector<_Key> keys_to_erase;
+        for (auto it = first; it != last && it != this->cend(); ++it) {
+            if constexpr (std::is_same_v<_Value, void>) {
+                // For sets, the value is the key
+                keys_to_erase.push_back(*it);
+            } else {
+                // For maps, extract the key from the pair
+                keys_to_erase.push_back(it->first);
+            }
+        }
+
+        // Erase collected keys using the working key-based erase
+        for (const auto& key : keys_to_erase) {
+            this->erase(key);  // Use the working key-based erase
+        }
+
+        // Return iterator to the position after the erased range
+        if (keys_to_erase.empty()) {
+            return iterator(first.iter(), nonconst());
+        }
+
+        // Find the first element >= the last erased key
+        auto last_key = keys_to_erase.back();
+        auto result_it = this->upper_bound(last_key);
+        return result_it;
     }
 
     size_t erase(const _Key& key) {
-        auto first = this->lower_bound(key);
-        auto last = this->upper_bound(key);
-        auto ans = std::distance(first, last);
-        this->erase(first, last);
-        return ans;
+        // For multikey containers, we need to erase all instances
+        if constexpr (_Container::is_multi) {
+            size_t count = 0;
+            // Keep finding and erasing until no more instances exist
+            while (true) {
+                auto it = this->find(key);
+                if (it == this->end()) {
+                    break;
+                }
+                this->erase(const_iterator(it));
+                count++;
+            }
+            return count;
+        } else {
+            // For non-multikey containers, there's at most one element
+            auto it = this->find(key);
+            if (it == this->end()) {
+                return 0;
+            }
+            this->erase(const_iterator(it));
+            return 1;
+        }
     }
 
     void clear() { m_container.k_clear(); }

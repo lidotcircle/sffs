@@ -607,8 +607,13 @@ public:
                 auto h1 = m_ops.getNthHolder(node, i);
                 if (i > 0) {
                     auto h0 = m_ops.getNthHolder(node, i - 1);
-                    assert(m_ops.keyCompareLess(m_ops.getKey(h0),
-                                                m_ops.getKey(h1)));
+                    if (multikey) {
+                        assert(!m_ops.keyCompareLess(m_ops.getKey(h1),
+                                                     m_ops.getKey(h0)));
+                    } else {
+                        assert(m_ops.keyCompareLess(m_ops.getKey(h0),
+                                                    m_ops.getKey(h1)));
+                    }
                 }
             }
             const auto n2 = m_ops.getNumberOfChildren(node);
@@ -627,8 +632,13 @@ public:
                     assert(!m_ops.isNullNode(n2));
                     const auto& k1 = m_ops.getKey(m_ops.getLastHolder(n1));
                     const auto& k2 = m_ops.getKey(m_ops.getFirstHolder(n2));
-                    assert(m_ops.keyCompareLess(k1, m_ops.getKey(h1)));
-                    assert(m_ops.keyCompareLess(m_ops.getKey(h1), k2));
+                    if (multikey) {
+                        assert(!m_ops.keyCompareLess(m_ops.getKey(h1), k1));
+                        assert(!m_ops.keyCompareLess(k2, m_ops.getKey(h1)));
+                    } else {
+                        assert(m_ops.keyCompareLess(k1, m_ops.getKey(h1)));
+                        assert(m_ops.keyCompareLess(m_ops.getKey(h1), k2));
+                    }
                 }
             }
         }
@@ -1063,7 +1073,7 @@ public:
             this->GetNodeAncestor(path.m_path, 0), path.m_index));
     }
 
-    inline int compareHolderPath(const HolderPath& p1,
+    inline int compareHolderPath(NODE root, const HolderPath& p1,
                                  const HolderPath& p2) const {
         if (!this->exists(p1)) {
             if (this->exists(p2)) {
@@ -1095,7 +1105,8 @@ public:
         if constexpr (multikey) {
             auto pp1 = p1, pp2 = p2;
             for (; this->exists(pp1) && this->exists(pp2);
-                 this->forward(pp1), this->forward(pp2)) {
+                 const_cast<BTreeAlgorithm*>(this)->forward(root, pp1),
+                 const_cast<BTreeAlgorithm*>(this)->forward(root, pp2)) {
                 const auto n1 = this->GetNodeAncestor(pp1.m_path, 0);
                 const auto n2 = this->GetNodeAncestor(pp2.m_path, 0);
                 if (m_ops.nodeCompareEqual(node1, n2)) {
@@ -1103,9 +1114,6 @@ public:
                 } else if (m_ops.nodeCompareEqual(node2, n1)) {
                     return 1;
                 }
-
-                pp1.m_index = m_ops.getNumberOfKeys(n1) - 1;
-                pp2.m_index = m_ops.getNumberOfKeys(n2) - 1;
             }
 
             return this->exists(pp1) ? -1 : 1;
@@ -1346,6 +1354,7 @@ struct BTreeInMemory : protected BTreeAlgo<_Key, _Value, _CmpLess, _Allocator,
     using KVPair = typename treeops_t::KVPair;
     using ITERATOR = typename BASE::HolderPath;
     static constexpr auto ref_accessor = BASE::ref_accessor;
+    static constexpr bool is_multi = _multikey;
 
 private:
     _Node m_root;
@@ -1432,7 +1441,9 @@ public:
         return ans;
     }
 
-    using BASE::compareHolderPath;
+    inline int compareHolderPath(const ITERATOR& p1, const ITERATOR& p2) const {
+        return BASE::compareHolderPath(this->m_root, p1, p2);
+    }
     using BASE::exists;
     using BASE::getHolder;
     using BASE::getHolderKey;

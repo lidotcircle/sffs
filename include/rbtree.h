@@ -1,7 +1,6 @@
 #pragma once
 #include <cassert>
 #include <cstddef>
-#include <cstdint>
 #include <functional>
 #include <memory>
 #include <queue>
@@ -509,6 +508,8 @@ public:
         }
         if constexpr (parents_ops) {
             ans = node;
+        } else {
+            ans = nodepath;
         }
 
         for (auto p = this->GetNodeAncestor(nodepath, 1);
@@ -558,11 +559,9 @@ public:
         }
 
         if constexpr (!parents_ops) {
-            while (!ans.empty()) {
-                nodepath.push_back(std::move(ans.back()));
-                ans.pop_back();
-            }
-            ans = std::move(nodepath);
+            // After balancing, nodepath contains the correct path to the
+            // inserted node
+            return nodepath;
         }
 
         return ans;
@@ -1035,7 +1034,11 @@ public:
     }
 
     inline void forward(NODE, NodePath& path) const {
-        assert(this->exists(path));
+        if (!this->exists(path)) {
+            // Path is invalid, make it an end iterator
+            path = this->InitPath<NodePath>();
+            return;
+        }
 
         auto node = this->GetNodeAncestor(path, 0);
         if (!m_ops.isNullNode(m_ops.getRight(node))) {
@@ -1261,6 +1264,7 @@ struct RBTreeInMemory : protected RBTreeAlgo<_Key, _Value, _CmpLess, _Allocator,
     using KVPair = typename treeops_t::KVPair;
     using ITERATOR = typename BASE::NodePath;
     static constexpr auto ref_accessor = true;
+    static constexpr bool is_multi = _multikey;
 
 private:
     _Node m_root;
@@ -1326,6 +1330,13 @@ public:
     }
 
     inline ITERATOR insert(KVPair&& val) {
+        auto key_to_find = [&val]() {
+            if constexpr (std::is_same_v<_Value, void>) {
+                return val;
+            } else {
+                return val.first;
+            }
+        }();
         auto node = this->createEmptyNode(std::move(val));
         auto ans = this->insertNode(m_root, node);
         if (this->exists(ans)) {
@@ -1333,7 +1344,12 @@ public:
         } else {
             this->releaseEmptyNode(std::move(node));
         }
-        return ans;
+
+        if constexpr (!_multikey) {
+            return this->find(key_to_find);
+        } else {
+            return ans;
+        }
     }
 
     inline ITERATOR find(const _Key& key) {
@@ -1408,6 +1424,7 @@ public:
                 m_root, [&](_Node n) { this->releaseEmptyNode(std::move(n)); });
             m_root = nullptr;
         }
+        m_size = 0;  // Reset size to 0
     }
 
     ~RBTreeInMemory() { this->clear(); }

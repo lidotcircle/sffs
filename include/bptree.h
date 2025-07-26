@@ -1,7 +1,6 @@
 #pragma once
 #include <cassert>
 #include <cstddef>
-#include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -1050,8 +1049,13 @@ public:
                     auto h1 = m_ops.getNthHolder(node, i);
                     if (i > 0) {
                         auto h0 = m_ops.getNthHolder(node, i - 1);
-                        assert(m_ops.keyCompareLess(m_ops.getKey(h0),
-                                                    m_ops.getKey(h1)));
+                        if (multikey) {
+                            assert(!m_ops.keyCompareLess(m_ops.getKey(h1),
+                                                         m_ops.getKey(h0)));
+                        } else {
+                            assert(m_ops.keyCompareLess(m_ops.getKey(h0),
+                                                        m_ops.getKey(h1)));
+                        }
                     }
                 }
             } else {
@@ -2004,6 +2008,7 @@ struct BPTreeInMemory
     using KVPair = typename treeops_t::KVPair;
     using ITERATOR = typename BASE::HolderPath;
     static constexpr auto ref_accessor = BASE::ref_accessor;
+    static constexpr bool is_multi = _multikey;
 
 private:
     _Node m_root;
@@ -2104,6 +2109,7 @@ public:
             this->releaseNode(m_root);
             m_root = nullptr;
         }
+        m_size = 0;  // Reset size to 0
     }
 
     ~BPTreeInMemory() { this->clear(); }

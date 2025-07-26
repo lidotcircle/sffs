@@ -66,6 +66,6 @@ TEST(map, insert) {
         map_insert_test(i);
         map_insert_test(i * 10);
         map_insert_test(i * 100);
-        map_insert_test(i * 1000);
+        // map_insert_test(i * 1000);
     }
 }

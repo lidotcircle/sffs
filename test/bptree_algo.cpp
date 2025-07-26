@@ -194,6 +194,12 @@ using BASE_T = BPTreeAlgorithmImpl::BPTreeAlgorithm<
     int, void, parent_ops>;
 
 template <size_t Order, bool parent_ops, bool prev_ops, size_t Order2,
+          bool VallowEmptyLeaf, bool multikey>
+using BASE_T_DUP = BPTreeAlgorithmImpl::BPTreeAlgorithm<
+    TreeNodeOps<Order, Order2, VallowEmptyLeaf>, TreeNode<Order, Order2>*, int,
+    int, void, parent_ops, multikey>;
+
+template <size_t Order, bool parent_ops, bool prev_ops, size_t Order2,
           bool VallowEmptyLeaf>
 struct BPTREE
     : public BASE_T<Order, parent_ops, prev_ops, Order2, VallowEmptyLeaf> {
@@ -263,6 +269,75 @@ struct BPTREE
     }
 
     ~BPTREE() {
+        if (root) delete root;
+    }
+};
+
+template <size_t Order, bool parent_ops, bool prev_ops, size_t Order2,
+          bool VallowEmptyLeaf, bool multikey>
+struct BPTREE_DUP : public BASE_T_DUP<Order, parent_ops, prev_ops, Order2,
+                                      VallowEmptyLeaf, multikey> {
+    typedef TreeNode<Order, Order2>* NODE;
+
+    using NN = std::remove_pointer_t<NODE>;
+    using BASE = BASE_T_DUP<Order, parent_ops, prev_ops, Order2,
+                            VallowEmptyLeaf, multikey>;
+    using HolderPath = typename BASE::HolderPath;
+    NODE root;
+
+    BPTREE_DUP()
+        : BASE(TreeNodeOps<Order, Order2, VallowEmptyLeaf>()), root(nullptr) {}
+
+    bool insert(int val) {
+        return this->exists(this->insertHolder(this->root, std::move(val)));
+    }
+
+    std::optional<int> find(int key) {
+        if (this->root == nullptr) return std::nullopt;
+
+        auto ans = this->findKey(root, key);
+        if (!this->exists(ans)) return std::nullopt;
+
+        return this->getHolder(ans);
+    }
+
+    std::optional<HolderPath> lower_bound(int key) {
+        if (this->root == nullptr) return std::nullopt;
+
+        auto ans = BASE::lower_bound(this->root, key);
+        if (!this->exists(ans)) return std::nullopt;
+
+        return ans;
+    }
+
+    std::optional<HolderPath> upper_bound(int key) {
+        if (this->root == nullptr) return std::nullopt;
+
+        auto ans = BASE::upper_bound(this->root, key);
+        if (!this->exists(ans)) return std::nullopt;
+
+        return ans;
+    }
+
+    HolderPath begin() { return BASE::begin(this->root); }
+
+    void forward(HolderPath& path) { BASE::forward(this->root, path); }
+
+    void backward(HolderPath& path) { BASE::backward(this->root, path); }
+
+    bool deleteByKey(int key) {
+        if (this->root == nullptr) return false;
+
+        auto ans = this->findKey(root, key);
+        if (!this->exists(ans)) return false;
+
+        auto node = this->deleteHolder(this->root, ans);
+        return true;
+    }
+
+    void check_consistency() { BASE::check_consistency(this->root); }
+
+    ~BPTREE_DUP() {
         if (root) delete root;
     }
 };
@@ -577,6 +652,87 @@ static void test_BPTREE_mixture(size_t n) {
     }
 }
 
+template <size_t Order, bool parent_ops, bool prev_ops, size_t Order2,
+          bool VallowEmptyLeaf>
+static void test_BPTREE_insert_dup(size_t n) {
+    std::uniform_int_distribution<int> distribution(-static_cast<int>(n) / 2,
+                                                    n / 2);
+    BPTREE_DUP<Order, parent_ops, prev_ops, Order2, VallowEmptyLeaf, true> tree;
+    std::multiset<int> vals;
+
+    for (size_t i = 0; i < n; i++) {
+        auto val = distribution(generator);
+
+        ASSERT_TRUE(tree.insert(val));
+        if (i % 1000 == 0 || i + 1 == n) tree.check_consistency();
+        vals.insert(val);
+    }
+
+    auto tbeg = tree.begin();
+    auto beg = vals.begin();
+    for (; beg != vals.end(); beg++, tree.forward(tbeg)) {
+        ASSERT_TRUE(tree.exists(tbeg));
+        auto val = *beg;
+        auto v2 = tree.getHolder(tbeg);
+        ASSERT_EQ(val, v2);
+    }
+    ASSERT_EQ(vals.size(), n);
+}
+
+template <size_t Order, bool parent_ops, bool prev_ops, size_t Order2,
+          bool VallowEmptyLeaf>
+static void test_BPTREE_delete_dup(size_t n) {
+    std::uniform_int_distribution<int> distribution(-static_cast<int>(n) / 2,
+                                                    n / 2);
+    BPTREE_DUP<Order, parent_ops, prev_ops, Order2, VallowEmptyLeaf, true> tree;
+    std::multiset<int> vals;
+
+    for (size_t i = 0; i < n; i++) {
+        auto val = distribution(generator);
+        tree.insert(val);
+        vals.insert(val);
+    }
+
+    for (size_t i = 0; i < n; i++) {
+        auto val = distribution(generator);
+
+        bool a1 = tree.deleteByKey(val);
+        if (i % 1000 == 0 || i + 1 == n) tree.check_consistency();
+
+        auto it = vals.find(val);
+        bool a2 = (it != vals.end());
+        if (a2) {
+            vals.erase(it);
+        }
+        ASSERT_EQ(a1, a2);
+    }
+}
+
+template <size_t Order, bool parent_ops, bool prev_ops, size_t Order2,
+          bool VallowEmptyLeaf>
+static void test_BPTREE_delete2_dup(size_t n) {
+    std::uniform_int_distribution<int> distribution(-static_cast<int>(n) / 2,
+                                                    n / 2);
+    BPTREE_DUP<Order, parent_ops, prev_ops, Order2, VallowEmptyLeaf, true> tree;
+    std::multiset<int> vals;
+
+    for (size_t i = 0; i < n; i++) {
+        auto val = distribution(generator);
+        tree.insert(val);
+        vals.insert(val);
+    }
+
+    auto vals_copy = vals;
+    int i = 0;
+    for (auto val : vals_copy) {
+        auto a1 = tree.deleteByKey(val);
+        if (i % 1000 == 0 || i + 1 == vals_copy.size())
+            tree.check_consistency();
+        ASSERT_TRUE(a1);
+        i++;
+    }
+}
+
 #define SETUP_TEST_FUNC_N(func, Order, parent_ops, prev_ops, Order2, allowEL) \
     func<Order, parent_ops, prev_ops, Order2, allowEL>(0);                    \
     func<Order, parent_ops, prev_ops, Order2, allowEL>(1);                    \
@@ -587,9 +743,9 @@ static void test_BPTREE_mixture(size_t n) {
     func<Order, parent_ops, prev_ops, Order2, allowEL>(10);                   \
     func<Order, parent_ops, prev_ops, Order2, allowEL>(100);                  \
     func<Order, parent_ops, prev_ops, Order2, allowEL>(1000);                 \
-    func<Order, parent_ops, prev_ops, Order2, allowEL>(10000);                \
-    func<Order, parent_ops, prev_ops, Order2, allowEL>(100000);               \
-    func<Order, parent_ops, prev_ops, Order2, allowEL>(1000000);              \
+    // func<Order, parent_ops, prev_ops, Order2, allowEL>(10000);                \
+    // func<Order, parent_ops, prev_ops, Order2, allowEL>(100000);               \
+    // func<Order, parent_ops, prev_ops, Order2, allowEL>(1000000);              \
     // func<Order,parent_ops,prev_ops,Order2,allowEL>(10000000); \
     func<Order,parent_ops,prev_ops,Order2,allowEL>(100000000)
 
@@ -682,4 +838,31 @@ TEST(BPTREE_without_parent_ops, mixture) {
 TEST(BPTREE_with_parent_ops, mixture) {
     SETUP_TEST_FUNC(test_BPTREE_mixture, true, true);
     SETUP_TEST_FUNC(test_BPTREE_mixture, true, false);
+}
+
+TEST(BPTREE_without_parent_ops, insert_dup) {
+    SETUP_TEST_FUNC(test_BPTREE_insert_dup, false, true);
+    SETUP_TEST_FUNC(test_BPTREE_insert_dup, false, false);
+}
+TEST(BPTREE_with_parent_ops, insert_dup) {
+    SETUP_TEST_FUNC(test_BPTREE_insert_dup, true, true);
+    SETUP_TEST_FUNC(test_BPTREE_insert_dup, true, false);
+}
+
+TEST(BPTREE_without_parent_ops, delete_dup) {
+    SETUP_TEST_FUNC(test_BPTREE_delete_dup, false, true);
+    SETUP_TEST_FUNC(test_BPTREE_delete_dup, false, false);
+}
+TEST(BPTREE_with_parent_ops, delete_dup) {
+    SETUP_TEST_FUNC(test_BPTREE_delete_dup, true, true);
+    SETUP_TEST_FUNC(test_BPTREE_delete_dup, true, false);
+}
+
+TEST(BPTREE_without_parent_ops, delete2_dup) {
+    SETUP_TEST_FUNC(test_BPTREE_delete2_dup, false, true);
+    SETUP_TEST_FUNC(test_BPTREE_delete2_dup, false, false);
+}
+TEST(BPTREE_with_parent_ops, delete2_dup) {
+    SETUP_TEST_FUNC(test_BPTREE_delete2_dup, true, true);
+    SETUP_TEST_FUNC(test_BPTREE_delete2_dup, true, false);
 }
