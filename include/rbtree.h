@@ -594,16 +594,32 @@ public:
                     assert(m_ops.nodeCompareEqual(
                         m_ops.getParent(m_ops.getLeft(node)), node));
                 }
-                assert(m_ops.keyCompareLess(m_ops.getKey(m_ops.getLeft(node)),
-                                            m_ops.getKey(node)));
+                if constexpr (multikey) {
+                    // For multikey, left child key <= parent key
+                    assert(!m_ops.keyCompareLess(
+                        m_ops.getKey(node), m_ops.getKey(m_ops.getLeft(node))));
+                } else {
+                    // For unique keys, left child key < parent key
+                    assert(m_ops.keyCompareLess(
+                        m_ops.getKey(m_ops.getLeft(node)), m_ops.getKey(node)));
+                }
                 queue.push(std::make_pair(m_ops.getLeft(node), bdepth));
             } else if (!m_ops.isNullNode(m_ops.getRight(node))) {
                 if constexpr (parents_ops) {
                     assert(m_ops.nodeCompareEqual(
                         m_ops.getParent(m_ops.getRight(node)), node));
                 }
-                assert(m_ops.keyCompareLess(
-                    m_ops.getKey(node), m_ops.getKey(m_ops.getRight(node))));
+                if constexpr (multikey) {
+                    // For multikey, parent key <= right child key
+                    assert(!m_ops.keyCompareLess(
+                        m_ops.getKey(m_ops.getRight(node)),
+                        m_ops.getKey(node)));
+                } else {
+                    // For unique keys, parent key < right child key
+                    assert(m_ops.keyCompareLess(
+                        m_ops.getKey(node),
+                        m_ops.getKey(m_ops.getRight(node))));
+                }
                 queue.push(std::make_pair(m_ops.getRight(node), bdepth));
             }
 
