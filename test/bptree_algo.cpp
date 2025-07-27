@@ -8,6 +8,7 @@
 #include <variant>
 
 #include "bptree.h"
+#include "test_scale.h"
 using namespace ldc;
 
 template <size_t Order, size_t Order2>
@@ -734,20 +735,20 @@ static void test_BPTREE_delete2_dup(size_t n) {
 }
 
 #define SETUP_TEST_FUNC_N(func, Order, parent_ops, prev_ops, Order2, allowEL) \
-    func<Order, parent_ops, prev_ops, Order2, allowEL>(0);                    \
-    func<Order, parent_ops, prev_ops, Order2, allowEL>(1);                    \
-    func<Order, parent_ops, prev_ops, Order2, allowEL>(2);                    \
-    func<Order, parent_ops, prev_ops, Order2, allowEL>(3);                    \
-    func<Order, parent_ops, prev_ops, Order2, allowEL>(4);                    \
-    func<Order, parent_ops, prev_ops, Order2, allowEL>(5);                    \
-    func<Order, parent_ops, prev_ops, Order2, allowEL>(10);                   \
-    func<Order, parent_ops, prev_ops, Order2, allowEL>(100);                  \
-    func<Order, parent_ops, prev_ops, Order2, allowEL>(1000);                 \
-    // func<Order, parent_ops, prev_ops, Order2, allowEL>(10000);                \
-    // func<Order, parent_ops, prev_ops, Order2, allowEL>(100000);               \
-    // func<Order, parent_ops, prev_ops, Order2, allowEL>(1000000);              \
-    // func<Order,parent_ops,prev_ops,Order2,allowEL>(10000000); \
-    func<Order,parent_ops,prev_ops,Order2,allowEL>(100000000)
+    func<Order, parent_ops, prev_ops, Order2, allowEL>(SN_0);                 \
+    func<Order, parent_ops, prev_ops, Order2, allowEL>(SN_1);                 \
+    func<Order, parent_ops, prev_ops, Order2, allowEL>(SN_2);                 \
+    func<Order, parent_ops, prev_ops, Order2, allowEL>(SN_3);                 \
+    func<Order, parent_ops, prev_ops, Order2, allowEL>(SN_4);                 \
+    func<Order, parent_ops, prev_ops, Order2, allowEL>(SN_5);                 \
+    func<Order, parent_ops, prev_ops, Order2, allowEL>(SN_10);                \
+    func<Order, parent_ops, prev_ops, Order2, allowEL>(SN_100);               \
+    func<Order, parent_ops, prev_ops, Order2, allowEL>(SN_1000);              \
+    func<Order, parent_ops, prev_ops, Order2, allowEL>(SN_10000);             \
+    func<Order, parent_ops, prev_ops, Order2, allowEL>(SN_100000);            \
+    func<Order, parent_ops, prev_ops, Order2, allowEL>(SN_1000000);           \
+    func<Order, parent_ops, prev_ops, Order2, allowEL>(SN_10000000);          \
+    func<Order, parent_ops, prev_ops, Order2, allowEL>(SN_100000000)
 
 #define SETUP_TEST_FUNC(func, parent_ops, allowEmptyLeaf)                   \
     SETUP_TEST_FUNC_N(func, 2, parent_ops, false, 2 * 2, allowEmptyLeaf);   \

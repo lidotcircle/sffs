@@ -1064,7 +1064,13 @@ public:
                     auto h1 = m_ops.interiorGetNthKey(node, i);
                     if (i > 0) {
                         auto h0 = m_ops.interiorGetNthKey(node, i - 1);
-                        assert(m_ops.keyCompareLess(h0, h1));
+                        if constexpr (multikey) {
+                            // In multikey trees, allow equal keys in interior
+                            // nodes due to splits
+                            assert(!m_ops.keyCompareLess(h1, h0));
+                        } else {
+                            assert(m_ops.keyCompareLess(h0, h1));
+                        }
                     }
                 }
 
@@ -1085,7 +1091,7 @@ public:
                     if (!m_ops.isLeaf(n1) ||
                         m_ops.leafGetNumberOfKeys(n1) > 0) {
                         if (!m_ops.isLeaf(n1)) {
-                            assert(m_ops.interiorGetNumberOfKeys(n2) > 0);
+                            assert(m_ops.interiorGetNumberOfKeys(n1) > 0);
                         }
                         const auto& k1 = m_ops.isLeaf(n1)
                                              ? m_ops.leafGetLastKey(n1)
@@ -1093,7 +1099,11 @@ public:
                         if (m_ops.isLeaf(n1)) {
                             assert(!m_ops.keyCompareLess(h1, k1));
                         } else {
-                            assert(m_ops.keyCompareLess(k1, h1));
+                            if constexpr (multikey) {
+                                assert(!m_ops.keyCompareLess(h1, k1));
+                            } else {
+                                assert(m_ops.keyCompareLess(k1, h1));
+                            }
                         }
                     }
 
@@ -1108,7 +1118,11 @@ public:
                         if constexpr (t_allowEmptyLeaf) {
                             assert(!m_ops.keyCompareLess(k2, h1));
                         } else {
-                            assert(m_ops.keyCompareLess(h1, k2));
+                            if constexpr (multikey) {
+                                assert(!m_ops.keyCompareLess(k2, h1));
+                            } else {
+                                assert(m_ops.keyCompareLess(h1, k2));
+                            }
                         }
                     }
                 }

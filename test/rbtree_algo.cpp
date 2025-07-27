@@ -5,6 +5,7 @@
 #include <set>
 
 #include "rbtree.h"
+#include "test_scale.h"
 using namespace ldc;
 
 struct TreeNode {
@@ -552,69 +553,69 @@ static void test_rbtree_forward_backward_dup(size_t n) {
     }
 }
 
-#define SETUP_TEST_FUNC_V1(func)                   \
-    func<base1, TreeNode*, TreeNodeOps>(0);        \
-    func<base1, TreeNode*, TreeNodeOps>(1);        \
-    func<base1, TreeNode*, TreeNodeOps>(2);        \
-    func<base1, TreeNode*, TreeNodeOps>(3);        \
-    func<base1, TreeNode*, TreeNodeOps>(4);        \
-    func<base1, TreeNode*, TreeNodeOps>(5);        \
-    func<base1, TreeNode*, TreeNodeOps>(10);       \
-    func<base1, TreeNode*, TreeNodeOps>(100);      \
-    func<base1, TreeNode*, TreeNodeOps>(1000);     \
-    func<base1, TreeNode*, TreeNodeOps>(10000);    \
-    func<base1, TreeNode*, TreeNodeOps>(100000);   \
-    func<base1, TreeNode*, TreeNodeOps>(1000000);  \
-    func<base1, TreeNode*, TreeNodeOps>(10000000); \
-    // func<base1,TreeNode*,TreeNodeOps>(100000000)
+#define SETUP_TEST_FUNC_V1(func)                      \
+    func<base1, TreeNode*, TreeNodeOps>(SN_0);        \
+    func<base1, TreeNode*, TreeNodeOps>(SN_1);        \
+    func<base1, TreeNode*, TreeNodeOps>(SN_2);        \
+    func<base1, TreeNode*, TreeNodeOps>(SN_3);        \
+    func<base1, TreeNode*, TreeNodeOps>(SN_4);        \
+    func<base1, TreeNode*, TreeNodeOps>(SN_5);        \
+    func<base1, TreeNode*, TreeNodeOps>(SN_10);       \
+    func<base1, TreeNode*, TreeNodeOps>(SN_100);      \
+    func<base1, TreeNode*, TreeNodeOps>(SN_1000);     \
+    func<base1, TreeNode*, TreeNodeOps>(SN_10000);    \
+    func<base1, TreeNode*, TreeNodeOps>(SN_100000);   \
+    func<base1, TreeNode*, TreeNodeOps>(SN_1000000);  \
+    func<base1, TreeNode*, TreeNodeOps>(SN_10000000); \
+    func<base1, TreeNode*, TreeNodeOps>(SN_100000000)
 
-#define SETUP_TEST_FUNC_V2(func)                  \
-    func<base2, TreeNode2*, TreeNode2Ops>(0);     \
-    func<base2, TreeNode2*, TreeNode2Ops>(1);     \
-    func<base2, TreeNode2*, TreeNode2Ops>(2);     \
-    func<base2, TreeNode2*, TreeNode2Ops>(3);     \
-    func<base2, TreeNode2*, TreeNode2Ops>(4);     \
-    func<base2, TreeNode2*, TreeNode2Ops>(5);     \
-    func<base2, TreeNode2*, TreeNode2Ops>(10);    \
-    func<base2, TreeNode2*, TreeNode2Ops>(100);   \
-    func<base2, TreeNode2*, TreeNode2Ops>(1000);  \
-    func<base2, TreeNode2*, TreeNode2Ops>(10000); \
-    // func<base2, TreeNode2*, TreeNode2Ops>(100000);   \
-    // func<base2, TreeNode2*, TreeNode2Ops>(1000000);  \
-    // func<base2, TreeNode2*, TreeNode2Ops>(10000000); \
-    // func<base2,TreeNode2*,TreeNode2Ops>(100000000)
+#define SETUP_TEST_FUNC_V2(func)                        \
+    func<base2, TreeNode2*, TreeNode2Ops>(SN_0);        \
+    func<base2, TreeNode2*, TreeNode2Ops>(SN_1);        \
+    func<base2, TreeNode2*, TreeNode2Ops>(SN_2);        \
+    func<base2, TreeNode2*, TreeNode2Ops>(SN_3);        \
+    func<base2, TreeNode2*, TreeNode2Ops>(SN_4);        \
+    func<base2, TreeNode2*, TreeNode2Ops>(SN_5);        \
+    func<base2, TreeNode2*, TreeNode2Ops>(SN_10);       \
+    func<base2, TreeNode2*, TreeNode2Ops>(SN_100);      \
+    func<base2, TreeNode2*, TreeNode2Ops>(SN_1000);     \
+    func<base2, TreeNode2*, TreeNode2Ops>(SN_10000);    \
+    func<base2, TreeNode2*, TreeNode2Ops>(SN_100000);   \
+    func<base2, TreeNode2*, TreeNode2Ops>(SN_1000000);  \
+    func<base2, TreeNode2*, TreeNode2Ops>(SN_10000000); \
+    func<base2, TreeNode2*, TreeNode2Ops>(SN_100000000)
 
-#define SETUP_TEST_FUNC_V3(func)                 \
-    func<base3, TreeNode*, TreeNodeOps>(0);      \
-    func<base3, TreeNode*, TreeNodeOps>(1);      \
-    func<base3, TreeNode*, TreeNodeOps>(2);      \
-    func<base3, TreeNode*, TreeNodeOps>(3);      \
-    func<base3, TreeNode*, TreeNodeOps>(4);      \
-    func<base3, TreeNode*, TreeNodeOps>(5);      \
-    func<base3, TreeNode*, TreeNodeOps>(10);     \
-    func<base3, TreeNode*, TreeNodeOps>(100);    \
-    func<base3, TreeNode*, TreeNodeOps>(1000);   \
-    func<base3, TreeNode*, TreeNodeOps>(10000);  \
-    func<base3, TreeNode*, TreeNodeOps>(100000); \
-    // func<base3, TreeNode*, TreeNodeOps>(1000000);  \
-    // func<base3, TreeNode*, TreeNodeOps>(10000000); \
-    // func<base3,TreeNode*,TreeNodeOps>(100000000)
+#define SETUP_TEST_FUNC_V3(func)                      \
+    func<base3, TreeNode*, TreeNodeOps>(SN_0);        \
+    func<base3, TreeNode*, TreeNodeOps>(SN_1);        \
+    func<base3, TreeNode*, TreeNodeOps>(SN_2);        \
+    func<base3, TreeNode*, TreeNodeOps>(SN_3);        \
+    func<base3, TreeNode*, TreeNodeOps>(SN_4);        \
+    func<base3, TreeNode*, TreeNodeOps>(SN_5);        \
+    func<base3, TreeNode*, TreeNodeOps>(SN_10);       \
+    func<base3, TreeNode*, TreeNodeOps>(SN_100);      \
+    func<base3, TreeNode*, TreeNodeOps>(SN_1000);     \
+    func<base3, TreeNode*, TreeNodeOps>(SN_10000);    \
+    func<base3, TreeNode*, TreeNodeOps>(SN_100000);   \
+    func<base3, TreeNode*, TreeNodeOps>(SN_1000000);  \
+    func<base3, TreeNode*, TreeNodeOps>(SN_10000000); \
+    func<base3, TreeNode*, TreeNodeOps>(SN_100000000)
 
-#define SETUP_TEST_FUNC_V4(func)                  \
-    func<base4, TreeNode2*, TreeNode2Ops>(0);     \
-    func<base4, TreeNode2*, TreeNode2Ops>(1);     \
-    func<base4, TreeNode2*, TreeNode2Ops>(2);     \
-    func<base4, TreeNode2*, TreeNode2Ops>(3);     \
-    func<base4, TreeNode2*, TreeNode2Ops>(4);     \
-    func<base4, TreeNode2*, TreeNode2Ops>(5);     \
-    func<base4, TreeNode2*, TreeNode2Ops>(10);    \
-    func<base4, TreeNode2*, TreeNode2Ops>(100);   \
-    func<base4, TreeNode2*, TreeNode2Ops>(1000);  \
-    func<base4, TreeNode2*, TreeNode2Ops>(10000); \
-    // func<base4, TreeNode2*, TreeNode2Ops>(100000);   \
-    // func<base4, TreeNode2*, TreeNode2Ops>(1000000);  \
-    // func<base4, TreeNode2*, TreeNode2Ops>(10000000); \
-    // func<base4,TreeNode2*,TreeNode2Ops>(100000000)
+#define SETUP_TEST_FUNC_V4(func)                        \
+    func<base4, TreeNode2*, TreeNode2Ops>(SN_0);        \
+    func<base4, TreeNode2*, TreeNode2Ops>(SN_1);        \
+    func<base4, TreeNode2*, TreeNode2Ops>(SN_2);        \
+    func<base4, TreeNode2*, TreeNode2Ops>(SN_3);        \
+    func<base4, TreeNode2*, TreeNode2Ops>(SN_4);        \
+    func<base4, TreeNode2*, TreeNode2Ops>(SN_5);        \
+    func<base4, TreeNode2*, TreeNode2Ops>(SN_10);       \
+    func<base4, TreeNode2*, TreeNode2Ops>(SN_100);      \
+    func<base4, TreeNode2*, TreeNode2Ops>(SN_1000);     \
+    func<base4, TreeNode2*, TreeNode2Ops>(SN_10000);    \
+    func<base4, TreeNode2*, TreeNode2Ops>(SN_100000);   \
+    func<base4, TreeNode2*, TreeNode2Ops>(SN_1000000);  \
+    func<base4, TreeNode2*, TreeNode2Ops>(SN_10000000); \
+    func<base4, TreeNode2*, TreeNode2Ops>(SN_100000000)
 
 TEST(rbtree_without_parent_ops, insert) {
     SETUP_TEST_FUNC_V1(test_rbtree_insert);

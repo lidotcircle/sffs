@@ -6,6 +6,7 @@
 #include <set>
 
 #include "btree.h"
+#include "test_scale.h"
 using namespace ldc;
 
 template <size_t Order = 128>
@@ -511,36 +512,36 @@ static void test_btree_delete2_dup(size_t n) {
 }
 
 #define SETUP_TEST_FUNC_N(func, order, parent_ops) \
-    func<order, parent_ops>(0);                    \
-    func<order, parent_ops>(1);                    \
-    func<order, parent_ops>(2);                    \
-    func<order, parent_ops>(3);                    \
-    func<order, parent_ops>(4);                    \
-    func<order, parent_ops>(5);                    \
-    func<order, parent_ops>(10);                   \
-    func<order, parent_ops>(100);                  \
-    func<order, parent_ops>(1000);                 \
-    // func<order, parent_ops>(10000);                \
-    // func<order, parent_ops>(100000);               \
-    // func<order, parent_ops>(1000000);              \
-    // func<order,parent_ops>(10000000); \
-    func<order,parent_ops>(100000000)
+    func<order, parent_ops>(SN_0);                 \
+    func<order, parent_ops>(SN_1);                 \
+    func<order, parent_ops>(SN_2);                 \
+    func<order, parent_ops>(SN_3);                 \
+    func<order, parent_ops>(SN_4);                 \
+    func<order, parent_ops>(SN_5);                 \
+    func<order, parent_ops>(SN_10);                \
+    func<order, parent_ops>(SN_100);               \
+    func<order, parent_ops>(SN_1000);              \
+    func<order, parent_ops>(SN_10000);             \
+    func<order, parent_ops>(SN_100000);            \
+    func<order, parent_ops>(SN_1000000);           \
+    func<order, parent_ops>(SN_10000000);          \
+    func<order, parent_ops>(SN_100000000)
 
 #define SETUP_TEST_FUNC_N_DUP(func, order, parent_ops) \
-    func<order, parent_ops, true>(0);                  \
-    func<order, parent_ops, true>(1);                  \
-    func<order, parent_ops, true>(2);                  \
-    func<order, parent_ops, true>(3);                  \
-    func<order, parent_ops, true>(4);                  \
-    func<order, parent_ops, true>(5);                  \
-    func<order, parent_ops, true>(10);                 \
-    func<order, parent_ops, true>(100);                \
-    func<order, parent_ops, true>(1000);               \
-    // func<order, parent_ops, true>(10000);                \
-    // func<order, parent_ops, true>(100000);               \
-    // func<order, parent_ops, true>(1000000);              \
-    // func<order,parent_ops, true>(10000000); \
-    func<order,parent_ops, true>(100000000)
+    func<order, parent_ops, true>(SN_0);               \
+    func<order, parent_ops, true>(SN_1);               \
+    func<order, parent_ops, true>(SN_2);               \
+    func<order, parent_ops, true>(SN_3);               \
+    func<order, parent_ops, true>(SN_4);               \
+    func<order, parent_ops, true>(SN_5);               \
+    func<order, parent_ops, true>(SN_10);              \
+    func<order, parent_ops, true>(SN_100);             \
+    func<order, parent_ops, true>(SN_1000);            \
+    func<order, parent_ops, true>(SN_10000);           \
+    func<order, parent_ops, true>(SN_100000);          \
+    func<order, parent_ops, true>(SN_1000000);         \
+    func<order, parent_ops, true>(SN_10000000);        \
+    func<order, parent_ops, true>(SN_100000000)
 
 #define SETUP_TEST_FUNC(func, parent_ops)    \
     SETUP_TEST_FUNC_N(func, 2, parent_ops);  \
